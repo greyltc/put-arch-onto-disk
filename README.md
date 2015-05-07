@@ -5,17 +5,17 @@ This repo contains a script which creates a bootable (BIOS, non-UEFI at the mome
 ### Requirements
 1. Be running Arch Linux
 1. `sudo pacman -S --needed util-linux coreutils gptfdisk f2fs-tools e2fsprogs btrfs-progs arch-install-scripts procps-ng sed sudo`
-1. Understand that the script provided here comes with no guarentees that it won't destroy your computer and everything attached to it :-)
+1. Understand that the script provided here comes with no guarentees that it won't destroy your computer and everything attached to it :-) although I believe it's safe. It will happily dd over your homework, your bitcoin wallet, its self, your family photos and even your PhD dissertation if you ask it to, so be careful.
 
 ### Usage
 
-1. First examine the top of the `put-arch-onto-disk.sh` scipt to make sure you understand what the defaults are (they should be safe, since there is no DDing by default).
-1. Then define the appropriate environment variables to override the defaults and call the script.
+1. Examine the top of the `put-arch-onto-disk.sh` scipt to make sure you understand what the defaults are (they should be safe, since there is no dding by default).
+1. Define the appropriate environment variables to override the defaults and call the script.
 
 ### Example
 
-For a useful install onto a USB flash drive at /dev/sdz:
+For a useful install onto a USB flash drive at /dev/sdz I like to run:
 ```
-TARGET_DISK=/dev/sdz DD_TO_TARGET=true CLEAN_UP=true USE_TARGET_DISK=true PACKAGE_LIST="base-devel f2fs-tools networkmanager bash-completion sudo vim grub efibootmgr btrfs-progs arch-install-scripts fuse dosfstools os-prober mtools freetype2 fuse dialog ifplugd wpa_actiond mkinitcpio-nfs-utils linux-atm libmicrohttpd openssh fail2ban" ./put-arch-onto-disk.sh
+TARGET_DISK=/dev/sdz DD_TO_TARGET=true CLEAN_UP=true USE_TARGET_DISK=true PACKAGE_LIST="base-devel networkmanager bash-completion sudo vim efibootmgr btrfs-progs arch-install-scripts fuse dosfstools os-prober mtools freetype2 fuse dialog ifplugd wpa_actiond mkinitcpio-nfs-utils linux-atm libmicrohttpd openssh fail2ban" ./put-arch-onto-disk.sh
 ```
 In a few seconds the script will progress to a place that requires root permissions and will ask for your sudo password.
