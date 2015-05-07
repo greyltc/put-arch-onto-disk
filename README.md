@@ -4,4 +4,4 @@ This repo contains a script which creates a bootable (BIOS, non-UEFI at the mome
 
 ### Requirements
 1. Be running Arch Linux
-1. `sudo pacman -S --needed util-linux coreutils gptfdisk f2fs-tools e2fsprogs btrfs-progs arch-install-scripts`
+1. `sudo pacman -S --needed util-linux coreutils gptfdisk f2fs-tools e2fsprogs btrfs-progs arch-install-scripts procps-ng`
