@@ -512,19 +512,11 @@ then
   cat "${TMP_ROOT}/etc/fstab"
 fi
 
-# unmount and clean up everything
-umount "${TMP_ROOT}/boot" || true
-if test "${ROOT_FS_TYPE}" = "btrfs"
-then
-  umount "${TMP_ROOT}/home" || true
-fi
-umount "${TMP_ROOT}" || true
-cryptsetup close /dev/mapper/${LUKS_UUID} || true
-losetup -D || true
-sync
-if pacman -Q lvm2 > /dev/null 2>/dev/null
-then
-  pvscan --cache -aay
+if [ "$DD_TO_TARGET" = true ] ; then
+  sudo dd if="${IMG_NAME}" of=${TARGET_DISK} bs=1M
+  sync
+  sudo sgdisk -e ${TARGET_DISK}
+  sudo sgdisk -v ${TARGET_DISK}
 fi
 
 if test "${CHROOT_RESULT}" -eq 0
