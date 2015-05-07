@@ -219,73 +219,17 @@ sgdisk -p "${TARGET_DEV}"  # just prints the current partition table
 
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
-mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
-if test "${ROOT_FS_TYPE}" = "btrfs"
-then
-  btrfs subvolume create ${TMP_ROOT}/root
-  btrfs subvolume create ${TMP_ROOT}/home
-  umount ${TMP_ROOT}
-  mount ${ROOT_DEVICE} -o subvol=root,compress=zstd ${TMP_ROOT}
-  mkdir ${TMP_ROOT}/home
-  mount ${ROOT_DEVICE} -o subvol=home,compress=zstd ${TMP_ROOT}/home
-fi
-mkdir ${TMP_ROOT}/boot
-mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
-cp /etc/pacman.d/mirrorlist /tmp/mirrorlist
-cat <<EOF > /tmp/pacman.conf
-[options]
-HoldPkg     = pacman glibc
-Architecture = ${TARGET_ARCH}
-CheckSpace
-SigLevel = Never
-EOF
-
-# enable the testing repo
-if test "${USE_TESTING}" = "true"
-then
-  cat <<EOF >> /tmp/pacman.conf
-
-[testing]
-Include = /tmp/mirrorlist
-EOF
-fi
-
-cat <<EOF >> /tmp/pacman.conf
-
-[core]
-Include = /tmp/mirrorlist
-
-[extra]
-Include = /tmp/mirrorlist
-
-[community]
-Include = /tmp/mirrorlist
-EOF
-
-if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
-then
-  cat <<EOF >> /tmp/pacman.conf
-
-[alarm]
-Include = /tmp/mirrorlist
-
-[aur]
-Include = /tmp/mirrorlist
-EOF
-  mkdir -p ${TMP_ROOT}/usr/bin
-  cp /usr/bin/qemu-arm-static ${TMP_ROOT}/usr/bin
-  cp /usr/bin/qemu-aarch64-static ${TMP_ROOT}/usr/bin
-  echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /tmp/mirrorlist
-fi
-
-pacstrap -C /tmp/pacman.conf -M -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
-
-genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
-sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
-if test -f "${FIRST_BOOT_SCRIPT}" 
-then
-  cp "$FIRST_BOOT_SCRIPT" ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
-  chmod +x ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
+sudo mount -t${ROOT_FS_TYPE} ${LOOPDEV}p${NEXT_PARTITION} ${TMP_ROOT}
+sudo mkdir ${TMP_ROOT}/boot
+sudo mount -text4 ${LOOPDEV}p2 ${TMP_ROOT}/boot
+sudo pacstrap ${TMP_ROOT} base grub ${PACKAGE_LIST}
+sudo sh -c "genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab"
+sudo sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
+sudo sed -i '$ d' ${TMP_ROOT}/etc/fstab
+if [ "$MAKE_SWAP_PARTITION" = true ] ; then
+  SWAP_UUID=$(lsblk -n -b -o UUID ${LOOPDEV}p3)
+  sudo sed -i '$a #swap' ${TMP_ROOT}/etc/fstab
+  sudo sed -i '$a UUID='${SWAP_UUID}'	none      	swap      	defaults  	0 0' ${TMP_ROOT}/etc/fstab
 fi
 
 cat > /tmp/chroot.sh <<EOF
@@ -444,123 +388,9 @@ else
 
 fi
 
-# add some modules to initcpio (needed for f2fs and usb)
-sed -i 's/MODULES=(/MODULES=(usbcore ehci_hcd uhci_hcd crc32_generic libcrc32c crc32c_generic crc32 f2fs /g' /etc/mkinitcpio.conf
-
-# if bcache is installed, make sure its module is loaded super early in case / is bcache
-if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
-  sed -i 's/MODULES=("/MODULES=(bcache /g' /etc/mkinitcpio.conf
-  sed -i 's/HOOKS=(base udev autodetect modconf block/HOOKS=(base udev autodetect modconf block bcache/g' /etc/mkinitcpio.conf
-fi
-
-# if gdm was installed, let's do a few things
-if pacman -Q gdm > /dev/null 2>/dev/null; then
-  systemctl enable gdm
-  #TODO: set keyboard layout for gnome
-  if [ "$MAKE_ADMIN_USER" = true ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
-    echo "# Enable automatic login for user" >> /etc/gdm/custom.conf
-    echo "[daemon]" >> /etc/gdm/custom.conf
-    echo "AutomaticLogin=$ADMIN_USER_NAME" >> /etc/gdm/custom.conf
-    echo "AutomaticLoginEnable=True" >> /etc/gdm/custom.conf
-  fi
-fi
-
-# if lxdm was installed, let's do a few things
-if pacman -Q lxdm > /dev/null 2>/dev/null; then
-  systemctl enable lxdm
-  #TODO: set keyboard layout
-  if [ "$MAKE_ADMIN_USER" = true ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
-    echo "# Enable automatic login for user" >> /etc/lxdm/lxdm.conf
-    echo "autologin=$ADMIN_USER_NAME" >> /etc/lxdm/lxdm.conf
-  fi
-fi
-
-if [ -f /usr/sbin/runOnFirstBoot.sh ]; then
-  cat > /etc/systemd/system/firstBootScript.service <<END
-[Unit]
-Description=Runs a user defined script on first boot
-ConditionPathExists=/usr/sbin/runOnFirstBoot.sh
-
-[Service]
-Type=forking
-ExecStart=/usr/sbin/runOnFirstBoot.sh
-ExecStopPost=/usr/bin/systemctl disable firstBootScript.service
-TimeoutSec=0
-RemainAfterExit=yes
-SysVStartPriority=99
-
-[Install]
-WantedBy=multi-user.target
-END
-systemctl enable firstBootScript.service
-fi
-
-cat > /etc/systemd/system/nativeSetupTasks.service <<END
-[Unit]
-Description=Some system setup tasks to be run once at first boot
-ConditionPathExists=/usr/sbin/nativeSetupTasks.sh
-Before=multi-user.target
-
-[Service]
-Type=notify
-TimeoutSec=0
-ExecStart=/usr/sbin/nativeSetupTasks.sh
-ExecStopPost=/usr/bin/systemctl disable nativeSetupTasks.service
-
-[Install]
-WantedBy=multi-user.target
-END
-systemctl enable nativeSetupTasks.service
-
-# enable magic sysrq
-cat > /etc/sysctl.d/99-sysctl.conf <<END
-kernel.sysrq = 1
-END
-
-cat > /usr/sbin/nativeSetupTasks.sh <<END
-#!/usr/bin/env bash
-set -o pipefail
-set -o errexit
-set -o nounset
-echo "Running first boot script."
-
-# don't know why setting locale in the chroot doesn't work so we'll do it here again
-localectl set-locale LANG=${LOCALE}
-unset LANG
-set +o nounset
-source /etc/profile.d/locale.sh
-set -o nounset
-localectl set-keymap ${KEYMAP} 
-localectl status
-
-echo "Reinstall all native packages"
-pacman -Qqn | pacman -S --noconfirm -
-
-# make sure everything is up to date
-#pacman -Syu --needed --noconfirm  # requires internet
-
-hwclock --systohc
-
-if [ "$MAKE_ADMIN_USER" = true ] && [ "$ENABLE_AUR" = true ] ; then
-  echo "Reinstall all foreign packages"
-  # rebuild & reinstall yay
-  su -c "(cd; git clone https://aur.archlinux.org/yay.git)" -s /bin/bash ${ADMIN_USER_NAME}
-  
-  # temporary passwordless sudo for wheel users
-  sed -i 's,# %wheel ALL=(ALL) NOPASSWD: ALL,%wheel ALL=(ALL) NOPASSWD: ALL,g' /etc/sudoers
-
-  su -c "(cd; cd yay; makepkg -Cfi --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}
-
-  # rebuild and install all aur packages
-  su -c "(yay -S --noconfirm --rebuildall \\\$(echo """\\\$(pacman -Qqm)""" | sed s,yay,,))" -s /bin/bash ${ADMIN_USER_NAME}
-  
-  # ensure everything is up to date
-  #su -c "(yay -Syyu --needed --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}  # requires internet
-
-  # make sudo prompt for password again
-  sed -i 's,%wheel ALL=(ALL) NOPASSWD: ALL,# %wheel ALL=(ALL) NOPASSWD: ALL,g' /etc/sudoers
-
-  su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
+if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
+  ROOT_UUID=$(lsblk -n -b -o UUID ${LOOPDEV}p${NEXT_PARTITION})
+  sed -i 's,root=/dev/.*,root=UUID='\$ROOT_UUID' rw,g' /boot/grub/grub.cfg
 fi
 
 # we can't do this from inside the chroot
