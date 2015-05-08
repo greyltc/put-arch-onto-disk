@@ -18,4 +18,4 @@ For a useful install onto a USB flash drive at /dev/sdz I like to run:
 ```
 TARGET_DISK=/dev/sdz DD_TO_TARGET=true CLEAN_UP=true USE_TARGET_DISK=true PACKAGE_LIST="base-devel networkmanager bash-completion sudo vim efibootmgr btrfs-progs arch-install-scripts fuse dosfstools os-prober mtools freetype2 fuse dialog ifplugd wpa_actiond mkinitcpio-nfs-utils linux-atm libmicrohttpd openssh fail2ban vim" ./put-arch-onto-disk.sh
 ```
-In a few seconds the script will progress to a place that requires root permissions and will ask for your sudo password.
+You can run the script without root permissions and you'll be prompted for your sudo password for parts that need root access.
