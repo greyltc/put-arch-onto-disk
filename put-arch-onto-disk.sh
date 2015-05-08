@@ -217,6 +217,37 @@ mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${ROOT_DEVICE}
 
 sgdisk -p "${TARGET_DEV}"  # just prints the current partition table
 
+rm -f "${IMG_NAME}"
+if [ "$USE_TARGET_DISK" = true ] ; then
+  DISK_INFO=$(lsblk -n -b -o SIZE,PHY-SEC ${TARGET_DISK})
+  IFS=' ' read -a DISK_INFO_A <<< "$DISK_INFO"
+  IMG_SIZE=$(numfmt --to-unit=K ${DISK_INFO_A[0]})KiB
+  PHY_SEC_BYTES=${DISK_INFO_A[1]}
+fi
+fallocate -l $IMG_SIZE "${IMG_NAME}"
+wipefs -a -f "${IMG_NAME}"
+sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${IMG_NAME}"
+sgdisk -n 0:+0:+200MiB -t 0:8300 -c 0:ext4Boot "${IMG_NAME}"
+NEXT_PARTITION=3
+if [ "$MAKE_SWAP_PARTITION" = true ] ; then
+  if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
+    SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
+  fi
+  sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${IMG_NAME}"
+  NEXT_PARTITION=4
+fi
+#sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${IMG_NAME}"
+sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROOT_FS_TYPE}Root "${IMG_NAME}"
+
+LOOPDEV=$(sudo losetup --find)
+sudo losetup -P ${LOOPDEV} "${IMG_NAME}"
+sudo wipefs -a -f ${LOOPDEV}p2
+sudo mkfs.ext4 -L ext4Boot ${LOOPDEV}p2
+ELL=L
+sudo wipefs -a -f ${LOOPDEV}p${NEXT_PARTITION}
+[ "$ROOT_FS_TYPE" = "f2fs" ] && ELL=l
+sudo mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${LOOPDEV}p${NEXT_PARTITION}
+sgdisk -p "${IMG_NAME}"
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
 sudo mount -t${ROOT_FS_TYPE} ${LOOPDEV}p${NEXT_PARTITION} ${TMP_ROOT}
@@ -387,131 +418,29 @@ else
   sed -i 's/block filesystems/block encrypt filesystems/g' /etc/mkinitcpio.conf
 
 fi
+mkinitcpio -p linux
+grub-install --modules=part_gpt --target=i386-pc --recheck --debug ${LOOPDEV}
+grub-mkconfig -o /boot/grub/grub.cfg
 
 if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
   ROOT_UUID=$(lsblk -n -b -o UUID ${LOOPDEV}p${NEXT_PARTITION})
-  sed -i 's,root=/dev/.*,root=UUID='\$ROOT_UUID' rw,g' /boot/grub/grub.cfg
-fi
-
-# we can't do this from inside the chroot
-if [ -a /link_resolv_conf ] ; then
-  echo "Making resolv.conf compatible with networkd"
-  rm /link_resolv_conf
-  mv "/etc/resolv.conf" "/etc/resolv.conf.bak"
-  ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-fi
-
-timedatectl set-ntp true
-
-echo "First boot script finished"
-systemd-notify --ready
-END
-chmod +x /usr/sbin/nativeSetupTasks.sh
-
-# run mkinitcpio
-mkinitcpio -p linux
-
-# setup & install grub bootloader (if it's been installed)
-if pacman -Q grub > /dev/null 2>/dev/null; then
-  # disable lvm here because it doesn't do well inside of chroot
-  if [ -f "/etc/lvm/lvm.conf" ]; then
-    sed -i 's,use_lvmetad = 1,use_lvmetad = 0,g' /etc/lvm/lvm.conf
-  fi
-
-  #if [ "$UEFI_COMPAT_STUB" = true ] ; then
-  #  # for grub UEFI (stanalone version)
-  #  mkdir -p /boot/EFI/grub-standalone
-  #  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
-  #fi
-  if efivar --list > /dev/null 2>/dev/null  # is this machine UEFI?
-  then
-    if [ "$UEFI_BOOTLOADER" = "true" ] ; then
-      echo "EFI BOOT detected doing EFI grub install..."
-      if [ "$PORTABLE" = true ] ; then
-        # this puts our entry point at [EFI_PART]/EFI/BOOT/BOOTX64.EFI
-        echo "Doing portable UEFI setup"
-        grub-install --no-nvram --removable --target=x86_64-efi --efi-directory=/boot
-      else # non-portable
-        # this puts our entry point at [EFI_PART]/EFI/ArchGRUB/grubx64.efi
-        echo "Doing fixed disk UEFI setup"
-        grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=ArchGRUB
-      fi # portable
-    else # if UEFI grub install
-      echo "Not doing EFI bootloader install. Set LEGACY_BOOTLOADER=true to install grub"
-    fi # end UEFI grub install
-  else
-    echo "This machine does not support UEFI"
-  fi
-  
-  # make sure never to put a legacy bootloader into a preformatted disk
-  if [ "${TO_EXISTING}" = "false" ] ; then
-    if [ "$LEGACY_BOOTLOADER" = "true" ] ; then
-      # this is for legacy boot:
-      grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
-    fi
-  fi
-  
-  # don't boot quietly
-  sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
-
-  # for LUKS
-  if [ "$LUKS_UUID" = "" ]; then
-    echo "No encryption"
-  else
-    sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT="rootwait,GRUB_CMDLINE_LINUX_DEFAULT="rootwait cryptdevice=UUID=${LUKS_UUID}:luks-${LUKS_UUID},g' /etc/default/grub
-  fi
-  
-  # use systemd if we have it
-  if pacman -Q systemd > /dev/null 2>/dev/null ; then
-    sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT=",GRUB_CMDLINE_LINUX_DEFAULT="init=/usr/lib/systemd/systemd ,g' /etc/default/grub
-  fi
- 
-  # generate the grub configuration file
-  sync
-  partprobe
-  if pacman -Q lvm2 > /dev/null 2>/dev/null ; then
-    pvscan --cache -aay
-  fi
-  grub-mkconfig -o /boot/grub/grub.cfg
-  #cat /boot/grub/grub.cfg
-  
- # re-enable lvm
- if [ -f "/etc/lvm/lvm.conf" ]; then
-    sed -i 's,use_lvmetad = 0,use_lvmetad = 1,g' /etc/lvm/lvm.conf
-  fi
-fi # end grub section
-
-# if we're on a pi, add some stuff I like to config.txt
-if pacman -Q | grep raspberry > /dev/null 2>/dev/null ; then
-  echo "lcd_rotate=2" >> /boot/config.txt
-  #echo "dtparam=audio=on" >> /boot/config.txt
-  #echo "dtparam=device_tree_param=spi=on" >> /boot/config.txt
-  #echo "dtparam=i2c_arm=on" >> /boot/config.txt
-  echo "dtoverlay=vc4-fkms-v3d" >> /boot/config.txt
-  echo "dtoverlay=rpi-backlight" >> /boot/config.txt
+  sed -i 's,root=${LOOPDEV}p${NEXT_PARTITION},root=UUID='\$ROOT_UUID',g' /boot/grub/grub.cfg
 fi
 EOF
-
-# run the setup script in th new install's 
+if [ "$DD_TO_TARGET" = true ] ; then
+  sudo wipefs -a ${TARGET_DISK}
+fi
 chmod +x /tmp/chroot.sh
 mv /tmp/chroot.sh "${TMP_ROOT}/root/chroot.sh"
 set +o errexit
 arch-chroot "${TMP_ROOT}" /root/chroot.sh; CHROOT_RESULT=$? || true
 set -o errexit
 
-if test "${CHROOT_RESULT}" -eq 0
-then
-  # remove the setup script from the install
-  rm -rf "${TMP_ROOT}/root/chroot.sh" || true
-  
-  # copy *this* script into the install for installs later
-  cp "$THIS" "${TMP_ROOT}/usr/sbin/mkarch.sh"
-  
-  # you might want to know what the install's fstab looks like
-  echo "fstab is:"
-  cat "${TMP_ROOT}/etc/fstab"
-fi
-
+sync
+sudo umount ${TMP_ROOT}/boot
+sudo umount ${TMP_ROOT}
+sudo losetup -D
+sync
 if [ "$DD_TO_TARGET" = true ] ; then
   sudo dd if="${IMG_NAME}" of=${TARGET_DISK} bs=1M
   sync
