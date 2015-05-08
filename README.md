@@ -12,10 +12,10 @@ This repo contains a script which creates a bootable (BIOS, non-UEFI at the mome
 1. Examine the top of the `put-arch-onto-disk.sh` scipt to make sure you understand what the defaults are (they should be safe, since there is no dding by default).
 1. Define the appropriate environment variables to override the defaults and call the script.
 
-### Example
+### Examples
 
-For a useful install onto a USB flash drive at /dev/sdz I like to run:
+For a useful minimal install onto a USB flash drive at /dev/sdz I like to run:
 ```
-TARGET_DISK=/dev/sdz DD_TO_TARGET=true CLEAN_UP=true USE_TARGET_DISK=true PACKAGE_LIST="base-devel networkmanager bash-completion sudo vim efibootmgr btrfs-progs arch-install-scripts fuse dosfstools os-prober mtools freetype2 fuse dialog ifplugd wpa_actiond mkinitcpio-nfs-utils linux-atm libmicrohttpd openssh fail2ban vim" ./put-arch-onto-disk.sh
+TARGET_DISK=/dev/sdz DD_TO_TARGET=true CLEAN_UP=true USE_TARGET_DISK=true PACKAGE_LIST="base-devel networkmanager bash-completion sudo vim efibootmgr gptfdisk btrfs-progs f2fs-tools arch-install-scripts fuse dosfstools os-prober mtools freetype2 fuse dialog ifplugd openssh fail2ban" ./put-arch-onto-disk.sh
 ```
 You can run the script without root permissions and you'll be prompted for your sudo password for parts that need root access.
