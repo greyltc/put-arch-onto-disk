@@ -50,172 +50,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${THIS_HOSTNAME:=archthing}
 : ${PACKAGE_LIST:=""}
 : ${ENABLE_AUR:=true}
-: ${AUR_PACKAGE_LIST:=""}
-: ${AUTOLOGIN_ADMIN:=false}
-: ${FIRST_BOOT_SCRIPT:=""}
-: ${USE_TESTING:=false}
-: ${LUKS_KEYFILE:=""}
-: ${PREEXISTING_BOOT_PARTITION_NUM:=""} # this will not be formatted
-: ${PREEXISTING_ROOT_PARTITION_NUM:=""} # this WILL be formatted
-# any pre-existing swap partition will just be used via systemd magic
-
-contains() {
-  string="$1"
-  substring="$2"
-  if test "${string#*$substring}" != "$string"
-  then
-    true    # $substring is in $string
-  else
-    false    # $substring is not in $string
-  fi
-}
-
-TO_EXISTING=true
-if test -z "${PREEXISTING_BOOT_PARTITION_NUM}" || test -z "${PREEXISTING_ROOT_PARTITION_NUM}"
-then
-  if test -z "${PREEXISTING_BOOT_PARTITION_NUM}" && test -z "${PREEXISTING_ROOT_PARTITION_NUM}"
-  then
-    TO_EXISTING=false
-  else
-    echo "You must specify both root and boot pre-existing partition numbers"
-    exit 1
-  fi
-fi
-
-if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
-then
-  if pacman -Q qemu-user-static-bin > /dev/null 2>/dev/null && pacman -Q binfmt-qemu-static > /dev/null 2>/dev/null
-  then
-    NON_ARM_PKGS=""
-  else
-    echo "Please install qemu-user-static-bin and binfmt-qemu-static from the AUR"
-    echo "so that we can chroot into the ARM install"
-    exit 1
-  fi
-else
-  # alarm does not like/need these
-  NON_ARM_PKGS="linux grub efibootmgr reflector os-prober linux-firmware amd-ucode intel-ucode"
-fi
-
-# here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${NON_ARM_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi"
-
-# install these packages on the host now. they're needed for the install process
-pacman -Syu --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
-
-# flush writes to disks and re-probe partitions
-sync
-partprobe
-
-# is this a block device?
-if test -b "${TARGET}"
-then
-  TARGET_DEV="${TARGET}"
-  for n in ${TARGET_DEV}* ; do umount $n || true; done
-  for n in ${TARGET_DEV}* ; do umount $n || true; done
-  for n in ${TARGET_DEV}* ; do umount $n || true; done
-  IMG_NAME=""
-else
-  IMG_NAME=$TARGET
-  rm -f "${IMG_NAME}"
-  su -c "fallocate -l $IMG_SIZE ${IMG_NAME}" $SUDO_USER
-  TARGET_DEV=$(losetup --find)
-  losetup -P ${TARGET_DEV} "${IMG_NAME}"
-fi
-
-if test ! -b "${TARGET}"
-then
-  echo "ERROR: Install target ${TARGET} is not a block device."
-  exit 1
-fi
-
-# check that install to existing will work here
-if test "${TO_EXISTING}" = "true"
-then
-  PARTLINE=$(parted -s ${TARGET_DEV} print | sed -n "/^ ${PREEXISTING_BOOT_PARTITION_NUM}/p")
-  if contains "${PARTLINE}" "fat32" && contains "${PARTLINE}" "boot" && contains "${PARTLINE}" "esp"
-  then
-    echo "Pre-existing boot partition looks good"
-  else
-    echo "Pre-existing boot partition must be fat32 with boot and esp flags"
-    exit 1
-  fi
-  BOOT_PARTITION=${PREEXISTING_BOOT_PARTITION_NUM}
-  ROOT_PARTITION=${PREEXISTING_ROOT_PARTITION_NUM}
-  
-  # do we need to p? (depends on what the media is we're installing to)
-  if test -b "${TARGET_DEV}p1"; then PEE=p; else PEE=""; fi
-else # non-preexisting
-  # destroy all file systems and partition tables on the target
-  for n in ${TARGET_DEV}+([[:alnum:]]) ; do wipefs -a -f $n || true; done # wipe the partitions' file systems
-  for n in ${TARGET_DEV}+([[:alnum:]]) ; do sgdisk -Z $n || true; done # zap the partitions' part tables
-  wipefs -a -f ${TARGET_DEV} || true # wipe the device file system
-  sgdisk -Z ${TARGET_DEV}  || true # wipe the device partition table
-  
-  NEXT_PARTITION=1
-  if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
-  then
-    echo "No bios grub for arm"
-    BOOT_P_TYPE=0700
-  else
-    sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:"Legacy BIOS GRUB partition" "${TARGET_DEV}"; ((NEXT_PARTITION++))
-    BOOT_P_TYPE=ef00
-  fi
-  BOOT_P_SIZE_MB=300
-  sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
-  if test "${MAKE_SWAP_PARTITION}" = "true"
-  then
-    if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"
-    then
-      SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
-    fi
-    sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
-  fi
-  #sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-  sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:"Linux ${ROOT_FS_TYPE} data parition" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
-
-  # make hybrid/protective MBR
-  #sgdisk -h "1 2" "${TARGET_DEV}"
-  echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"
-
-  # do we need to p? (depends on what the media is we're installing to)
-  if test -b "${TARGET_DEV}p1"; then PEE=p; else PEE=""; fi
-
-  wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-  mkfs.fat -F32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-  if test "${MAKE_SWAP_PARTITION}" = "true"
-  then
-    wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
-    mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
-  fi
-fi
-
-ROOT_DEVICE=${TARGET_DEV}${PEE}${ROOT_PARTITION}
-wipefs -a -f ${ROOT_DEVICE} || true
-
-LUKS_UUID=""
-if test -z "${LUKS_KEYFILE}"
-then
-  echo "Not using encryption"
-else
-  if test -f "${LUKS_KEYFILE}"
-  then
-    echo "LUKS encryption with keyfile: $(readlink -f "${LUKS_KEYFILE}")"
-    cryptsetup -q luksFormat ${ROOT_DEVICE} "${LUKS_KEYFILE}"
-    LUKS_UUID=$(cryptsetup luksUUID ${ROOT_DEVICE})
-    cryptsetup -q --key-file ${LUKS_KEYFILE} open ${ROOT_DEVICE} luks-${LUKS_UUID}
-    ROOT_DEVICE=/dev/mapper/luks-${LUKS_UUID}
-  else
-    echo "Could not find ${LUKS_KEYFILE}"
-    echo "Not using encryption"
-    exit 1
-  fi
-fi
-
-if test "${ROOT_FS_TYPE}" = "f2fs"; then ELL=l; else ELL=L; fi
-mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${ROOT_DEVICE}
-
-sgdisk -p "${TARGET_DEV}"  # just prints the current partition table
+: ${TARGET_IS_REMOVABLE:=false}
 
 rm -f "${IMG_NAME}"
 if [ "$USE_TARGET_DISK" = true ] ; then
@@ -243,8 +78,12 @@ LOOPDEV=$(sudo losetup --find)
 sudo losetup -P ${LOOPDEV} "${IMG_NAME}"
 sudo wipefs -a -f ${LOOPDEV}p2
 sudo mkfs.ext4 -L ext4Boot ${LOOPDEV}p2
+sudo wipefs -a -f ${LOOPDEV}p3
+if [ "$MAKE_SWAP_PARTITION" = true ] ; then
+  sudo mkswap -L swap ${LOOPDEV}p3
+  sudo wipefs -a -f ${LOOPDEV}p4
+fi
 ELL=L
-sudo wipefs -a -f ${LOOPDEV}p${NEXT_PARTITION}
 [ "$ROOT_FS_TYPE" = "f2fs" ] && ELL=l
 sudo mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${LOOPDEV}p${NEXT_PARTITION}
 sgdisk -p "${IMG_NAME}"
@@ -256,7 +95,6 @@ sudo mount -text4 ${LOOPDEV}p2 ${TMP_ROOT}/boot
 sudo pacstrap ${TMP_ROOT} base grub ${PACKAGE_LIST}
 sudo sh -c "genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab"
 sudo sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
-sudo sed -i '$ d' ${TMP_ROOT}/etc/fstab
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   SWAP_UUID=$(lsblk -n -b -o UUID ${LOOPDEV}p3)
   sudo sed -i '$a #swap' ${TMP_ROOT}/etc/fstab
@@ -335,8 +173,7 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   useradd -m -G wheel -s /bin/bash ${ADMIN_USER_NAME}
   echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
   pacman -S --needed --noconfirm sudo
-  
-  # users in the wheel group have sudo powers
+  sed -i 's/# %wheel ALL=(ALL) NOPASSWD: ALL/## %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
   sed -i 's/# %wheel ALL=(ALL)/%wheel ALL=(ALL)/g' /etc/sudoers
 
   # AUR can only be enabled if a non-root user exists, so we'll do it in here
@@ -368,23 +205,25 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
   fi
 fi
-
-# if cpupower is installed, enable the service
-if pacman -Q cpupower > /dev/null 2>/dev/null; then
-  systemctl enable cpupower.service
-  if pacman -Q | grep raspberry > /dev/null 2>/dev/null ; then
-    # set the ondemand governor for arm
-    sed -i "s/#governor='ondemand'/governor='ondemand'/g" /etc/default/cpupower
-  fi
+if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
+  pacman -S --needed --noconfirm f2fs-tools
 fi
-
-# if ntp is installed, enable the service
-if pacman -Q ntp > /dev/null 2>/dev/null; then
-  systemctl enable ntpd.service
+if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
+  pacman -S --needed --noconfirm btrfs-progs
 fi
-
-# if openssh is installed, enable the service
-if pacman -Q openssh > /dev/null 2>/dev/null; then
+if [ "$ENABLE_AUR" = true ] ; then
+  echo "[archlinuxfr]" >> /etc/pacman.conf
+  echo "SigLevel = Never" >> /etc/pacman.conf
+  echo 'Server = http://repo.archlinux.fr/\$arch' >> /etc/pacman.conf
+  pacman -Sy --needed --noconfirm yaourt
+  sed -i '$ d' /etc/pacman.conf
+  sed -i '$ d' /etc/pacman.conf
+  sed -i '$ d' /etc/pacman.conf
+  pacman -Sy
+fi
+sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="/g' /etc/default/grub
+INSTALLED_PACKAGES=\$(pacman -Qe)
+if [[ \$INSTALLED_PACKAGES == *"openssh"* ]] ; then
   systemctl enable sshd.service
 fi
 
@@ -428,6 +267,7 @@ if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
 fi
 EOF
 if [ "$DD_TO_TARGET" = true ] ; then
+  for n in ${TARGET_DISK}* ; do sudo umount $n || true; done
   sudo wipefs -a ${TARGET_DISK}
 fi
 chmod +x /tmp/chroot.sh
@@ -442,10 +282,7 @@ sudo umount ${TMP_ROOT}
 sudo losetup -D
 sync
 if [ "$DD_TO_TARGET" = true ] ; then
-  sudo dd if="${IMG_NAME}" of=${TARGET_DISK} bs=1M
-  sync
-  sudo sgdisk -e ${TARGET_DISK}
-  sudo sgdisk -v ${TARGET_DISK}
+  sudo -E bash -c 'dd if='"${IMG_NAME}"' of='${TARGET_DISK}' bs=1M; sync; sgdisk -e '${TARGET_DISK}'; sgdisk -v '${TARGET_DISK}'; [ '"$TARGET_IS_REMOVABLE"' = true ] && eject '${TARGET_DISK}
 fi
 
 if test "${CHROOT_RESULT}" -eq 0
