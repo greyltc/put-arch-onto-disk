@@ -21,11 +21,11 @@ You can run the script without root permissions and you'll be prompted for your 
 ```
 - This will generate a 2GiB bootable disk image in the current directory called bootable_arch.img, then use dd to copy it to a USB stick at /dev/sdz and then delete the .img:
 ```
-DD_TO_DISK=/dev/sdz CLEAN_UP=true ./put-arch-onto-disk.sh
+DD_TO_DISK=/dev/sdz CLEAN_UP=true TARGET_IS_REMOVABLE=true ./put-arch-onto-disk.sh
 ```
 - This will install directly to a device at /dev/sdz with a root file system suitable for a USB stick:
 ```
-TARGET=/dev/sdz ./put-arch-onto-disk.sh
+TARGET=/dev/sdz TARGET_IS_REMOVABLE=true ./put-arch-onto-disk.sh
 ```
 - This will install directly to a device at /dev/sdz with a root file system suitable for a SSD/HDD and create a swap partition sized to match the amount of ram installed in the current machine and install a few addidional packages to the target system:
 ```
