@@ -243,7 +243,6 @@ if [[ \$INSTALLED_PACKAGES == *"bcache-tools"* ]] ; then
 fi
 mkinitcpio -p linux
 grub-mkconfig -o /boot/grub/grub.cfg
-pacman -Sy --needed --noconfirm os-prober
 if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
   cat > /usr/sbin/fix-f2fs-grub.sh <<END
 #!/usr/bin/env bash
@@ -256,17 +255,36 @@ END
 fi
 mkdir -p /boot/EFI/BOOT
 grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
+cat > /etc/systemd/system/fix-efi.service <<END
+[Unit]
+Description=Re-Installs Grub-efi bootloader
+ConditionPathExists=/usr/sbin/fix-efi.sh
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/fix-efi.sh
+TimeoutSec=0
+StandardOutput=tty
+RemainAfterExit=yes
+SysVStartPriority=99
+
+[Install]
+WantedBy=multi-user.target
+END
 cat > /usr/sbin/fix-efi.sh <<END
 #!/usr/bin/env bash
-if [ efivar --list > /dev/null ] ; then
-  grub-install --removable --target=x86_64-efi --efi-directory=/boot --recheck --debug
+if efivar --list > /dev/null ; then
+  grub-install --removable --target=x86_64-efi --efi-directory=/boot --recheck && systemctl disable fix-efi.service
   grub-mkconfig -o /boot/grub/grub.cfg
-  if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
+  ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
+  ROOT_FS_TYPE=\\\$(lsblk \\\${ROOT_DEVICE} -n -o FSTYPE)
+  if [ "\\\$ROOT_FS_TYPE" = "f2fs" ] ; then
     fix-f2fs-grub.sh /boot/grub/grub.cfg
   fi
 fi
 END
 chmod +x /usr/sbin/fix-efi.sh
+systemctl enable fix-efi.service
 grub-install --modules=part_gpt --target=i386-pc --recheck --debug ${LOOPDEV}
 EOF
 if [ "$DD_TO_TARGET" = true ] ; then
