@@ -29,10 +29,8 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${MAKE_SWAP_PARTITION:=false}
 : ${SWAP_SIZE_IS_RAM_SIZE:=false}
 : ${SWAP_SIZE:=100MiB}
-: ${GET_SIZE_FROM_TARGET:=false}
-: ${TARGET_DISK:=/dev/sdX}
+: ${TARGET:=bootable_arch.img}
 : ${IMG_SIZE:=2GiB}
-: ${IMG_NAME:=bootable_arch.img}
 : ${TIME_ZONE:=Europe/Copenhagen}
 : ${LANGUAGE:=en_US}
 : ${TEXT_ENCODING:=UTF-8}
@@ -42,54 +40,60 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${ADMIN_USER_PASSWORD:=admin}
 : ${THIS_HOSTNAME:=archthing}
 : ${PACKAGE_LIST:=""}
+: ${AUR_PACKAGE_LIST:=""}
+: ${DD_TO_DISK:=false}
+: ${CLEAN_UP:=false}
 : ${ENABLE_AUR:=true}
 : ${TARGET_IS_REMOVABLE:=false}
 
-rm -f "${IMG_NAME}"
-if [ "$GET_SIZE_FROM_TARGET" = true ] ; then
-  DISK_INFO=$(lsblk -n -b -o SIZE,PHY-SEC ${TARGET_DISK})
-  IFS=' ' read -a DISK_INFO_A <<< "$DISK_INFO"
-  IMG_SIZE=$(numfmt --to-unit=K ${DISK_INFO_A[0]})KiB
-  PHY_SEC_BYTES=${DISK_INFO_A[1]}
+if [ -b $TARGET] ; then
+  TARGET_DEV=$TARGET
+  for n in ${TARGET_DEV}* ; do sudo umount $n || true; done
+else
+  IMG_NAME=$TARGET
+  rm -f "${IMG_NAME}"
+  fallocate -l $IMG_SIZE "${IMG_NAME}"
+  TARGET_DEV=$(sudo losetup --find)
+  sudo losetup -P ${TARGET_DEV} "${IMG_NAME}"
+  PEE=p
 fi
-fallocate -l $IMG_SIZE "${IMG_NAME}"
-wipefs -a -f "${IMG_NAME}"
+
+wipefs -a -f "${TARGET_DEV}"
 
 NEXT_PARTITION=1
-sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${IMG_NAME}" && ((NEXT_PARTITION++))
-sgdisk -n 0:+0:+512MiB -t 0:ef00 -c 0:boot "${IMG_NAME}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
+sgdisk -n 0:+0:+512MiB -t 0:ef00 -c 0:boot "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
     SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
   fi
-  sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${IMG_NAME}"; SWAP_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+  sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 fi
-#sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${IMG_NAME}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROOT_FS_TYPE}Root "${IMG_NAME}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+#sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 
-LOOPDEV=$(sudo losetup --find)
-sudo losetup -P ${LOOPDEV} "${IMG_NAME}"
-sudo wipefs -a -f ${LOOPDEV}p${BOOT_PARTITION}
-sudo mkfs.fat -F32 -n BOOT ${LOOPDEV}p${BOOT_PARTITION}
+
+sudo wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+sudo mkfs.fat -F32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
-  sudo wipefs -a -f ${LOOPDEV}p${SWAP_PARTITION}
-  sudo mkswap -L swap ${LOOPDEV}p${SWAP_PARTITION}
+  sudo wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
+  sudo mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
 fi
-sudo wipefs -a -f ${LOOPDEV}p${ROOT_PARTITION}
+sudo wipefs -a -f ${TARGET_DEV}${PEE}${ROOT_PARTITION}
 ELL=L
 [ "$ROOT_FS_TYPE" = "f2fs" ] && ELL=l
-sudo mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${LOOPDEV}p${ROOT_PARTITION}
+sudo mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${TARGET_DEV}${PEE}${ROOT_PARTITION}
 sgdisk -p "${IMG_NAME}"
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
-sudo mount -t${ROOT_FS_TYPE} ${LOOPDEV}p${ROOT_PARTITION} ${TMP_ROOT}
+sudo mount -t${ROOT_FS_TYPE} ${TARGET_DEV}${PEE}${ROOT_PARTITION} ${TMP_ROOT}
 sudo mkdir ${TMP_ROOT}/boot
-sudo mount ${LOOPDEV}p${BOOT_PARTITION} ${TMP_ROOT}/boot
+sudo mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
 sudo pacstrap ${TMP_ROOT} base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs ${PACKAGE_LIST}
 sudo sh -c "genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab"
 sudo sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
-  SWAP_UUID=$(lsblk -n -b -o UUID ${LOOPDEV}p${SWAP_PARTITION})
+  SWAP_UUID=$(lsblk -n -b -o UUID ${TARGET_DEV}${PEE}${SWAP_PARTITION})
   sudo sed -i '$a #swap' ${TMP_ROOT}/etc/fstab
   sudo sed -i '$a UUID='${SWAP_UUID}'	none      	swap      	defaults  	0 0' ${TMP_ROOT}/etc/fstab
 fi
@@ -283,11 +287,11 @@ fi
 END
 chmod +x /usr/sbin/fix-efi.sh
 systemctl enable fix-efi.service
-grub-install --modules=part_gpt --target=i386-pc --recheck --debug ${LOOPDEV}
+grub-install --modules=part_gpt --target=i386-pc --recheck --debug ${TARGET_DEV}
 EOF
-if [ "$DD_TO_TARGET" = true ] ; then
-  for n in ${TARGET_DISK}* ; do sudo umount $n || true; done
-  sudo wipefs -a ${TARGET_DISK}
+if [ -b $DD_TO_DISK ] ; then
+  for n in ${DD_TO_DISK}* ; do sudo umount $n || true; done
+  sudo wipefs -a ${DD_TO_DISK}
 fi
 chmod +x /tmp/chroot.sh
 sudo mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
@@ -295,18 +299,11 @@ sudo arch-chroot ${TMP_ROOT} /root/chroot.sh
 sudo rm ${TMP_ROOT}/root/chroot.sh
 sudo cp "$THIS" /usr/sbin/mkarch.sh
 sync && sudo umount ${TMP_ROOT}/boot && sudo umount ${TMP_ROOT} && sudo losetup -D && sync && echo "Image sucessfully created"
-if [ "$DD_TO_TARGET" = true ] ; then
+if [ -b $DD_TO_DISK ] ; then
   echo "Writing image to disk..."
-  sudo -E bash -c 'dd if='"${IMG_NAME}"' of='${TARGET_DISK}' bs=4M && sync && sgdisk -e '${TARGET_DISK}' && sgdisk -v '${TARGET_DISK}' && [ '"$TARGET_IS_REMOVABLE"' = true ] && eject '${TARGET_DISK} && echo "Image sucessfully written. It's now safe to remove ${TARGET_DISK}"
+  sudo -E bash -c 'dd if='"${IMG_NAME}"' of='${DD_TO_DISK}' bs=4M && sync && sgdisk -e '${DD_TO_DISK}' && sgdisk -v '${DD_TO_DISK}' && [ '"$TARGET_IS_REMOVABLE"' = true ] && eject '${DD_TO_DISK} && echo "Image sucessfully written. It's now safe to remove ${TARGET_DISK}"
 fi
 
-if test "${CHROOT_RESULT}" -eq 0
-then
-  echo "Image sucessfully created"
-  if eject ${TARGET_DEV}
-  then
-    echo "It's now safe to remove $TARGET_DEV"
-  fi
-else
-  echo "There was some failure while setting up the operating system."
+if [ "$CLEAN_UP" = true ] ; then
+  rm -f "${IMG_NAME}"
 fi
