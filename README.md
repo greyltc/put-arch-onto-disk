@@ -5,7 +5,7 @@ This repo contains a script which creates a bootable (BIOS, non-UEFI at the mome
 ### Requirements
 1. Be running Arch Linux
 1. `sudo pacman -S --needed util-linux coreutils gptfdisk f2fs-tools e2fsprogs btrfs-progs arch-install-scripts procps-ng sed sudo`
-1. Understand that the script provided here comes with no guarentees that it won't destroy your computer and everything attached to it :-) although I believe it's safe. It will happily dd over your homework, your bitcoin wallet, its self, your family photos and even your PhD dissertation if you ask it to, so be careful.
+1. Understand that the script provided here comes with no guarentees that it won't destroy your computer and everything attached to it :-), although I believe it's safe. There are no warnings or "Are you sure you want to..." messages. It will happily dd over all your cat pictures, your homework, your bitcoin wallet, its self, your family photos and even your PhD dissertation if you ask it to, so be careful.
 
 ### Usage
 
