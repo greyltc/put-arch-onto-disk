@@ -300,8 +300,13 @@ sudo rm ${TMP_ROOT}/root/chroot.sh
 sudo cp "$THIS" /usr/sbin/mkarch.sh
 sync && sudo umount ${TMP_ROOT}/boot && sudo umount ${TMP_ROOT} && sudo losetup -D && sync && echo "Image sucessfully created"
 if [ -b $DD_TO_DISK ] ; then
+  TARGET_DEV=$DD_TO_DISK
   echo "Writing image to disk..."
-  sudo -E bash -c 'dd if='"${IMG_NAME}"' of='${DD_TO_DISK}' bs=4M && sync && sgdisk -e '${DD_TO_DISK}' && sgdisk -v '${DD_TO_DISK}' && [ '"$TARGET_IS_REMOVABLE"' = true ] && eject '${DD_TO_DISK} && echo "Image sucessfully written. It's now safe to remove ${TARGET_DISK}"
+  sudo -E bash -c 'dd if='"${IMG_NAME}"' of='${TARGET_DEV}' bs=4M && sync && sgdisk -e '${TARGET_DEV}' && sgdisk -v '${TARGET_DEV}' && echo "Image sucessfully written."
+fi
+
+if [ "$TARGET_IS_REMOVABLE" = true ] ; then
+  eject ${TARGET_DEV} && echo "It's now safe to remove $TARGET_DEV"
 fi
 
 if [ "$CLEAN_UP" = true ] ; then
