@@ -46,7 +46,6 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${PACKAGE_LIST:=""}
 : ${ENABLE_AUR:=true}
 : ${TARGET_IS_REMOVABLE:=false}
-: ${SUPPORT_UEFI:=false}
 
 rm -f "${IMG_NAME}"
 if [ "$GET_SIZE_FROM_TARGET" = true ] ; then
@@ -59,7 +58,7 @@ fallocate -l $IMG_SIZE "${IMG_NAME}"
 wipefs -a -f "${IMG_NAME}"
 
 NEXT_PARTITION=1
-[ "$SUPPORT_UEFI" = false ] && sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${IMG_NAME}" && ((NEXT_PARTITION++))
+sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${IMG_NAME}" && ((NEXT_PARTITION++))
 sgdisk -n 0:+0:+512MiB -t 0:ef00 -c 0:boot "${IMG_NAME}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
@@ -88,7 +87,7 @@ mkdir -p ${TMP_ROOT}
 sudo mount -t${ROOT_FS_TYPE} ${LOOPDEV}p${ROOT_PARTITION} ${TMP_ROOT}
 sudo mkdir ${TMP_ROOT}/boot
 sudo mount ${LOOPDEV}p${BOOT_PARTITION} ${TMP_ROOT}/boot
-sudo pacstrap ${TMP_ROOT} base grub btrfs-progs dosfstools exfat-utils f2fs-tools gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs ${PACKAGE_LIST}
+sudo pacstrap ${TMP_ROOT} base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs ${PACKAGE_LIST}
 sudo sh -c "genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab"
 sudo sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
@@ -245,7 +244,6 @@ fi
 mkinitcpio -p linux
 grub-mkconfig -o /boot/grub/grub.cfg
 pacman -Sy --needed --noconfirm os-prober
-#grub-mkconfig -o /boot/EFI/BOOT/grub.cfg
 if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
   cat > /usr/sbin/fix-f2fs-grub.sh <<END
 #!/usr/bin/env bash
@@ -256,12 +254,8 @@ END
   chmod +x /usr/sbin/fix-f2fs-grub.sh
   fix-f2fs-grub.sh /boot/grub/grub.cfg
 fi
-if [ "$SUPPORT_UEFI" == true ] ; then
-  pacman -S --needed --noconfirm efibootmgr
-  #grub-install --modules="part_gpt fat linux gzio all_video" --removable --target=x86_64-efi --efi-directory=/boot --recheck --debug > /boot/grub-install.log
-  #echo 'configfile ${cmdpath}/grub.cfg' > /tmp/grub.cfg
-  mkdir -p /boot/EFI/BOOT
-  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
+mkdir -p /boot/EFI/BOOT
+grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
 cat > /usr/sbin/fix-efi.sh <<END
 #!/usr/bin/env bash
 if [ efivar --list > /dev/null ] ; then
@@ -273,10 +267,7 @@ if [ efivar --list > /dev/null ] ; then
 fi
 END
 chmod +x /usr/sbin/fix-efi.sh
-else
-  grub-install --modules=part_gpt --target=i386-pc --recheck --debug ${LOOPDEV}
-  #grub-mkconfig -o /boot/grub/grub.cfg
-fi
+grub-install --modules=part_gpt --target=i386-pc --recheck --debug ${LOOPDEV}
 EOF
 if [ "$DD_TO_TARGET" = true ] ; then
   for n in ${TARGET_DISK}* ; do sudo umount $n || true; done
