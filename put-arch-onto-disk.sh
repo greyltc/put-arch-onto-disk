@@ -46,7 +46,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${ENABLE_AUR:=true}
 : ${TARGET_IS_REMOVABLE:=false}
 
-if [ -b $TARGET] ; then
+if [ -b $TARGET ] ; then
   TARGET_DEV=$TARGET
   for n in ${TARGET_DEV}* ; do sudo umount $n || true; done
 else
@@ -58,19 +58,19 @@ else
   PEE=p
 fi
 
-wipefs -a -f "${TARGET_DEV}"
+sudo wipefs -a -f "${TARGET_DEV}"
 
 NEXT_PARTITION=1
-sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
-sgdisk -n 0:+0:+512MiB -t 0:ef00 -c 0:boot "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+sudo sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
+sudo sgdisk -n 0:+0:+512MiB -t 0:ef00 -c 0:boot "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
     SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
   fi
-  sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+  sudo sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 fi
-#sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+#sudo sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+sudo sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 
 
 sudo wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
@@ -83,7 +83,7 @@ sudo wipefs -a -f ${TARGET_DEV}${PEE}${ROOT_PARTITION}
 ELL=L
 [ "$ROOT_FS_TYPE" = "f2fs" ] && ELL=l
 sudo mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${TARGET_DEV}${PEE}${ROOT_PARTITION}
-sgdisk -p "${IMG_NAME}"
+sudo sgdisk -p "${TARGET_DEV}"
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
 sudo mount -t${ROOT_FS_TYPE} ${TARGET_DEV}${PEE}${ROOT_PARTITION} ${TMP_ROOT}
@@ -302,11 +302,11 @@ sync && sudo umount ${TMP_ROOT}/boot && sudo umount ${TMP_ROOT} && sudo losetup 
 if [ -b $DD_TO_DISK ] ; then
   TARGET_DEV=$DD_TO_DISK
   echo "Writing image to disk..."
-  sudo -E bash -c 'dd if='"${IMG_NAME}"' of='${TARGET_DEV}' bs=4M && sync && sgdisk -e '${TARGET_DEV}' && sgdisk -v '${TARGET_DEV}' && echo "Image sucessfully written."
+  sudo -E bash -c 'dd if='"${IMG_NAME}"' of='${TARGET_DEV}' bs=4M && sync && sgdisk -e '${TARGET_DEV}' && sgdisk -v '${TARGET_DEV}' && echo "Image sucessfully written."'
 fi
 
 if [ "$TARGET_IS_REMOVABLE" = true ] ; then
-  eject ${TARGET_DEV} && echo "It's now safe to remove $TARGET_DEV"
+  sudo eject ${TARGET_DEV} && echo "It's now safe to remove $TARGET_DEV"
 fi
 
 if [ "$CLEAN_UP" = true ] ; then
