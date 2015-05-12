@@ -19,14 +19,17 @@ You can run the script without root permissions and you'll be prompted for your 
 ```
 ./put-arch-onto-disk.sh
 ```
+---
 - This will generate a 2GiB bootable disk image in the current directory called bootable_arch.img, then use dd to copy it to a USB stick at /dev/sdz and then delete the .img:
 ```
 DD_TO_DISK=/dev/sdz CLEAN_UP=true TARGET_IS_REMOVABLE=true ./put-arch-onto-disk.sh
 ```
+---
 - This will install directly to a device at /dev/sdz with a root file system suitable for a USB stick:
 ```
 TARGET=/dev/sdz TARGET_IS_REMOVABLE=true ./put-arch-onto-disk.sh
 ```
+---
 - This will install directly to a device at /dev/sdz with a root file system suitable for a SSD/HDD and create a swap partition sized to match the amount of ram installed in the current machine and install a few addidional packages to the target system:
 ```
 TARGET=/dev/sdz ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim sl" ./put-arch-onto-disk.sh
