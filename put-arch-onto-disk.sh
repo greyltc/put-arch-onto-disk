@@ -7,22 +7,22 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${MAKE_SWAP_PARTITION:=false}
 : ${SWAP_SIZE_IS_RAM_SIZE:=false}
 : ${SWAP_SIZE:=100MiB}
-: ${TARGET:=bootable_arch.img}
+: ${TARGET:=./bootable_arch.img}
 : ${IMG_SIZE:=2GiB}
 : ${TIME_ZONE:=Europe/Copenhagen}
 : ${LANGUAGE:=en_US}
 : ${TEXT_ENCODING:=UTF-8}
 : ${ROOT_PASSWORD:=toor}
-: ${MAKE_ADMIN_USER:=true}
+: ${MAKE_ADMIN_USER:=false}
 : ${ADMIN_USER_NAME:=l3iggs}
 : ${ADMIN_USER_PASSWORD:=sggi3l}
 : ${THIS_HOSTNAME:=bootdisk}
 : ${PACKAGE_LIST:=""}
+: ${ENABLE_AUR:=true}
 : ${AUR_PACKAGE_LIST:=""}
 : ${DD_TO_DISK:=false}
-: ${CLEAN_UP:=false}
-: ${ENABLE_AUR:=true}
 : ${TARGET_IS_REMOVABLE:=false}
+: ${CLEAN_UP:=false}
 
 if [ -b $TARGET ] ; then
   TARGET_DEV=$TARGET
