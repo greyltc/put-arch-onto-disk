@@ -106,24 +106,7 @@ if [ "$ENABLE_AUR" = true ] ; then
   rm -rf /apacman
   mkdir -p ~/.gnupg
   echo "keyserver-options auto-key-retrieve" >> /gpg.conf
-  #rm -rf /root/.gnupg
-  #dirmngr --debug-level guru&
-  #touch /root/.gnupg/dirmngr-cache.d/DIR.txt
-  #dirmngr </dev/null
-  #touch /root/.gnupg/dirmngr_ldapservers.conf
-  #gpg --recv-keys 1EB2638FF56C0C53
   apacman -S --noconfirm --needed yaourt pacaur aura-bin "${AUR_PACKAGE_LIST}"
-  #cd /aura
-  #curl -L -O https://bitbucket.org/fosskers/aura/downloads/aura-1.3.0.5-x86_64.tar.gz
-  #tar -xvf aura*.tar.gz
-  #mkdir -p "/var/cache/aura/pkgbuilds"
-  #mkdir -p "/var/cache/aura/src"
-  #mkdir -p "/var/cache/aura/states"
-  #./aura -A --noconfirm aura-bin
-  #cd
-  #rm -rf /aura
-  #gpg --recv-keys 1EB2638FF56C0C53
-  #aura -A --needed --noconfirm yaourt packer pacaur "${AUR_PACKAGE_LIST}"
   sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
 fi
 sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
