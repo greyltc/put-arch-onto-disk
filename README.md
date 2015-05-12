@@ -37,7 +37,7 @@ Variable Name|Description|Default Value
 
 ### Requirements
 1. This script must be run from a x86_64 Arch Linux environment
-1. Do not have the desire to use the installation created here on any machine which does not supoprt x86_64
+1. Do not expect the installation created here to work on any machine which does not supoprt x86_64
 1. `sudo pacman -Syyu --needed util-linux coreutils gptfdisk f2fs-tools e2fsprogs btrfs-progs arch-install-scripts procps-ng sed sudo`
 1. Understand that the script provided here comes with no guarentees that it won't destroy your computer and everything attached to it :-), although I believe it's safe. There are no warnings or "Are you sure you want to..." messages. It will happily dd over all your cat pictures, your homework, your bitcoin wallet, its self, your family photos and even your PhD dissertation if you ask it to, so be careful.
 
