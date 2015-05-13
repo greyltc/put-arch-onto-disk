@@ -18,7 +18,7 @@ Variable Name|Description|Default Value
 `MAKE_SWAP_PARTITION`|create swap partition|`false`
 `SWAP_SIZE_IS_RAM_SIZE`|use amount of installed ram as swap size|`false`
 `SWAP_SIZE`|swap partition size (if `SWAP_SIZE_IS_RAM_SIZE`=`false`)|`100MiB`
-`TARGET`|installation target|`./bootable_arch.img`
+`TARGET`|installation target. if this is a block deivce, you'll get a direct install, if it's a file you'll get a disk image|`./bootable_arch.img`
 `IMG_SIZE`|disk image size|`2GiB`
 `TIME_ZONE`|installed system's timezone|`Europe/Copenhagen`
 `LANGUAGE`|installed system's language|`en_US`
