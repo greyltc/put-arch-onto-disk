@@ -25,6 +25,8 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${PACKAGE_LIST:=""}
 : ${ENABLE_AUR:=true}
 : ${AUR_PACKAGE_LIST:=""}
+: ${GDM_AUTOLOGIN_ADMIN:=false}
+: ${FIRST_BOOT_SCRIPT:=""}
 : ${DD_TO_DISK:=false}
 : ${TARGET_IS_REMOVABLE:=false}
 : ${CLEAN_UP:=false}
@@ -80,6 +82,7 @@ if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   sed -i '$a #swap' ${TMP_ROOT}/etc/fstab
   sed -i '$a UUID='${SWAP_UUID}'	none      	swap      	defaults  	0 0' ${TMP_ROOT}/etc/fstab
 fi
+[ -f "$FIRST_BOOT_SCRIPT" ] && cp "$FIRST_BOOT_SCRIPT" ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh && chmod +x ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
 
 cat > /tmp/chroot.sh <<EOF
 #!/usr/bin/env bash
@@ -115,16 +118,44 @@ if [ "$ENABLE_AUR" = true ] ; then
   sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
 fi
 sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
-INSTALLED_PACKAGES=\$(pacman -Qe)
-if [[ \$INSTALLED_PACKAGES == *"openssh"* ]] ; then
+if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable sshd.service
 fi
-if [[ \$INSTALLED_PACKAGES == *"networkmanager"* ]] ; then
+if pacman -Q networkmanager > /dev/null 2>/dev/null; then
   systemctl enable NetworkManager.service
 fi
-if [[ \$INSTALLED_PACKAGES == *"bcache-tools"* ]] ; then
+if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
   sed -i 's/MODULES="/MODULES="bcache /g' /etc/mkinitcpio.conf
   sed -i 's/HOOKS="base udev autodetect modconf block/HOOKS="base udev autodetect modconf block bcache/g' /etc/mkinitcpio.conf
+fi
+if pacman -Q gdm > /dev/null 2>/dev/null; then
+  systemctl enable gdm
+  if [ "$MAKE_ADMIN_USER" = true ] && [ "$GDM_AUTOLOGIN_ADMIN" = true ] ; then
+    echo "# Enable automatic login for user" >> /etc/gdm/custom.conf
+    echo "[daemon]" >> /etc/gdm/custom.conf
+    echo "AutomaticLogin=$ADMIN_USER_NAME" >> /etc/gdm/custom.conf
+    echo "AutomaticLoginEnable=True" >> /etc/gdm/custom.conf
+  fi
+fi
+if [ -f /usr/sbin/runOnFirstBoot.sh ]; then
+  cat > /etc/systemd/system/firstBootScript.service <<END
+[Unit]
+Description=Runs a user defined script on first boot
+ConditionPathExists=/usr/sbin/runOnFirstBoot.sh
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/runOnFirstBoot.sh
+ExecStop=systemctl disable firstBootScript.service
+TimeoutSec=0
+StandardOutput=tty
+RemainAfterExit=yes
+SysVStartPriority=99
+
+[Install]
+WantedBy=multi-user.target
+END
+systemctl enable firstBootScript.service
 fi
 mkinitcpio -p linux
 grub-mkconfig -o /boot/grub/grub.cfg

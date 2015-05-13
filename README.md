@@ -31,6 +31,8 @@ Variable Name|Description|Default Value
 `PACKAGE_LIST`|list of additional official packages to install|
 `ENABLE_AUR`|install `yaourt` and `packer`|`true`
 `AUR_PACKAGE_LIST`|list of packages to install from the AUR|
+`GDM_AUTOLOGIN_ADMIN`|autologin admin user through gdm login page|`false`
+`FIRST_BOOT_SCRIPT`|path to a (local) script you wish to run on first boot|
 `DD_TO_DISK`|dd the created disk image to this block device|`false`
 `TARGET_IS_REMOVABLE`|the target block device is removable|`false`
 `CLEAN_UP`|delete the disk image created here (if created)|`false`
