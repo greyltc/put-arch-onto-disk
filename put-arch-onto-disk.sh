@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -e #break on error
 set -vx #echo on
+
+if [[ $EUID -ne 0 ]]; then
+  echo "Please run with root permissions"
+  exit
+fi
 THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 
 : ${ROOT_FS_TYPE:=f2fs}
@@ -26,54 +31,54 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 
 if [ -b $TARGET ] ; then
   TARGET_DEV=$TARGET
-  for n in ${TARGET_DEV}* ; do sudo umount $n || true; done
+  for n in ${TARGET_DEV}* ; do umount $n || true; done
 else
   IMG_NAME=$TARGET
   rm -f "${IMG_NAME}"
-  fallocate -l $IMG_SIZE "${IMG_NAME}"
-  TARGET_DEV=$(sudo losetup --find)
-  sudo losetup -P ${TARGET_DEV} "${IMG_NAME}"
+  su -c "fallocate -l $IMG_SIZE ${IMG_NAME}" $SUDO_USER
+  TARGET_DEV=$(losetup --find)
+  losetup -P ${TARGET_DEV} "${IMG_NAME}"
   PEE=p
 fi
 
-sudo wipefs -a -f "${TARGET_DEV}"
+wipefs -a -f "${TARGET_DEV}"
 
 NEXT_PARTITION=1
-sudo sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
-sudo sgdisk -n 0:+0:+512MiB -t 0:ef00 -c 0:boot "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
+sgdisk -n 0:+0:+512MiB -t 0:ef00 -c 0:boot "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
     SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
   fi
-  sudo sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+  sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 fi
-#sudo sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-sudo sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+#sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 
 
-sudo wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-sudo mkfs.fat -F32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+mkfs.fat -F32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
-  sudo wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
-  sudo mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
+  wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
+  mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
 fi
-sudo wipefs -a -f ${TARGET_DEV}${PEE}${ROOT_PARTITION}
+wipefs -a -f ${TARGET_DEV}${PEE}${ROOT_PARTITION}
 ELL=L
 [ "$ROOT_FS_TYPE" = "f2fs" ] && ELL=l
-sudo mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${TARGET_DEV}${PEE}${ROOT_PARTITION}
-sudo sgdisk -p "${TARGET_DEV}"
+mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${TARGET_DEV}${PEE}${ROOT_PARTITION}
+sgdisk -p "${TARGET_DEV}"
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
-sudo mount -t${ROOT_FS_TYPE} ${TARGET_DEV}${PEE}${ROOT_PARTITION} ${TMP_ROOT}
-sudo mkdir ${TMP_ROOT}/boot
-sudo mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
-sudo pacstrap ${TMP_ROOT} base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs ${PACKAGE_LIST}
-sudo sh -c "genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab"
-sudo sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
+mount -t${ROOT_FS_TYPE} ${TARGET_DEV}${PEE}${ROOT_PARTITION} ${TMP_ROOT}
+mkdir ${TMP_ROOT}/boot
+mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
+pacstrap ${TMP_ROOT} base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs ${PACKAGE_LIST}
+genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
+sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   SWAP_UUID=$(lsblk -n -b -o UUID ${TARGET_DEV}${PEE}${SWAP_PARTITION})
-  sudo sed -i '$a #swap' ${TMP_ROOT}/etc/fstab
-  sudo sed -i '$a UUID='${SWAP_UUID}'	none      	swap      	defaults  	0 0' ${TMP_ROOT}/etc/fstab
+  sed -i '$a #swap' ${TMP_ROOT}/etc/fstab
+  sed -i '$a UUID='${SWAP_UUID}'	none      	swap      	defaults  	0 0' ${TMP_ROOT}/etc/fstab
 fi
 
 cat > /tmp/chroot.sh <<EOF
@@ -102,11 +107,11 @@ if [ "$ENABLE_AUR" = true ] ; then
   curl -O https://raw.githubusercontent.com/oshazard/apacman/master/apacman
   chmod +x apacman
   ./apacman -S --noconfirm apacman
-  cd
+  cd /
   rm -rf /apacman
-  mkdir -p ~/.gnupg
-  echo "keyserver-options auto-key-retrieve" >> /gpg.conf
-  apacman -S --noconfirm --needed yaourt pacaur aura-bin "${AUR_PACKAGE_LIST}"
+  mkdir -p /root/.gnupg
+  echo "keyserver-options auto-key-retrieve" >> /root/.gnupg/gpg.conf
+  apacman -S --noconfirm --needed yaourt pacaur aura-bin ${AUR_PACKAGE_LIST}
   sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
 fi
 sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
@@ -168,23 +173,23 @@ systemctl enable fix-efi.service
 grub-install --modules=part_gpt --target=i386-pc --recheck --debug ${TARGET_DEV}
 EOF
 if [ -b $DD_TO_DISK ] ; then
-  for n in ${DD_TO_DISK}* ; do sudo umount $n || true; done
-  sudo wipefs -a ${DD_TO_DISK}
+  for n in ${DD_TO_DISK}* ; do umount $n || true; done
+  wipefs -a ${DD_TO_DISK}
 fi
 chmod +x /tmp/chroot.sh
-sudo mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
-sudo arch-chroot ${TMP_ROOT} /root/chroot.sh
-sudo rm ${TMP_ROOT}/root/chroot.sh
-sudo cp "$THIS" /usr/sbin/mkarch.sh
-sync && sudo umount ${TMP_ROOT}/boot && sudo umount ${TMP_ROOT} && sudo losetup -D && sync && echo "Image sucessfully created"
+mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
+arch-chroot ${TMP_ROOT} /root/chroot.sh
+rm ${TMP_ROOT}/root/chroot.sh
+cp "$THIS" /usr/sbin/mkarch.sh
+sync && umount ${TMP_ROOT}/boot && umount ${TMP_ROOT} && losetup -D && sync && echo "Image sucessfully created"
 if [ -b $DD_TO_DISK ] ; then
   TARGET_DEV=$DD_TO_DISK
   echo "Writing image to disk..."
-  sudo -E bash -c 'dd if='"${IMG_NAME}"' of='${TARGET_DEV}' bs=4M && sync && sgdisk -e '${TARGET_DEV}' && sgdisk -v '${TARGET_DEV}' && echo "Image sucessfully written."'
+  dd if="${IMG_NAME}" of=${TARGET_DEV} bs=4M && sync && sgdisk -e ${TARGET_DEV} && sgdisk -v ${TARGET_DEV} && echo "Image sucessfully written."
 fi
 
 if [ "$TARGET_IS_REMOVABLE" = true ] ; then
-  sudo eject ${TARGET_DEV} && echo "It's now safe to remove $TARGET_DEV"
+  eject ${TARGET_DEV} && echo "It's now safe to remove $TARGET_DEV"
 fi
 
 if [ "$CLEAN_UP" = true ] ; then
