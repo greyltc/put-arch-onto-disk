@@ -72,6 +72,14 @@ sgdisk -p "${TARGET_DEV}"
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
 mount -t${ROOT_FS_TYPE} ${TARGET_DEV}${PEE}${ROOT_PARTITION} ${TMP_ROOT}
+if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
+  btrfs subvolume create ${TMP_ROOT}/root
+  btrfs subvolume create ${TMP_ROOT}/home
+  umount ${TMP_ROOT}
+  mount ${TARGET_DEV}${PEE}${ROOT_PARTITION} -o subvol=root,compress=lzo ${TMP_ROOT}
+  mkdir ${TMP_ROOT}/home
+  mount ${TARGET_DEV}${PEE}${ROOT_PARTITION} -o subvol=home,compress=lzo ${TMP_ROOT}/home
+fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
 pacstrap ${TMP_ROOT} base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs ${PACKAGE_LIST}
@@ -213,6 +221,7 @@ rm ${TMP_ROOT}/root/chroot.sh
 cp "$THIS" /usr/sbin/mkarch.sh
 sync
 umount ${TMP_ROOT}/boot
+[ "$ROOT_FS_TYPE" = "btrfs" ] && umount ${TMP_ROOT}/home
 umount ${TMP_ROOT}
 losetup -D
 sync
