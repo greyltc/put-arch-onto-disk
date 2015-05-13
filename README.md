@@ -38,7 +38,7 @@ Variable Name|Description|Default Value
 ### Requirements
 1. This script must be run from a x86_64 Arch Linux environment
 1. Do not expect the installation created here to work on any machine which does not supoprt x86_64
-1. `sudo pacman -Syyu --needed util-linux coreutils gptfdisk f2fs-tools e2fsprogs btrfs-progs arch-install-scripts procps-ng sed sudo`
+1. `sudo pacman -Syyu --needed util-linux coreutils gptfdisk f2fs-tools e2fsprogs btrfs-progs arch-install-scripts procps-ng sed`
 1. Understand that the script provided here comes with no guarentees that it won't destroy your computer and everything attached to it :-), although I believe it's safe (unless you're careless). There are no warnings or "Are you sure you want to..." messages. It will happily dd over all your cat pictures, your homework, your bitcoin wallet, its self, your family photos and even your nealry competed PhD dissertation if you ask it to, so be careful.
 
 ### Usage
@@ -46,7 +46,7 @@ Variable Name|Description|Default Value
 1. Examine the variables listed here and make sure you understand what the defaults are (they should be safe, since there is no dding by default).
 1. Define the appropriate environment variables to override the defaults and call the script.
 
-You can run the script without root permissions and you'll be prompted for your sudo password for parts that need root access.
+You must run the script with root permissions.
 ### Recipes
 
 This will generate a 2GiB disk image suitable for dding to a USB stick in the current directory called bootable_arch.img:
