@@ -29,7 +29,7 @@ Variable Name|Description|Default Value
 `ADMIN_USER_PASSWORD`|password for admin user|`sggi3l`
 `THIS_HOSTNAME`|installed system's hostname|`bootdisk`
 `PACKAGE_LIST`|list of additional official packages to install|
-`ENABLE_AUR`|install `yaourt` and `packer`|`true`
+`ENABLE_AUR`|install `yaourt`, `packer`, `pacaur` and `aura`|`true`
 `AUR_PACKAGE_LIST`|list of packages to install from the AUR|
 `GDM_AUTOLOGIN_ADMIN`|autologin admin user through gdm login page|`false`
 `FIRST_BOOT_SCRIPT`|path to a (local) script you wish to run on first boot|
