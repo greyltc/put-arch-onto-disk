@@ -181,11 +181,20 @@ mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
 arch-chroot ${TMP_ROOT} /root/chroot.sh
 rm ${TMP_ROOT}/root/chroot.sh
 cp "$THIS" /usr/sbin/mkarch.sh
-sync && umount ${TMP_ROOT}/boot && umount ${TMP_ROOT} && losetup -D && sync && echo "Image sucessfully created"
+sync
+umount ${TMP_ROOT}/boot
+umount ${TMP_ROOT}
+losetup -D
+sync
+echo "Image sucessfully created"
 if [ -b $DD_TO_DISK ] ; then
   TARGET_DEV=$DD_TO_DISK
   echo "Writing image to disk..."
-  dd if="${IMG_NAME}" of=${TARGET_DEV} bs=4M && sync && sgdisk -e ${TARGET_DEV} && sgdisk -v ${TARGET_DEV} && echo "Image sucessfully written."
+  dd if="${IMG_NAME}" of=${TARGET_DEV} bs=4M
+  sync
+  sgdisk -e ${TARGET_DEV}
+  sgdisk -v ${TARGET_DEV}
+  echo "Image sucessfully written."
 fi
 
 if [ "$TARGET_IS_REMOVABLE" = true ] ; then
