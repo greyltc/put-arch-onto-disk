@@ -112,9 +112,8 @@ if [ "$ENABLE_AUR" = true ] ; then
   ./apacman -S --noconfirm apacman
   cd /
   rm -rf /apacman
-  mkdir -p /root/.gnupg
-  echo "keyserver-options auto-key-retrieve" >> /root/.gnupg/gpg.conf
-  apacman -S --noconfirm --needed yaourt pacaur aura-bin ${AUR_PACKAGE_LIST}
+  apacman -S --noconfirm --needed --skipinteg pacaur
+  apacman -S --noconfirm --needed yaourt packer aura-bin ${AUR_PACKAGE_LIST}
   sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
 fi
 sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
