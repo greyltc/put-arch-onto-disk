@@ -1,6 +1,6 @@
 # put-arch-onto-disk
 
-This repo contains a script which creates a ready-to-use Arch Linux installation.
+This repo contains a script which creates a ready-to-use Arch Linux installation. I can be used to install to a USB thumb drive, or to a permanently installed SSD or HDD or whatever.
 
 ### Features
  - Installations are bootable on both BIOS and UEFI systems
@@ -8,6 +8,7 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
  - Optimized for removable flash storage (choose `f2fs` as root file system type)
  - Optimized for HDD and SSD targets (choose `btrfs` as root file system type)
  - Installations have persistant storage
+ - Installations have (optional) AUR suport (in the form of yaourt)
  - Installtions are up-to-date as of the minute you run the script
  - Easily set many installtion parameters programatically:
 
@@ -56,17 +57,22 @@ This will generate a 2GiB disk image (suitable for dding to a USB stick) in the 
 ./put-arch-onto-disk.sh
 ```
 ---
-This will generate a 4GiB disk image (suitable for dding to a USB stick) in the current directory called bootable_arch.img, then use dd to copy it to a USB stick at /dev/sdz and then delete the image file:
+This will generate a 4GiB disk image (suitable for dding to a USB stick) in the current directory called bootable_arch.img, then use dd to copy it to a USB stick at /dev/sdX and then delete the image file:
 ```
-IMG_SIZE=4GiB DD_TO_DISK=/dev/sdz CLEAN_UP=true TARGET_IS_REMOVABLE=true sudo -E ./put-arch-onto-disk.sh
-```
----
-This will install directly to a device at /dev/sdz with a root file system suitable for a USB stick:
-```
-TARGET=/dev/sdz TARGET_IS_REMOVABLE=true sudo -E ./put-arch-onto-disk.sh
+IMG_SIZE=4GiB DD_TO_DISK=/dev/sdX CLEAN_UP=true TARGET_IS_REMOVABLE=true sudo -E ./put-arch-onto-disk.sh
 ```
 ---
-This will install directly to a device at /dev/sdz with a root file system suitable for a SSD/HDD and create a swap partition sized to match the amount of ram installed in the current machine and install a few addidional packages to the target system:
+This will install directly to a device at /dev/sdX with a root file system suitable for a USB stick:
 ```
-TARGET=/dev/sdz ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim sl" sudo -E ./put-arch-onto-disk.sh
+TARGET=/dev/sdX TARGET_IS_REMOVABLE=true sudo -E ./put-arch-onto-disk.sh
+```
+---
+(Author favorite) This will install directly to a device at /dev/sdX with a root file system suitable for a USB stick and include a full gnome desktop with the gparted disk management utility:
+```
+TARGET=/dev/sdX TARGET_IS_REMOVABLE=true PACKAGE_LIST="gnome gnome-extra gparted" sudo -E ./put-arch-onto-disk.sh
+```
+---
+This will install directly to a device at /dev/sdX with a root file system suitable for a SSD/HDD and create a swap partition sized to match the amount of ram installed in the current machine and install a few addidional packages to the target system:
+```
+TARGET=/dev/sdX ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim sl" sudo -E ./put-arch-onto-disk.sh
 ```
