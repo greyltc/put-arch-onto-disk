@@ -84,7 +84,7 @@ if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
 fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
-pacstrap ${TMP_ROOT} base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs ${PACKAGE_LIST}
+pacstrap ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
 sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
@@ -220,7 +220,7 @@ chmod +x /tmp/chroot.sh
 mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
 arch-chroot ${TMP_ROOT} /root/chroot.sh
 rm ${TMP_ROOT}/root/chroot.sh
-cp "$THIS" /usr/sbin/mkarch.sh
+cp "$THIS" ${TMP_ROOT}/usr/sbin/mkarch.sh
 sync
 umount ${TMP_ROOT}/boot
 [ "$ROOT_FS_TYPE" = "btrfs" ] && umount ${TMP_ROOT}/home
