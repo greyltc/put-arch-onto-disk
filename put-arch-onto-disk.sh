@@ -31,6 +31,8 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${TARGET_IS_REMOVABLE:=false}
 : ${CLEAN_UP:=false}
 
+DEFAULT_PACKAGES="base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion"
+
 if [ -b $TARGET ] ; then
   TARGET_DEV=$TARGET
   for n in ${TARGET_DEV}* ; do umount $n || true; done
