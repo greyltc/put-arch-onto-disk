@@ -76,3 +76,7 @@ This will install directly to a device at /dev/sdX with a root file system suita
 ```
 TARGET=/dev/sdX ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim sl" sudo -E ./put-arch-onto-disk.sh
 ```
+### Moar Recipes
+```
+TARGET=/dev/sdX ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim gparted cinnamon" sudo -E ./put-arch-onto-disk.sh
+```
