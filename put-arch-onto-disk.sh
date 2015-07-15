@@ -53,7 +53,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${TARGET_IS_REMOVABLE:=false}
 : ${CLEAN_UP:=false}
 
-DEFAULT_PACKAGES="base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion"
+DEFAULT_PACKAGES="base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion reflector"
 
 if [ -b $TARGET ] ; then
   TARGET_DEV=$TARGET
@@ -136,54 +136,20 @@ hwclock --systohc
 # do locale things
 sed -i "s,^#${LOCALE} ${CHARSET},${LOCALE} ${CHARSET},g" /etc/locale.gen
 locale-gen
-localectl set-locale LANG=${LOCALE}
-unset LANG
-set +o nounset
-source /etc/profile.d/locale.sh
-set -o nounset
-localectl set-keymap ${KEYMAP}
-localectl status
+echo LANG="${LANGUAGE}.${TEXT_ENCODING}" > /etc/locale.conf
+echo "root:${ROOT_PASSWORD}"|chpasswd
+cat > /usr/bin/reflect_mirrors <<END
+#!/bin/bash
 
-# setup gnupg
-mkdir -p /etc/skel/.gnupg
-echo "keyserver hkps://hkps.pool.sks-keyservers.net:443" >> /etc/skel/.gnupg/gpg.conf
-echo "keyserver-options auto-key-retrieve" >> /etc/skel/.gnupg/gpg.conf
+#This will run reflector on mirrorlist, copying from backup first, overwriting
 
-# change password for root
-if [ "$ROOT_PASSWORD" = "" ]
-then
-   echo "No password for root"
-else
-   echo "root:${ROOT_PASSWORD}"|chpasswd
-fi
-
-# copy over the skel files for the root user
-cp -r \$(find /etc/skel -name ".*") /root
-
-# update pacman keys
-haveged -w 1024
-pacman-key --init
-pkill haveged || true
-pacman -Rs --noconfirm haveged
-echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-echo "nameserver 1.0.0.1" >> /etc/resolv.conf
-if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
-  pacman -S --noconfirm --needed archlinuxarm-keyring
-  pacman-key --init
-  pacman-key --populate archlinuxarm
-else
-  pacman-key --populate archlinux
-  reflector --latest 200 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
-fi
-pkill gpg-agent || true
-
-# make pacman color
-sed -i 's/#Color/Color/g' /etc/pacman.conf
-
-# do an update
-pacman -Syyu --noconfirm
-
-# setup admin user
+curl -o /etc/pacman.d/mirrorlist.backup https://www.archlinux.org/mirrorlist/all/
+cp /etc/pacman.d/mirrorlist.backup /etc/pacman.d/mirrorlist
+reflector --verbose -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
+END
+chown root:users /usr/bin/reflect_mirrors
+chmod ug+wx /usr/bin/reflect_mirrors
+reflect_mirrors
 if [ "$MAKE_ADMIN_USER" = true ] ; then
   useradd -m -G wheel -s /bin/bash ${ADMIN_USER_NAME}
   echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
