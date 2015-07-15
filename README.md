@@ -78,5 +78,5 @@ TARGET=/dev/sdX ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZ
 ```
 ### Moar Recipes
 ```
-TARGET=/dev/sdX MAKE_ADMIN_USER=true ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim gparted cinnamon" sudo -E ./put-arch-onto-disk.sh
+TARGET=/dev/sdX MAKE_ADMIN_USER=true TIME_ZONE="US/Eastern" THIS_HOSTNAME="optiplex745" ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim gparted cinnamon" sudo -E ./put-arch-onto-disk.sh
 ```
