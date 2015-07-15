@@ -31,7 +31,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${TARGET_IS_REMOVABLE:=false}
 : ${CLEAN_UP:=false}
 
-DEFAULT_PACKAGES="base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion"
+DEFAULT_PACKAGES="base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion reflector"
 
 if [ -b $TARGET ] ; then
   TARGET_DEV=$TARGET
@@ -106,6 +106,18 @@ echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
 locale-gen
 echo LANG="${LANGUAGE}.${TEXT_ENCODING}" > /etc/locale.conf
 echo "root:${ROOT_PASSWORD}"|chpasswd
+cat > /usr/bin/reflect_mirrors <<END
+#!/bin/bash
+
+#This will run reflector on mirrorlist, copying from backup first, overwriting
+
+curl -o /etc/pacman.d/mirrorlist.backup https://www.archlinux.org/mirrorlist/all/
+cp /etc/pacman.d/mirrorlist.backup /etc/pacman.d/mirrorlist
+reflector --verbose -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
+END
+chown root:users /usr/bin/reflect_mirrors
+chmod ug+wx /usr/bin/reflect_mirrors
+reflect_mirrors
 if [ "$MAKE_ADMIN_USER" = true ] ; then
   useradd -m -G wheel -s /bin/bash ${ADMIN_USER_NAME}
   echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
