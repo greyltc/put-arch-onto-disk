@@ -203,24 +203,15 @@ sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait
 if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable sshd.service
 fi
+systemctl enable systemd-networkd
+systemctl enable systemd-resolved
+rm -rf /etc/resolv.conf
+ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
+systemctl enable dhcpcd
 if pacman -Q networkmanager > /dev/null 2>/dev/null; then
   systemctl enable NetworkManager.service
-else
-  echo "Enabling systemd-networkd service"
-  systemctl enable systemd-networkd
-  systemctl enable systemd-resolved
-  sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
-  touch /link_resolv_conf #leave a marker so we can complete this setup at first boot
-  cat > /etc/systemd/network/DHCPany.network << END
-[Match]
-Name=*
-
-[Network]
-DHCP=yes
-
-[DHCP]
-ClientIdentifier=mac
-END
+  systemctl disable systemd-networkd
+  systemctl disable dhcpcd
 fi
 if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
   sed -i 's/MODULES="/MODULES="bcache /g' /etc/mkinitcpio.conf
