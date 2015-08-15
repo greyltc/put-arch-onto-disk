@@ -142,15 +142,15 @@ sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait
 if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable sshd.service
 fi
-systemctl enable systemd-networkd
-systemctl enable systemd-resolved
-rm -rf /etc/resolv.conf
-ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
-systemctl enable dhcpcd
 if pacman -Q networkmanager > /dev/null 2>/dev/null; then
   systemctl enable NetworkManager.service
-  systemctl disable systemd-networkd
-  systemctl disable dhcpcd
+else
+  systemctl enable systemd-networkd
+  systemctl enable systemd-resolved
+  sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
+  mv /etc/resolv.conf /etc/resolv.conf.bak
+  ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
+  systemctl enable dhcpcd
 fi
 if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
   sed -i 's/MODULES="/MODULES="bcache /g' /etc/mkinitcpio.conf
