@@ -32,7 +32,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${CLEAN_UP:=false}
 
 DEFAULT_PACKAGES="base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion reflector rsync"
-pacman -Sy efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
+pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
 
 if [ -b $TARGET ] ; then
   TARGET_DEV=$TARGET
