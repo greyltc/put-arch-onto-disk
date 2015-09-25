@@ -7,7 +7,8 @@ if [[ $EUID -ne 0 ]]; then
   exit
 fi
 THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
-echo "$@"
+echo "$*"
+echo "$-"
 
 : ${ROOT_FS_TYPE:=f2fs}
 : ${MAKE_SWAP_PARTITION:=false}
