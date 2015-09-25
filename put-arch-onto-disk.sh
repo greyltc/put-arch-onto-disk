@@ -239,11 +239,6 @@ chmod +x /tmp/chroot.sh
 mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
 arch-chroot ${TMP_ROOT} /root/chroot.sh
 rm ${TMP_ROOT}/root/chroot.sh
-if [[ $string == *"My long"* ]]
-then
-  echo "It's there!";
-fi
-if [[ $string == *"My long"* ]]
 if [ $(basename "$THIS") = "bash" ] ; then
   echo "run from curl detected"
   echo $2 > ${TMP_ROOT}/usr/sbin/mkarch.sh
