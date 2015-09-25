@@ -149,9 +149,7 @@ else
   systemctl enable systemd-networkd
   systemctl enable systemd-resolved
   sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
-  cp /etc/resolv.conf /etc/resolv.conf.bak
-  rm /etc/resolv.conf
-  ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
+  touch /link_resolv_conf
   systemctl enable dhcpcd
 fi
 if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
@@ -242,6 +240,11 @@ mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
 arch-chroot ${TMP_ROOT} /root/chroot.sh
 rm ${TMP_ROOT}/root/chroot.sh
 cp "$THIS" ${TMP_ROOT}/usr/sbin/mkarch.sh
+if [ -a ${TMP_ROOT}/link_resov_conf ] ; then
+  rm "${TMP_ROOT}/link_resov_conf"
+  mv "${TMP_ROOT}/etc/resolv.conf" "${TMP_ROOT}/etc/resolv.conf.bak"
+  ln -s /run/systemd/resolve/resolv.conf "${TMP_ROOT}/etc/resolv.conf"
+fi
 sync
 umount ${TMP_ROOT}/boot
 [ "$ROOT_FS_TYPE" = "btrfs" ] && umount ${TMP_ROOT}/home
