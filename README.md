@@ -51,6 +51,7 @@ Variable Name|Description|Default Value
 
 You must run the script with root permissions.
 ### Recipes
+In to following recipes, `./put-arch-onto-disk.sh` can be replaced with `bash -c " "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"` to run the script directly from this repo.
 
 This will generate a 2GiB disk image (suitable for dding to a USB stick) in the current directory called bootable_arch.img:
 ```
