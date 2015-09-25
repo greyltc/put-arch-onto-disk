@@ -7,9 +7,6 @@ if [[ $EUID -ne 0 ]]; then
   exit
 fi
 THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
-echo $0
-echo $1
-echo $2
 
 # put-arch-onto-disk.sh
 # This script installs Arch Linux onto media (making it bootable)
