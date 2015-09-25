@@ -140,6 +140,13 @@ if [ "$ENABLE_AUR" = true ] ; then
   sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
 fi
 sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
+if pacman -Q virtualbox-guest-modules > /dev/null 2>/dev/null; then
+  cat > /etc/modules-load.d/vbox_guest.conf <<END
+vboxguest
+vboxsf
+vboxvideo
+END
+fi
 if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable sshd.service
 fi
