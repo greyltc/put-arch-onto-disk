@@ -258,6 +258,8 @@ if [ -a ${TMP_ROOT}/link_resov_conf ] ; then
   ln -s /run/systemd/resolve/resolv.conf "${TMP_ROOT}/etc/resolv.conf"
 fi
 sync
+echo "fstab is:"
+cat "${TMP_ROOT}/etc/fstab"
 umount ${TMP_ROOT}/boot
 [ "$ROOT_FS_TYPE" = "btrfs" ] && umount ${TMP_ROOT}/home
 umount ${TMP_ROOT}
