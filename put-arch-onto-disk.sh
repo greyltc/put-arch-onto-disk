@@ -112,7 +112,7 @@ cat > /usr/bin/reflect_mirrors <<END
 
 #This will run reflector on mirrorlist, copying from backup first, overwriting
 
-cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
+mv /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
 curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
 reflector --verbose -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
 END
@@ -241,7 +241,7 @@ arch-chroot ${TMP_ROOT} /root/chroot.sh
 rm ${TMP_ROOT}/root/chroot.sh
 if [ $(basename "$THIS") = "bash" ] ; then
   echo "run from curl detected"
-  echo $2 > ${TMP_ROOT}/usr/sbin/mkarch.sh
+  echo $1 > "${TMP_ROOT}/usr/sbin/mkarch.sh"
 else
   cp "$THIS" ${TMP_ROOT}/usr/sbin/mkarch.sh
 fi
