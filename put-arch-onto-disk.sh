@@ -149,7 +149,8 @@ else
   systemctl enable systemd-networkd
   systemctl enable systemd-resolved
   sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
-  mv /etc/resolv.conf /etc/resolv.conf.bak
+  cp /etc/resolv.conf /etc/resolv.conf.bak
+  rm /etc/resolv.conf
   ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
   systemctl enable dhcpcd
 fi
