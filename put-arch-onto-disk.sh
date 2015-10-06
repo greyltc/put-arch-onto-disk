@@ -191,7 +191,9 @@ if [ "$ENABLE_AUR" = true ] ; then
   apacman -S --noconfirm --needed yaourt packer aura-bin ${AUR_PACKAGE_LIST}
   sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
 fi
-sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
+if pacman -Q grub > /dev/null 2>/dev/null; then
+  sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
+fi
 if pacman -Q virtualbox-guest-modules > /dev/null 2>/dev/null; then
   cat > /etc/modules-load.d/vbox_guest.conf <<END
 vboxguest
@@ -245,7 +247,9 @@ END
 systemctl enable firstBootScript.service
 fi
 mkinitcpio -p linux
-grub-mkconfig -o /boot/grub/grub.cfg
+if pacman -Q grub > /dev/null 2>/dev/null; then
+  grub-mkconfig -o /boot/grub/grub.cfg
+fi
 if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
   cat > /usr/sbin/fix-f2fs-grub.sh <<END
 #!/usr/bin/env bash
@@ -254,10 +258,14 @@ ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
 sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
 END
   chmod +x /usr/sbin/fix-f2fs-grub.sh
-  fix-f2fs-grub.sh /boot/grub/grub.cfg
+  if pacman -Q grub > /dev/null 2>/dev/null; then
+    fix-f2fs-grub.sh /boot/grub/grub.cfg
+  fi
 fi
-mkdir -p /boot/EFI/BOOT
-grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
+if pacman -Q grub > /dev/null 2>/dev/null; then
+  mkdir -p /boot/EFI/BOOT
+  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
+fi
 cat > /etc/systemd/system/fix-efi.service <<END
 [Unit]
 Description=Re-Installs Grub-efi bootloader
@@ -287,8 +295,10 @@ if efivar --list > /dev/null ; then
 fi
 END
 chmod +x /usr/sbin/fix-efi.sh
-systemctl enable fix-efi.service
-grub-install --modules=part_gpt --target=i386-pc --recheck --debug ${TARGET_DEV}
+if pacman -Q grub > /dev/null 2>/dev/null; then
+  systemctl enable fix-efi.service
+  grub-install --modules=part_gpt --target=i386-pc --recheck --debug ${TARGET_DEV}
+fi
 EOF
 if [ -b $DD_TO_DISK ] ; then
   for n in ${DD_TO_DISK}* ; do umount $n || true; done
