@@ -90,3 +90,7 @@ TARGET=/dev/sdX MAKE_ADMIN_USER=true TIME_ZONE="US/Eastern" THIS_HOSTNAME="optip
 ```
 TARGET=/dev/sdX MAKE_ADMIN_USER=true ADMIN_USER_NAME=grey TIME_ZONE="Europe/London" THIS_HOSTNAME="epozz" ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="gnome gnome-extra gparted" sudo -E ./put-arch-onto-disk.sh
 ```
+for rpi:
+```
+TARGET=/dev/sdX MAKE_ADMIN_USER=true ADMIN_USER_NAME=grey TIME_ZONE="Europe/London" THIS_HOSTNAME="pi" ROOT_FS_TYPE=f2fs MAKE_SWAP_PARTITION=false PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware" sudo -E ./put-arch-onto-disk.sh
+```
