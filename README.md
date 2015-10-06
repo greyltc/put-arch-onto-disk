@@ -15,6 +15,7 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
 
 Variable Name|Description|Default Value
 ---|---|---
+`TARGET_ARCH`|target architecture|`x86_64`
 `ROOT_FS_TYPE`|root file system type|`f2fs`
 `MAKE_SWAP_PARTITION`|create swap partition|`false`
 `SWAP_SIZE_IS_RAM_SIZE`|use amount of installed ram as swap size|`false`
