@@ -10,27 +10,6 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 echo "$*"
 echo "$-"
 
-# put-arch-onto-disk.sh
-# This script installs Arch Linux onto media (making it bootable)
-# or into a disk image which can later be dd'd onto some media to make it bootable
-# this is an unattedded, one-shot command for making an Arch install that works out-of-the-box
-# I've made attempts to make it reasonably configurable, but there is some stuff in here
-# that you may not want (eg. the network comes up and sshd runs) so don't use this blindly
-
-# example usage:
-# TARGET=/dev/sdX PORTABLE=true sudo ./put-arch-onto-disk.sh |& tee archInstall.log
-
-if test $EUID -ne 0
-then
-  echo "Please run with root permissions"
-  exit 1
-fi
-
-# store off the absolute path to *this* script
-THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
-
-# set variable defaults. if any of these are defined elsewhere,
-# those values will be used instead of those listed here
 : ${TARGET_ARCH:=x86_64}
 : ${ROOT_FS_TYPE:=f2fs}
 : ${MAKE_SWAP_PARTITION:=false}
@@ -109,7 +88,10 @@ if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
 fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
-pacstrap ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
+mkdir -p ${TMP_ROOT}/etc
+cp /etc/pacman.conf /tmp/.
+sed -i '/Architecture =/c\Architecture = '${TARGET_ARCH} /tmp/pacman.conf
+pacstrap -C /tmp/pacman.conf -G -M ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
 sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
