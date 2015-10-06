@@ -152,14 +152,19 @@ echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
 locale-gen
 echo LANG="${LANGUAGE}.${TEXT_ENCODING}" > /etc/locale.conf
 echo "root:${ROOT_PASSWORD}"|chpasswd
+
 cat > /usr/bin/reflect_mirrors <<END
 #!/bin/bash
 
 #This will run reflector on mirrorlist, copying from backup first, overwriting
 
-mv /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
-curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
-reflector --verbose -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
+if [[ $(uname -m) == *"arm"* ]] ; then
+  echo "No mirror rank for alarm"
+else
+  mv /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
+  curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
+  reflector --verbose -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
+fi
 END
 chown root:users /usr/bin/reflect_mirrors
 chmod ug+wx /usr/bin/reflect_mirrors
