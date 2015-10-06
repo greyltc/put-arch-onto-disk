@@ -34,6 +34,18 @@ echo "$-"
 : ${TARGET_IS_REMOVABLE:=false}
 : ${CLEAN_UP:=false}
 
+if [[ $TARGET_ARCH == *"arm"* ]]
+then
+  which qemu-arm-static >/dev/null
+  if [ $? -eq 0 ]
+  then
+    update-binfmts --enable qemu-arm
+  else
+    echo "Please install qemu-user-static from the AUR" >&2
+    exit
+  fi
+fi
+
 DEFAULT_PACKAGES="base grub efibootmgr btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion reflector rsync"
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
 
@@ -88,7 +100,6 @@ if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
 fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
-cp /etc/pacman.conf /tmp/.
 cat > /tmp/pacman.conf <<EOF
 [options]
 HoldPkg     = pacman glibc
@@ -114,6 +125,8 @@ then
   echo "" >> /tmp/pacman.conf
   echo "[aur]" >> /tmp/pacman.conf
   echo "Include = /etc/pacman.d/mirrorlist" >> /tmp/pacman.conf
+  mkdir -p ${TMP_ROOT}/usr/bin
+  cp /usr/bin/qemu-arm-static ${TMP_ROOT}/usr/bin
 fi
 pacstrap -C /tmp/pacman.conf -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
