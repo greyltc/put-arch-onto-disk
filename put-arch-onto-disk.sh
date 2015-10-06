@@ -88,10 +88,34 @@ if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
 fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
-mkdir -p ${TMP_ROOT}/etc
 cp /etc/pacman.conf /tmp/.
-sed -i '/Architecture =/c\Architecture = '${TARGET_ARCH} /tmp/pacman.conf
-pacstrap -C /tmp/pacman.conf -G -M ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
+cat > /tmp/pacman.conf <<EOF
+[options]
+HoldPkg     = pacman glibc
+Architecture = ${TARGET_ARCH}
+CheckSpace
+SigLevel = Never
+
+[core]
+Include = /etc/pacman.d/mirrorlist
+
+[extra]
+Include = /etc/pacman.d/mirrorlist
+
+[community]
+Include = /etc/pacman.d/mirrorlist
+EOF
+
+if [[ $TARGET_ARCH == *"arm"* ]]
+then
+  echo "" >> /tmp/pacman.conf
+  echo "[alarm]" >> /tmp/pacman.conf
+  echo "Include = /etc/pacman.d/mirrorlist" >> /tmp/pacman.conf
+  echo "" >> /tmp/pacman.conf
+  echo "[aur]" >> /tmp/pacman.conf
+  echo "Include = /etc/pacman.d/mirrorlist" >> /tmp/pacman.conf
+fi
+pacstrap -C /tmp/pacman.conf -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
 sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
