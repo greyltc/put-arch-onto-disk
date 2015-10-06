@@ -100,6 +100,7 @@ if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
 fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
+cp /etc/pacman.d/mirrorlist /tmp/mirrorlist
 cat > /tmp/pacman.conf <<EOF
 [options]
 HoldPkg     = pacman glibc
@@ -108,25 +109,26 @@ CheckSpace
 SigLevel = Never
 
 [core]
-Include = /etc/pacman.d/mirrorlist
+Include = /tmp/mirrorlist
 
 [extra]
-Include = /etc/pacman.d/mirrorlist
+Include = /tmp/mirrorlist
 
 [community]
-Include = /etc/pacman.d/mirrorlist
+Include = /tmp/mirrorlist
 EOF
 
 if [[ $TARGET_ARCH == *"arm"* ]]
 then
   echo "" >> /tmp/pacman.conf
   echo "[alarm]" >> /tmp/pacman.conf
-  echo "Include = /etc/pacman.d/mirrorlist" >> /tmp/pacman.conf
+  echo "Include = /tmp/mirrorlist" >> /tmp/pacman.conf
   echo "" >> /tmp/pacman.conf
   echo "[aur]" >> /tmp/pacman.conf
-  echo "Include = /etc/pacman.d/mirrorlist" >> /tmp/pacman.conf
+  echo "Include = /tmp/mirrorlist" >> /tmp/pacman.conf
   mkdir -p ${TMP_ROOT}/usr/bin
   cp /usr/bin/qemu-arm-static ${TMP_ROOT}/usr/bin
+  echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /tmp/mirrorlist
 fi
 pacstrap -C /tmp/pacman.conf -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
