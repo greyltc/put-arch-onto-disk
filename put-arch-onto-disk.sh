@@ -10,6 +10,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 echo "$*"
 echo "$-"
 
+: ${TARGET_ARCH:=x86_64}
 : ${ROOT_FS_TYPE:=f2fs}
 : ${MAKE_SWAP_PARTITION:=false}
 : ${SWAP_SIZE_IS_RAM_SIZE:=false}
@@ -87,7 +88,10 @@ if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
 fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
-pacstrap ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
+mkdir -p ${TMP_ROOT}/etc
+cp /etc/pacman.conf /tmp/.
+sed -i '/Architecture =/c\Architecture = '${TARGET_ARCH} /tmp/pacman.conf
+pacstrap -C /tmp/pacman.conf -G -M ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
 sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
