@@ -34,21 +34,23 @@ echo "$-"
 : ${TARGET_IS_REMOVABLE:=false}
 : ${CLEAN_UP:=false}
 
-NOT_ARM="grub efibootmgr"
+# these packages should not be in stalled if target is arm
+NOT_ARM="grub efibootmgr reflector jfsutils"
+
 if [[ $TARGET_ARCH == *"arm"* ]]
 then
-  which qemu-arm-static >/dev/null
+  which qemu-arm-static >/dev/null && which binfmt-support >/dev/null
   if [ $? -eq 0 ]
   then
     update-binfmts --enable qemu-arm
     NOT_ARM=""
   else
-    echo "Please install qemu-user-static from the AUR" >&2
+    echo "Please install qemu-user-static and binfmt-support from the AUR" >&2
     exit
   fi
 fi
 
-DEFAULT_PACKAGES="base ${NOT_ARM} btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted jfsutils mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion reflector rsync"
+DEFAULT_PACKAGES="base ${NOT_ARM} btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync"
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
 
 if [ -b $TARGET ] ; then
