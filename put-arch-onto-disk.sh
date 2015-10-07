@@ -190,7 +190,7 @@ if [ "$ENABLE_AUR" = true ] ; then
   cd /
   rm -rf /apacman
   apacman -S --noconfirm --needed --skipinteg pacaur
-  apacman -S --noconfirm --needed yaourt packer aura-bin ${AUR_PACKAGE_LIST}
+  apacman -S --noconfirm --needed yaourt packer ${AUR_PACKAGE_LIST}
   sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
 fi
 if pacman -Q grub > /dev/null 2>/dev/null; then
