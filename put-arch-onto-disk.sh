@@ -248,7 +248,7 @@ WantedBy=multi-user.target
 END
 systemctl enable firstBootScript.service
 fi
-mkinitcpio -p linux
+which mkinitcpio >/dev/null && mkinitcpio -p linux
 if pacman -Q grub > /dev/null 2>/dev/null; then
   grub-mkconfig -o /boot/grub/grub.cfg
 fi
