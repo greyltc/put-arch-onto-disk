@@ -68,8 +68,14 @@ fi
 wipefs -a -f "${TARGET_DEV}"
 
 NEXT_PARTITION=1
-sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
-sgdisk -n 0:+0:+512MiB -t 0:ef00 -c 0:boot "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+if [[ $TARGET_ARCH == *"arm"* ]]; then
+  echo "No bios grub for arm"
+  BOOT_P_TYPE=0700
+else
+  sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
+  BOOT_P_TYPE=ef00
+fi
+sgdisk -n 0:+0:+512MiB -t 0:${BOOT_P_TYPE} -c 0:boot "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
     SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
