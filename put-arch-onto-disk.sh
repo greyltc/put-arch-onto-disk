@@ -134,7 +134,7 @@ then
   cp /usr/bin/qemu-arm-static ${TMP_ROOT}/usr/bin
   echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /tmp/mirrorlist
 fi
-pacstrap -C /tmp/pacman.conf -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
+pacstrap -C /tmp/pacman.conf -M -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
 sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
