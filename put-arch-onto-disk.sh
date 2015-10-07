@@ -39,7 +39,7 @@ NOT_ARM="grub efibootmgr reflector jfsutils"
 
 if [[ $TARGET_ARCH == *"arm"* ]]
 then
-  which qemu-arm-static >/dev/null && which binfmt-support >/dev/null
+  which qemu-arm-static >/dev/null && which update-binfmts >/dev/null
   if [ $? -eq 0 ]
   then
     update-binfmts --enable qemu-arm
