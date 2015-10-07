@@ -162,7 +162,7 @@ cat > /usr/bin/reflect_mirrors <<END
 
 #This will run reflector on mirrorlist, copying from backup first, overwriting
 
-if [[ '$(uname -m)' == *"arm"* ]] ; then
+if [[ \$(uname -m) == *"arm"* ]] ; then
   echo "No mirror rank for alarm"
 else
   mv /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
