@@ -93,5 +93,5 @@ TARGET=/dev/sdX MAKE_ADMIN_USER=true ADMIN_USER_NAME=grey TIME_ZONE="Europe/Lond
 ```
 for rpi:
 ```
-TARGET=/dev/sdc TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware" sudo -E bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"
+TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware" sudo -E bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"
 ```
