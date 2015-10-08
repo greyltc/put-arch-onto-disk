@@ -17,7 +17,7 @@ echo "$-"
 : ${SWAP_SIZE:=100MiB}
 : ${TARGET:=./bootable_arch.img}
 : ${IMG_SIZE:=2GiB}
-: ${TIME_ZONE:=Europe/Copenhagen}
+: ${TIME_ZONE:=Europe/London}
 : ${LANGUAGE:=en_US}
 : ${TEXT_ENCODING:=UTF-8}
 : ${ROOT_PASSWORD:=toor}
