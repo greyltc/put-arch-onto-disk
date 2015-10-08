@@ -21,9 +21,9 @@ echo "$-"
 : ${LANGUAGE:=en_US}
 : ${TEXT_ENCODING:=UTF-8}
 : ${ROOT_PASSWORD:=toor}
-: ${MAKE_ADMIN_USER:=false}
-: ${ADMIN_USER_NAME:=l3iggs}
-: ${ADMIN_USER_PASSWORD:=sggi3l}
+: ${MAKE_ADMIN_USER:=true}
+: ${ADMIN_USER_NAME:=admin}
+: ${ADMIN_USER_PASSWORD:=admin}
 : ${THIS_HOSTNAME:=bootdisk}
 : ${PACKAGE_LIST:=""}
 : ${ENABLE_AUR:=true}
@@ -70,7 +70,7 @@ wipefs -a -f "${TARGET_DEV}"
 NEXT_PARTITION=1
 if [[ $TARGET_ARCH == *"arm"* ]]; then
   echo "No bios grub for arm"
-  BOOT_P_TYPE=0700
+  BOOT_P_TYPE=0c00
 else
   sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
   BOOT_P_TYPE=ef00
