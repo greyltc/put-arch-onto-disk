@@ -70,7 +70,7 @@ wipefs -a -f "${TARGET_DEV}"
 NEXT_PARTITION=1
 if [[ $TARGET_ARCH == *"arm"* ]]; then
   echo "No bios grub for arm"
-  BOOT_P_TYPE=0c00
+  BOOT_P_TYPE=0700
 else
   sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
   BOOT_P_TYPE=ef00
