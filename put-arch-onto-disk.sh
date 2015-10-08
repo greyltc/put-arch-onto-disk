@@ -86,7 +86,9 @@ fi
 #sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 
-sgdisk -h "1 2" "${TARGET_DEV}"
+# make hybrid/protective MBR
+#sgdisk -h "1 2" "${TARGET_DEV}"
+echo -e "r\nh\n1 2\nN\n\nN\n\nN\nN\nw\nY\n" | sudo gdisk /dev/sdc
 
 wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
 mkfs.fat -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
