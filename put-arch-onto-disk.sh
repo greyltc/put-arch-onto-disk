@@ -75,7 +75,8 @@ else
   sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
   BOOT_P_TYPE=ef00
 fi
-sgdisk -n 0:+0:+512MiB -t 0:${BOOT_P_TYPE} -c 0:boot "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+BOOT_P_SIZE_MB=100
+sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:boot "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
     SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
@@ -87,7 +88,7 @@ sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROO
 
 
 wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-mkfs.fat -F32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+mkfs.fat -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
   mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
