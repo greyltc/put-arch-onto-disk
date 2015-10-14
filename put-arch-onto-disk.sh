@@ -252,6 +252,10 @@ vboxsf
 vboxvideo
 END
 fi
+
+#turn on ntp client
+sudo timedatectl set-ntp true
+
 if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable sshd.service
 fi
