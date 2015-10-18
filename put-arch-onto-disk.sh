@@ -50,7 +50,7 @@ then
   fi
 fi
 
-DEFAULT_PACKAGES="base ${NOT_ARM} btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync"
+DEFAULT_PACKAGES="base ${NOT_ARM} btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync dialog"
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
 
 if [ -b $TARGET ] ; then
