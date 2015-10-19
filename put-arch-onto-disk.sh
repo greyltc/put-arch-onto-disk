@@ -50,7 +50,7 @@ then
   fi
 fi
 
-DEFAULT_PACKAGES="base ${NOT_ARM} btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync dialog"
+DEFAULT_PACKAGES="base ${NOT_ARM} btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync dialog wpa_actiond ifplugd"
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
 
 if [ -b $TARGET ] ; then
@@ -220,6 +220,7 @@ sudo timedatectl set-ntp true
 if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable sshd.service
 fi
+# 
 if pacman -Q networkmanager > /dev/null 2>/dev/null; then
   systemctl enable NetworkManager.service
 else
@@ -227,7 +228,13 @@ else
   systemctl enable systemd-resolved
   sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
   touch /link_resolv_conf
-  systemctl enable dhcpcd
+  cat > /etc/systemd/network/DHCPany.network << END
+[Match]
+Name=*
+
+[Network]
+DHCP=yes
+END
 fi
 if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
   sed -i 's/MODULES="/MODULES="bcache /g' /etc/mkinitcpio.conf
@@ -253,7 +260,6 @@ Type=forking
 ExecStart=/usr/sbin/runOnFirstBoot.sh
 ExecStop=systemctl disable firstBootScript.service
 TimeoutSec=0
-StandardOutput=tty
 RemainAfterExit=yes
 SysVStartPriority=99
 
