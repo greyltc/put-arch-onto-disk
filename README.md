@@ -95,3 +95,4 @@ for rpi:
 ```
 TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware" sudo -E bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"
 ```
+For gui on pi add the following packages: 'gnome, gnome-extra, xf86-video-fbturbo-git'
