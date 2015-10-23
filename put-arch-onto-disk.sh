@@ -207,9 +207,6 @@ vboxvideo
 END
 fi
 
-#turn on ntp client
-sudo timedatectl set-ntp true
-
 if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable sshd.service
 fi
@@ -261,7 +258,32 @@ WantedBy=multi-user.target
 END
 systemctl enable firstBootScript.service
 fi
+
+cat > /etc/systemd/system/nativeSetupTasks.service <<END
+[Unit]
+Description=Some system setup tasks to be run once at first boot
+ConditionPathExists=/usr/sbin/nativeSetupTasks.sh
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/nativeSetupTasks.sh
+ExecStop=systemctl disable nativeSetupTasks.service
+TimeoutSec=0
+RemainAfterExit=yes
+SysVStartPriority=99
+
+[Install]
+WantedBy=multi-user.target
+END
+systemctl enable nativeSetupTasks.service
+cat > /usr/sbin/nativeSetupTasks.sh <<END
+#!/usr/bin/env bash
+#turn on ntp client
+sudo timedatectl set-ntp true
+END
+
 which mkinitcpio >/dev/null && mkinitcpio -p linux
+
 if pacman -Q grub > /dev/null 2>/dev/null; then
   grub-mkconfig -o /boot/grub/grub.cfg
 fi
