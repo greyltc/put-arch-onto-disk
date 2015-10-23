@@ -198,44 +198,18 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   useradd -m -G wheel -s /bin/bash ${ADMIN_USER_NAME}
   echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
   pacman -S --needed --noconfirm sudo
-  sed -i 's/# %wheel ALL=(ALL) NOPASSWD: ALL/## %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
   sed -i 's/# %wheel ALL=(ALL)/%wheel ALL=(ALL)/g' /etc/sudoers
-
-  # AUR can only be enabled if a non-root user exists, so we'll do it in here
+  
+  # AUR can only be enabled if a non-root user exists
   if [ "$ENABLE_AUR" = true ] ; then
-    pacman -S --needed --noconfirm base-devel go git # needed to build aur packages and for yay
-    # backup makepkg built packages
-    MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
-    mkdir -p "\${MAKEPKG_BACKUP}"
-    groupadd yay
-    usermod -a -G yay ${ADMIN_USER_NAME}
-    chgrp yay "\${MAKEPKG_BACKUP}"
-    chmod g+w "\${MAKEPKG_BACKUP}"
-    sed -i "s,#PKGDEST=/home/packages,PKGDEST=\${MAKEPKG_BACKUP},g" /etc/makepkg.conf
-    
-    # make and install yay 
-    su -c "(cd; git clone https://aur.archlinux.org/yay.git)" -s /bin/bash ${ADMIN_USER_NAME}
-    
-    # temporarily give wheel users passwordless sudo powers
-    sed -i 's/# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
-    
-    su -c "(cd; cd yay; makepkg -i --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}
-    if [ !  -z  $AUR_PACKAGE_LIST  ] ; then # this seems to be broken (tested with rpi, yay doesn't work here)
-      su -c "(EDITOR=vi VISUAL=vi yay -Syyu --needed --noconfirm ${AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
-    fi
-
-    # make sudo prompt wheel users for a password again
-    sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
-
-    su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
+    # install yaourt
+    su -c "(cd; bash <(curl aur.sh) -s --noconfirm package-query yaourt)" -s /bin/bash ${ADMIN_USER_NAME}
+    sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
+    su -c "(yaourt -Syyua --needed --noconfirm {AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
   fi
+  sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
 fi
-if [ "$ENABLE_AUR" = true ] ; then
-  # install yaourt
-  bash <(curl aur.sh) -si --noconfirm package-query yaourt
-  sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
-  yaourt -Syyua --needed --noconfirm {AUR_PACKAGE_LIST}
-fi
+
 if pacman -Q grub > /dev/null 2>/dev/null; then
   sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
 fi
@@ -321,6 +295,8 @@ cat > /usr/sbin/nativeSetupTasks.sh <<END
 #turn on ntp client
 sudo timedatectl set-ntp true
 END
+
+loadkeys $KEYMAP
 
 which mkinitcpio >/dev/null && mkinitcpio -p linux
 
