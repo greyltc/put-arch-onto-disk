@@ -18,6 +18,7 @@ echo "$-"
 : ${TARGET:=./bootable_arch.img}
 : ${IMG_SIZE:=2GiB}
 : ${TIME_ZONE:=Europe/London}
+: ${KEYMAP:=uk}
 : ${LANGUAGE:=en_US}
 : ${TEXT_ENCODING:=UTF-8}
 : ${ROOT_PASSWORD:=toor}
