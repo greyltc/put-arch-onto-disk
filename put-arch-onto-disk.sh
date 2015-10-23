@@ -191,17 +191,10 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   sed -i 's/# %wheel ALL=(ALL)/%wheel ALL=(ALL)/g' /etc/sudoers
 fi
 if [ "$ENABLE_AUR" = true ] ; then
-  pacman -S --needed --noconfirm jshon base-devel
-  mkdir /apacman
-  cd /apacman
-  curl -O https://raw.githubusercontent.com/oshazard/apacman/master/apacman
-  chmod +x apacman
-  ./apacman -S --noconfirm apacman
-  cd /
-  rm -rf /apacman
-  apacman -S --noconfirm --needed --skipinteg pacaur
-  apacman -S --noconfirm --needed yaourt packer ${AUR_PACKAGE_LIST}
+  # install yaourt
+  bash <(curl aur.sh) -si --noconfirm package-query yaourt
   sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
+  yaourt -Syyua --needed --noconfirm {AUR_PACKAGE_LIST}
 fi
 if pacman -Q grub > /dev/null 2>/dev/null; then
   sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
