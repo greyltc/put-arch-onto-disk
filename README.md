@@ -22,8 +22,9 @@ Variable Name|Description|Default Value
 `SWAP_SIZE`|swap partition size (if `SWAP_SIZE_IS_RAM_SIZE`=`false`)|`100MiB`
 `TARGET`|installation target. if this is a block deivce, you'll get a direct install, if it's a file you'll get a disk image|`./bootable_arch.img`
 `IMG_SIZE`|disk image size|`2GiB`
-`TIME_ZONE`|installed system's timezone|`Europe/Copenhagen`
+`TIME_ZONE`|installed system's timezone|`Europe/London`
 `LANGUAGE`|installed system's language|`en_US`
+`KEYMAP`|keyboard layout|`uk`
 `TEXT_ENCODING`|installed system's text encoding|`UTF-8`
 `ROOT_PASSWORD`|password for root user|`toor`
 `MAKE_ADMIN_USER`|create a user with sudo powers|`false`
