@@ -91,8 +91,13 @@ TARGET=/dev/sdX MAKE_ADMIN_USER=true TIME_ZONE="US/Eastern" THIS_HOSTNAME="optip
 ```
 TARGET=/dev/sdX MAKE_ADMIN_USER=true ADMIN_USER_NAME=grey TIME_ZONE="Europe/London" THIS_HOSTNAME="epozz" ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="gnome gnome-extra gparted" sudo -E ./put-arch-onto-disk.sh
 ```
-for rpi:
+
+Tested on a Raspberry Pi 2:
 ```
 TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware" sudo -E bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"
 ```
-For gui on pi add the following packages: 'gnome, gnome-extra, xf86-video-fbturbo-git'
+
+Pi with gui:
+```
+TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware gnome gnome-extra xf86-video-fbturbo-git" sudo -E bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"
+```
