@@ -286,9 +286,9 @@ cat > /usr/sbin/nativeSetupTasks.sh <<END
 #!/usr/bin/env bash
 #turn on ntp client
 sudo timedatectl set-ntp true
-END
-
+#set keyboard layout
 loadkeys $KEYMAP
+END
 
 which mkinitcpio >/dev/null && mkinitcpio -p linux
 
