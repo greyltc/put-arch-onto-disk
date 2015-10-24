@@ -195,6 +195,8 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
     # install yaourt
     su -c "(cd; bash <(curl aur.sh) -si --noconfirm package-query yaourt)" -s /bin/bash ${ADMIN_USER_NAME}
+    rm -rf /home/${ADMIN_USER_NAME}/package-query
+    rm -rf /home/${ADMIN_USER_NAME}/yaourt
     sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
     su -c "(yaourt -Syyua --needed --noconfirm {AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
   fi
