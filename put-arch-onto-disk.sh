@@ -290,6 +290,7 @@ sudo timedatectl set-ntp true
 #set keyboard layout
 loadkeys $KEYMAP
 END
+chmod +x /usr/sbin/nativeSetupTasks.sh
 
 which mkinitcpio >/dev/null && mkinitcpio -p linux
 
