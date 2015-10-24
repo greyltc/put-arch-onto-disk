@@ -29,7 +29,7 @@ echo "$-"
 : ${PACKAGE_LIST:=""}
 : ${ENABLE_AUR:=true}
 : ${AUR_PACKAGE_LIST:=""}
-: ${GDM_AUTOLOGIN_ADMIN:=false}
+: ${AUTOLOGIN_ADMIN:=false}
 : ${FIRST_BOOT_SCRIPT:=""}
 : ${DD_TO_DISK:=false}
 : ${TARGET_IS_REMOVABLE:=false}
@@ -236,15 +236,27 @@ if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
   sed -i 's/MODULES="/MODULES="bcache /g' /etc/mkinitcpio.conf
   sed -i 's/HOOKS="base udev autodetect modconf block/HOOKS="base udev autodetect modconf block bcache/g' /etc/mkinitcpio.conf
 fi
+
+# if gdm was installed, let's do a few things
 if pacman -Q gdm > /dev/null 2>/dev/null; then
   systemctl enable gdm
-  if [ "$MAKE_ADMIN_USER" = true ] && [ "$GDM_AUTOLOGIN_ADMIN" = true ] ; then
+  if [ "$MAKE_ADMIN_USER" = true ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
     echo "# Enable automatic login for user" >> /etc/gdm/custom.conf
     echo "[daemon]" >> /etc/gdm/custom.conf
     echo "AutomaticLogin=$ADMIN_USER_NAME" >> /etc/gdm/custom.conf
     echo "AutomaticLoginEnable=True" >> /etc/gdm/custom.conf
   fi
 fi
+
+# if lxdm was installed, let's do a few things
+if pacman -Q gdm > /dev/null 2>/dev/null; then
+  systemctl enable lxdm
+  if [ "$MAKE_ADMIN_USER" = true ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
+    echo "# Enable automatic login for user" >> /etc/lxdm/lxdm.conf
+    echo "autologin=$ADMIN_USER_NAME" >> /etc/lxdm/lxdm.conf
+  fi
+fi
+
 if [ -f /usr/sbin/runOnFirstBoot.sh ]; then
   cat > /etc/systemd/system/firstBootScript.service <<END
 [Unit]
