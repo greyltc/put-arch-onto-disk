@@ -194,10 +194,11 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   if [ "$ENABLE_AUR" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
     # install yaourt
-    su -c "(cd; bash <(curl aur.sh) -s --noconfirm package-query yaourt)" -s /bin/bash ${ADMIN_USER_NAME}
+    su -c "(cd; bash <(curl aur.sh) -si --noconfirm package-query yaourt)" -s /bin/bash ${ADMIN_USER_NAME}
     sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
     su -c "(yaourt -Syyua --needed --noconfirm {AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
   fi
+  # wheel group users need password for sudo:
   sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
 fi
 
