@@ -28,8 +28,8 @@ Variable Name|Description|Default Value
 `TEXT_ENCODING`|installed system's text encoding|`UTF-8`
 `ROOT_PASSWORD`|password for root user|`toor`
 `MAKE_ADMIN_USER`|create a user with sudo powers|`false`
-`ADMIN_USER_NAME`|user name for admin user|`l3iggs`
-`ADMIN_USER_PASSWORD`|password for admin user|`sggi3l`
+`ADMIN_USER_NAME`|user name for admin user|`admin`
+`ADMIN_USER_PASSWORD`|password for admin user|`admin`
 `THIS_HOSTNAME`|installed system's hostname|`bootdisk`
 `PACKAGE_LIST`|list of additional official packages to install|
 `ENABLE_AUR`|install `yaourt` for easy installs from AUR|`true`
