@@ -306,9 +306,9 @@ sudo timedatectl set-ntp true
 echo "Setting console keyboard layout"
 loadkeys $KEYMAP
 
-if [ -a /link_resov_conf ] ; then
+if [ -a /link_reslov_conf ] ; then
   echo "Making resolv.conf compatible with networkd"
-  rm /link_resov_conf
+  rm /link_resolv_conf
   mv "/etc/resolv.conf" "/etc/resolv.conf.bak"
   ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
 fi
