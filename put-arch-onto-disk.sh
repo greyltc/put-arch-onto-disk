@@ -252,7 +252,7 @@ if pacman -Q gdm > /dev/null 2>/dev/null; then
 fi
 
 # if lxdm was installed, let's do a few things
-if pacman -Q gdm > /dev/null 2>/dev/null; then
+if pacman -Q lxdm > /dev/null 2>/dev/null; then
   systemctl enable lxdm
   #TODO: set keyboard layout
   if [ "$MAKE_ADMIN_USER" = true ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
