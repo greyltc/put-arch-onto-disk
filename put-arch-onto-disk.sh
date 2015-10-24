@@ -169,7 +169,7 @@ echo LANG="${LANGUAGE}.${TEXT_ENCODING}" > /etc/locale.conf
 echo "root:${ROOT_PASSWORD}"|chpasswd
 
 cat > /usr/bin/reflect_mirrors <<END
-#!/bin/bash
+#!/usr/bin/env bash
 
 #This will run reflector on mirrorlist, copying from backup first, overwriting
 
@@ -284,6 +284,7 @@ END
 systemctl enable nativeSetupTasks.service
 cat > /usr/sbin/nativeSetupTasks.sh <<END
 #!/usr/bin/env bash
+echo "Running first boot script."
 #turn on ntp client
 sudo timedatectl set-ntp true
 #set keyboard layout
@@ -298,6 +299,7 @@ fi
 if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
   cat > /usr/sbin/fix-f2fs-grub.sh <<END
 #!/usr/bin/env bash
+echo "Running script to fix bug in grub.config when root is f2fs."
 ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
 ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
 sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
@@ -329,6 +331,7 @@ WantedBy=multi-user.target
 END
 cat > /usr/sbin/fix-efi.sh <<END
 #!/usr/bin/env bash
+echo "Re-installing grub when efi boot."
 if efivar --list > /dev/null ; then
   grub-install --removable --target=x86_64-efi --efi-directory=/boot --recheck && systemctl disable fix-efi.service
   grub-mkconfig -o /boot/grub/grub.cfg
@@ -355,7 +358,7 @@ arch-chroot ${TMP_ROOT} /root/chroot.sh
 rm ${TMP_ROOT}/root/chroot.sh
 if [ $(basename "$THIS") = "bash" ] ; then
   echo "run from curl detected"
-  echo $1 > "${TMP_ROOT}/usr/sbin/mkarch.sh"
+  echo "$1" > "${TMP_ROOT}/usr/sbin/mkarch.sh"
 else
   cp "$THIS" ${TMP_ROOT}/usr/sbin/mkarch.sh
 fi
