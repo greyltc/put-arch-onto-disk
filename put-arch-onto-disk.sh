@@ -290,7 +290,7 @@ Before=multi-user.target
 [Service]
 Type=notify
 ExecStart=/usr/sbin/nativeSetupTasks.sh
-ExecStopPost=systemctl disable nativeSetupTasks.service
+ExecStopPost=/usr/bin/systemctl disable nativeSetupTasks.service
 
 [Install]
 WantedBy=multi-user.target
@@ -300,20 +300,20 @@ cat > /usr/sbin/nativeSetupTasks.sh <<END
 #!/usr/bin/env bash
 echo "Running first boot script."
 
-#turn on ntp client
+echo "Enabling ntp client"
 sudo timedatectl set-ntp true
 
-#set keyboard layout
+echo "Setting console keyboard layout"
 loadkeys $KEYMAP
 
-# make resolv.conf compatible with networkd
 if [ -a /link_resov_conf ] ; then
+  echo "Making resolv.conf compatible with networkd"
   rm /link_resov_conf
   mv "/etc/resolv.conf" "/etc/resolv.conf.bak"
   ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
 fi
 
-#tell systemd this service is done
+echo "First boot script finished"
 systemd-notify --ready
 END
 chmod +x /usr/sbin/nativeSetupTasks.sh
