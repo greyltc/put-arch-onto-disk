@@ -192,6 +192,7 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   
   # AUR can only be enabled if a non-root user exists
   if [ "$ENABLE_AUR" = true ] ; then
+    pacman -S --needed --noconfirm base-devel # needed to build aur packages
     # install yaourt
     su -c "(cd; bash <(curl aur.sh) -s --noconfirm package-query yaourt)" -s /bin/bash ${ADMIN_USER_NAME}
     sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
