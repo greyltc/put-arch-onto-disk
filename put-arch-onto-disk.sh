@@ -269,14 +269,12 @@ cat > /etc/systemd/system/nativeSetupTasks.service <<END
 [Unit]
 Description=Some system setup tasks to be run once at first boot
 ConditionPathExists=/usr/sbin/nativeSetupTasks.sh
+Before=multi-user.target
 
 [Service]
-Type=forking
+Type=notify
 ExecStart=/usr/sbin/nativeSetupTasks.sh
-ExecStop=systemctl disable nativeSetupTasks.service
-TimeoutSec=0
-RemainAfterExit=yes
-SysVStartPriority=99
+ExecStopPost=systemctl disable nativeSetupTasks.service
 
 [Install]
 WantedBy=multi-user.target
@@ -285,10 +283,15 @@ systemctl enable nativeSetupTasks.service
 cat > /usr/sbin/nativeSetupTasks.sh <<END
 #!/usr/bin/env bash
 echo "Running first boot script."
+
 #turn on ntp client
 sudo timedatectl set-ntp true
+
 #set keyboard layout
 loadkeys $KEYMAP
+
+#tell systemd this service is done
+systemd-notify --ready
 END
 chmod +x /usr/sbin/nativeSetupTasks.sh
 
