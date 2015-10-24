@@ -242,6 +242,7 @@ fi
 # if gdm was installed, let's do a few things
 if pacman -Q gdm > /dev/null 2>/dev/null; then
   systemctl enable gdm
+  #TODO: set keyboard layout
   if [ "$MAKE_ADMIN_USER" = true ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
     echo "# Enable automatic login for user" >> /etc/gdm/custom.conf
     echo "[daemon]" >> /etc/gdm/custom.conf
@@ -253,6 +254,7 @@ fi
 # if lxdm was installed, let's do a few things
 if pacman -Q gdm > /dev/null 2>/dev/null; then
   systemctl enable lxdm
+  #TODO: set keyboard layout
   if [ "$MAKE_ADMIN_USER" = true ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
     echo "# Enable automatic login for user" >> /etc/lxdm/lxdm.conf
     echo "autologin=$ADMIN_USER_NAME" >> /etc/lxdm/lxdm.conf
