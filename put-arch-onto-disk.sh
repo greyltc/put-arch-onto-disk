@@ -225,7 +225,7 @@ else
   systemctl enable systemd-networkd
   systemctl enable systemd-resolved
   sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
-  touch /link_resolv_conf
+  touch /link_resolv_conf #leave a marker so we can complete this setup at first boot
   cat > /etc/systemd/network/DHCPany.network << END
 [Match]
 Name=*
@@ -304,6 +304,13 @@ sudo timedatectl set-ntp true
 #set keyboard layout
 loadkeys $KEYMAP
 
+# make resolv.conf compatible with networkd
+if [ -a /link_resov_conf ] ; then
+  rm /link_resov_conf
+  mv "/etc/resolv.conf" "/etc/resolv.conf.bak"
+  ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
+fi
+
 #tell systemd this service is done
 systemd-notify --ready
 END
@@ -379,11 +386,6 @@ if [ $(basename "$THIS") = "bash" ] ; then
   echo "$1" > "${TMP_ROOT}/usr/sbin/mkarch.sh"
 else
   cp "$THIS" ${TMP_ROOT}/usr/sbin/mkarch.sh
-fi
-if [ -a ${TMP_ROOT}/link_resov_conf ] ; then
-  rm "${TMP_ROOT}/link_resov_conf"
-  mv "${TMP_ROOT}/etc/resolv.conf" "${TMP_ROOT}/etc/resolv.conf.bak"
-  ln -s /run/systemd/resolve/resolv.conf "${TMP_ROOT}/etc/resolv.conf"
 fi
 sync
 echo "fstab is:"
