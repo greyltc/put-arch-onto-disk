@@ -197,7 +197,8 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     su -c "(cd; bash <(curl aur.sh) -si --noconfirm package-query yaourt)" -s /bin/bash ${ADMIN_USER_NAME}
     rm -rf /home/${ADMIN_USER_NAME}/package-query
     rm -rf /home/${ADMIN_USER_NAME}/yaourt
-    sed -i 's/EXPORT=./EXPORT=2/g' /etc/yaourtrc
+    # make yaourt save built packages
+    sed -i '/EXPORT=/c\EXPORT=2' /etc/yaourtrc
     su -c "(yaourt -Syyua --needed --noconfirm {AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
   fi
   # wheel group users need password for sudo:
