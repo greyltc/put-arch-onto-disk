@@ -72,7 +72,7 @@ TARGET=/dev/sdX TARGET_IS_REMOVABLE=true sudo -E ./put-arch-onto-disk.sh
 ---
 (Author favorite) This will install directly to a device at /dev/sdX with a root file system suitable for a USB stick and include a full gnome desktop with the gparted disk management utility:
 ```
-TARGET=/dev/sdX TARGET_IS_REMOVABLE=true PACKAGE_LIST="gnome gnome-extra gparted" sudo -E ./put-arch-onto-disk.sh
+TARGET=/dev/sdX TARGET_IS_REMOVABLE=true PACKAGE_LIST="gnome gparted" sudo -E ./put-arch-onto-disk.sh
 ```
 ---
 This will install directly to a device at /dev/sdX with a root file system suitable for a SSD/HDD and create a swap partition sized to match the amount of ram installed in the current machine and install a few addidional packages to the target system:
@@ -100,7 +100,7 @@ TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" P
 
 Pi with gnome gui:
 ```
-TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware gnome gnome-extra xf86-video-fbturbo-git" sudo -E bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"
+TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware gnome xf86-video-fbturbo-git" sudo -E bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"
 ```
 Pi with lxde gui:
 ```
