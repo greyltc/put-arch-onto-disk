@@ -169,7 +169,8 @@ echo LANG="${LANGUAGE}.${TEXT_ENCODING}" > /etc/locale.conf
 echo "root:${ROOT_PASSWORD}"|chpasswd
 
 # let's make sure our keys are up to date
-pacman-key --refresh-keys
+pacman-key --init
+pacman-key --populate archlinux
 
 cat > /usr/bin/reflect_mirrors <<END
 #!/usr/bin/env bash
