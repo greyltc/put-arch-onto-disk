@@ -12,7 +12,7 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
  - Installtions are up-to-date as of the minute you run the script
  - Easily set many installtion parameters programatically:
 
-
+### Variables
 Variable Name|Description|Default Value
 ---|---|---
 `TARGET_ARCH`|target architecture|`x86_64`
@@ -43,17 +43,20 @@ Variable Name|Description|Default Value
 ### Requirements and notes
 1. This script must be run from a x86_64 Arch Linux environment
 1. You must have internet access when running this script (it needs to download the Arch packages).
-1. It's been tested mostly on x86_64, i686 installs *might* work by changing TARGET_ARCH, see examples below for ARM
+1. It's been tested mostly for making x86_64 installs. i686 installs *might* work by changing 'TARGET_ARCH'. See examples below for installs to ARM targets (this makes use of [Arch Linux ARM](http://archlinuxarm.org/) repos). 
 1. Understand that the script provided here comes with no guarentees that it won't destroy your computer and everything attached to it :-), although I believe it's safe (unless you're careless). There are no warnings or "Are you sure you want to..." messages. It will happily dd over all your cat pictures, your homework, your bitcoin wallet, its self, your family photos and even your nealry competed PhD dissertation if you ask it to, so be careful.
 
 ### Usage
 
-1. Examine the variables listed here and make sure you understand what the defaults are (they should be safe, since there is no dding by default).
-1. Define the appropriate environment variables to override the defaults and call the script.
+You can run the script like this:
+```
+S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
+```
+and prefix new definitions for any variables you'd like to override.  
+The [recipes](README.md#recipes) section has a bunch of examples of this.  
+[Here are the variables](README.md#variables) you can override to tune your Arch install.
 
-You must run the script with root permissions.
 ### Recipes
-In to following recipes, `./put-arch-onto-disk.sh` can be replaced with `bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"` to run the script directly from this repo.
 
 This will generate a 2GiB disk image (suitable for dding to a USB stick) in the current directory called bootable_arch.img:
 ```
@@ -62,47 +65,47 @@ This will generate a 2GiB disk image (suitable for dding to a USB stick) in the 
 ---
 This will generate a 4GiB disk image (suitable for dding to a USB stick) in the current directory called bootable_arch.img, then use dd to copy it to a USB stick at /dev/sdX and then delete the image file:
 ```
-IMG_SIZE=4GiB DD_TO_DISK=/dev/sdX CLEAN_UP=true TARGET_IS_REMOVABLE=true sudo -E ./put-arch-onto-disk.sh
+IMG_SIZE=4GiB DD_TO_DISK=/dev/sdX CLEAN_UP=true TARGET_IS_REMOVABLE=true S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 ---
 This will install directly to a device at /dev/sdX with a root file system suitable for a USB stick:
 ```
-TARGET=/dev/sdX TARGET_IS_REMOVABLE=true sudo -E ./put-arch-onto-disk.sh
+TARGET=/dev/sdX TARGET_IS_REMOVABLE=true S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 ---
 (Author favorite) This will install directly to a device at /dev/sdX with a root file system suitable for a USB stick and include a full gnome desktop with the gparted disk management utility:
 ```
-TARGET=/dev/sdX TARGET_IS_REMOVABLE=true PACKAGE_LIST="gnome gparted" sudo -E ./put-arch-onto-disk.sh
+TARGET=/dev/sdX TARGET_IS_REMOVABLE=true PACKAGE_LIST="gnome gparted" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 ---
 This will install directly to a device at /dev/sdX with a root file system suitable for a SSD/HDD and create a swap partition sized to match the amount of ram installed in the current machine and install a few addidional packages to the target system:
 ```
-TARGET=/dev/sdX ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim sl" sudo -E ./put-arch-onto-disk.sh
+TARGET=/dev/sdX ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim sl" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 ---
 This will make a .vdi disk image suitable for running in virtualbox:
 ```
-PACKAGE_LIST="virtualbox-guest-utils" ROOT_FS_TYPE=btrfs sudo -E bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"
+PACKAGE_LIST="virtualbox-guest-utils" ROOT_FS_TYPE=btrfs S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 VBoxManage convertfromraw --format VDI bootable_arch.img bootable_arch.vdi
 ```
 ### Moar Recipes
 ```
-TARGET=/dev/sdX TIME_ZONE="US/Eastern" THIS_HOSTNAME="optiplex745" ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim gparted cinnamon" sudo -E ./put-arch-onto-disk.sh
+TARGET=/dev/sdX TIME_ZONE="US/Eastern" THIS_HOSTNAME="optiplex745" ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim gparted cinnamon" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 ```
-TARGET=/dev/sdX ADMIN_USER_NAME=grey TIME_ZONE="Europe/London" THIS_HOSTNAME="epozz" ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="gnome gnome-extra gparted" sudo -E ./put-arch-onto-disk.sh
+TARGET=/dev/sdX ADMIN_USER_NAME=grey TIME_ZONE="Europe/London" THIS_HOSTNAME="epozz" ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="gnome gnome-extra gparted" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 
 Put arch onto a raspberry pi2 sdcard:
 ```
-TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware" sudo -E bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"
+TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 
 Pi with gnome gui:
 ```
-TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware gnome xf86-video-fbturbo-git" sudo -E bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"
+TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware gnome xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 Pi with lxde gui:
 ```
-TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware lxde xf86-video-fbturbo-git" sudo -E bash -c "$(curl -fsSL https://raw.githubusercontent.com/l3iggs/put-arch-onto-disk/master/put-arch-onto-disk.sh)"
+TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware lxde xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
