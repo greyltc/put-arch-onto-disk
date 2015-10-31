@@ -196,21 +196,25 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   # AUR can only be enabled if a non-root user exists
   if [ "$ENABLE_AUR" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
-    # install yaourt
+    # bootstrap install yaourt
     su -c "(cd; bash <(curl aur.sh) -si --noconfirm package-query yaourt)" -s /bin/bash ${ADMIN_USER_NAME}
     rm -rf /home/${ADMIN_USER_NAME}/package-query
     rm -rf /home/${ADMIN_USER_NAME}/yaourt
-    # make yaourt save built packages
+    # make yaourt save the packages it builds
     sed -i '/EXPORT=/c\EXPORT=2' /etc/yaourtrc
-    su -c "(yaourt -Syyua --needed --noconfirm {AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
+    # install user supplied aur packages (and cower) now
+    su -c "(yaourt -Syyua --needed --noconfirm cower {AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
   fi
   # wheel group users need password for sudo:
   sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
 fi
 
+# if grub is installed, don't boot quietly
 if pacman -Q grub > /dev/null 2>/dev/null; then
   sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
 fi
+
+# if virtualbox is installed, let's enable its modules
 if pacman -Q virtualbox-guest-modules > /dev/null 2>/dev/null; then
   cat > /etc/modules-load.d/vbox_guest.conf <<END
 vboxguest
@@ -219,10 +223,12 @@ vboxvideo
 END
 fi
 
+# if openssh is installed, enable the service
 if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable sshd.service
 fi
-# 
+
+# if networkmanager is installed, enable it, otherwise let systemd things manage the network
 if pacman -Q networkmanager > /dev/null 2>/dev/null; then
   systemctl enable NetworkManager.service
 else
@@ -238,6 +244,8 @@ Name=*
 DHCP=yes
 END
 fi
+
+# if bcache is installed, make sure its module is loaded super early in case / is bcache
 if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
   sed -i 's/MODULES="/MODULES="bcache /g' /etc/mkinitcpio.conf
   sed -i 's/HOOKS="base udev autodetect modconf block/HOOKS="base udev autodetect modconf block bcache/g' /etc/mkinitcpio.conf
@@ -246,7 +254,7 @@ fi
 # if gdm was installed, let's do a few things
 if pacman -Q gdm > /dev/null 2>/dev/null; then
   systemctl enable gdm
-  #TODO: set keyboard layout
+  #TODO: set keyboard layout for gnome
   if [ "$MAKE_ADMIN_USER" = true ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
     echo "# Enable automatic login for user" >> /etc/gdm/custom.conf
     echo "[daemon]" >> /etc/gdm/custom.conf
@@ -342,7 +350,8 @@ END
 fi
 if pacman -Q grub > /dev/null 2>/dev/null; then
   mkdir -p /boot/EFI/BOOT
-  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
+  GRUB_THEME="--themes=starfield"
+  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" ${GRUB_THEME} --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
 fi
 cat > /etc/systemd/system/fix-efi.service <<END
 [Unit]
