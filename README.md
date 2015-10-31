@@ -60,7 +60,7 @@ The [recipes](README.md#recipes) section has a bunch of examples of this.
 
 This will generate a 2GiB disk image (suitable for dding to a USB stick) in the current directory called bootable_arch.img:
 ```
-./put-arch-onto-disk.sh
+S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 ---
 This will generate a 4GiB disk image (suitable for dding to a USB stick) in the current directory called bootable_arch.img, then use dd to copy it to a USB stick at /dev/sdX and then delete the image file:
