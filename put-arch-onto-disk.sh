@@ -382,37 +382,42 @@ if [ -b $DD_TO_DISK ] ; then
 fi
 chmod +x /tmp/chroot.sh
 mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
-arch-chroot ${TMP_ROOT} /root/chroot.sh
-rm ${TMP_ROOT}/root/chroot.sh
-if [ $(basename "$THIS") = "bash" ] ; then
-  echo "run from curl detected"
-  echo "$1" > "${TMP_ROOT}/usr/sbin/mkarch.sh"
-else
+arch-chroot ${TMP_ROOT} /root/chroot.sh && SUCCESS=true || true
+rm -rf ${TMP_ROOT}/root/chroot.sh
+if [ $SUCCESS = "true" ] ; then
   cp "$THIS" ${TMP_ROOT}/usr/sbin/mkarch.sh
-fi
-sync
-echo "fstab is:"
-cat "${TMP_ROOT}/etc/fstab"
-umount ${TMP_ROOT}/boot
-[ "$ROOT_FS_TYPE" = "btrfs" ] && umount ${TMP_ROOT}/home
-umount ${TMP_ROOT}
-losetup -D
-sync
-echo "Image sucessfully created"
-if [ -b $DD_TO_DISK ] ; then
-  TARGET_DEV=$DD_TO_DISK
-  echo "Writing image to disk..."
-  dd if="${IMG_NAME}" of=${TARGET_DEV} bs=4M
   sync
-  sgdisk -e ${TARGET_DEV}
-  sgdisk -v ${TARGET_DEV}
-  echo "Image sucessfully written."
+  echo "fstab is:"
+  cat "${TMP_ROOT}/etc/fstab"
 fi
 
-if [ "$TARGET_IS_REMOVABLE" = true ] ; then
-  eject ${TARGET_DEV} && echo "It's now safe to remove $TARGET_DEV"
+umount ${TMP_ROOT}/boot || true
+if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
+  umount ${TMP_ROOT}/home || true
+fi
+umount ${TMP_ROOT} || true
+losetup -D || true
+sync
+if [ $SUCCESS = "true" ] ; then
+  echo "Image sucessfully created"
+  if [ -b $DD_TO_DISK ] ; then
+    TARGET_DEV=$DD_TO_DISK
+    echo "Writing image to disk..."
+    dd if="${IMG_NAME}" of=${TARGET_DEV} bs=4M
+    sync
+    sgdisk -e ${TARGET_DEV}
+    sgdisk -v ${TARGET_DEV}
+    echo "Image sucessfully dd'd to fisk."
+  fi
+
+  if [ "$TARGET_IS_REMOVABLE" = true ] ; then
+    eject ${TARGET_DEV} && echo "It's now safe to remove $TARGET_DEV"
+  fi
+else
+  echo "There was a failure while setting up the operating system."
 fi
 
 if [ "$CLEAN_UP" = true ] ; then
+  echo "Cleaning up."
   rm -f "${IMG_NAME}"
 fi
