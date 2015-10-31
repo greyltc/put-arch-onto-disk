@@ -384,7 +384,7 @@ chmod +x /tmp/chroot.sh
 mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
 arch-chroot ${TMP_ROOT} /root/chroot.sh && SUCCESS=true || true
 rm -rf ${TMP_ROOT}/root/chroot.sh
-if [ $SUCCESS = "true" ] ; then
+if [ "$SUCCESS" = "true" ] ; then
   cp "$THIS" ${TMP_ROOT}/usr/sbin/mkarch.sh
   sync
   echo "fstab is:"
@@ -398,7 +398,7 @@ fi
 umount ${TMP_ROOT} || true
 losetup -D || true
 sync
-if [ $SUCCESS = "true" ] ; then
+if [ "$SUCCESS" = "true" ] ; then
   echo "Image sucessfully created"
   if [ -b $DD_TO_DISK ] ; then
     TARGET_DEV=$DD_TO_DISK
