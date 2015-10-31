@@ -40,10 +40,10 @@ Variable Name|Description|Default Value
 `TARGET_IS_REMOVABLE`|the target block device is removable|`false`
 `CLEAN_UP`|delete the disk image created here (if created)|`false`
 
-### Requirements
+### Requirements and notes
 1. This script must be run from a x86_64 Arch Linux environment
-1. Do not expect the installation created here to work on any machine which does not supoprt x86_64
-1. `sudo pacman -Syyu --needed util-linux coreutils gptfdisk f2fs-tools e2fsprogs btrfs-progs arch-install-scripts procps-ng sed`
+1. You must have internet access when running this script (it needs to download the Arch packages).
+1. It's been tested mostly on x86_64, i686 installs *might* work by changing TARGET_ARCH, see examples below for ARM
 1. Understand that the script provided here comes with no guarentees that it won't destroy your computer and everything attached to it :-), although I believe it's safe (unless you're careless). There are no warnings or "Are you sure you want to..." messages. It will happily dd over all your cat pictures, your homework, your bitcoin wallet, its self, your family photos and even your nealry competed PhD dissertation if you ask it to, so be careful.
 
 ### Usage
