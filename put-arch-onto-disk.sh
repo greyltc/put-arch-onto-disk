@@ -3,7 +3,8 @@ set -e #break on error
 set -vx #echo on
 
 # put-arch-onto-disk.sh
-# This script installs Arch Linux onto media or into a disk image
+# This script installs Arch Linux onto media (making it bootable)
+# or into a disk image which can later be dd'd onto some media to make it bootable
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run with root permissions"
