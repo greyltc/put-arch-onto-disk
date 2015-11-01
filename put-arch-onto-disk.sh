@@ -392,7 +392,7 @@ END
 
   cat > /usr/sbin/fix-efi.sh <<END
 #!/usr/bin/env bash
-if efivar --list > /dev/null ; then
+if efivar --list > /dev/null 2>/dev/null ; then
   echo "Re-installing grub when efi boot."
   grub-install --themes=$GRUB_THEME --removable --target=x86_64-efi --efi-directory=/boot --recheck && systemctl disable fix-efi.service
   grub-mkconfig -o /boot/grub/grub.cfg
@@ -403,7 +403,7 @@ if efivar --list > /dev/null ; then
   fi
 else
   echo "No efi: don't need to fix grub-efi" 
-end
+fi
 END
   chmod +x /usr/sbin/fix-efi.sh
   systemctl enable fix-efi.service
