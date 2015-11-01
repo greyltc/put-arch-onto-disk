@@ -30,13 +30,12 @@ Variable Name|Description|Default Value
 `MAKE_ADMIN_USER`|create a user with sudo powers (and install sudo)|`true`
 `ADMIN_USER_NAME`|user name for admin user (requires `MAKE_ADMIN_USER`=`true`)|`admin`
 `ADMIN_USER_PASSWORD`|password for admin user (requires `MAKE_ADMIN_USER`=`true`)|`admin`
-`THIS_HOSTNAME`|installed system's hostname|`archthing`
+`THIS_HOSTNAME`|target system's hostname|`archthing`
 `PACKAGE_LIST`|list of additional official packages to install|
-`ENABLE_AUR`|install `yaourt` and cower|`true`
+`ENABLE_AUR`|install `yaourt` and cower (requires `MAKE_ADMIN_USER`=`true`)|`true`
 `AUR_PACKAGE_LIST`|list of packages to install from the AUR (requires `ENABLE_AUR`=`true`)|
 `AUTOLOGIN_ADMIN`|autologin admin user through display manager login page (works for gdm and lxdm)|`false`
 `FIRST_BOOT_SCRIPT`|path to a (local) script you wish to run on first boot of the media|
-`TARGET_IS_REMOVABLE`|the target block device is removable|`false`
 
 ### Requirements and notes
 1. This script must be run from a x86_64 Arch Linux environment
