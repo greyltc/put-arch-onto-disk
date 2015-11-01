@@ -215,7 +215,7 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     rm -rf /home/${ADMIN_USER_NAME}/yaourt
     # make yaourt save the packages it builds
     sed -i '/EXPORT=/c\EXPORT=2' /etc/yaourtrc
-    # install user supplied aur packages (and cower) now
+    # install user supplied aur packages (and cower) now TODO: fix cower gpg key
     su -c "(yaourt -Syyua --needed --noconfirm cower {AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
   fi
   # make sudo prompt for password
