@@ -252,6 +252,9 @@ Name=*
 
 [Network]
 DHCP=yes
+
+[DHCP]
+ClientIdentifier=mac
 END
 fi
 
