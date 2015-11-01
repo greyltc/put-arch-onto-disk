@@ -25,13 +25,12 @@ echo "$-"
 : ${MAKE_ADMIN_USER:=true}
 : ${ADMIN_USER_NAME:=admin}
 : ${ADMIN_USER_PASSWORD:=admin}
-: ${THIS_HOSTNAME:=bootdisk}
+: ${THIS_HOSTNAME:=archthing}
 : ${PACKAGE_LIST:=""}
 : ${ENABLE_AUR:=true}
 : ${AUR_PACKAGE_LIST:=""}
 : ${AUTOLOGIN_ADMIN:=false}
 : ${FIRST_BOOT_SCRIPT:=""}
-: ${DD_TO_DISK:=false}
 : ${TARGET_IS_REMOVABLE:=false}
 : ${CLEAN_UP:=false}
 
@@ -161,18 +160,28 @@ set -e #break on error
 #set -vx #echo on
 set -x
 
+# set hostname
 echo ${THIS_HOSTNAME} > /etc/hostname
+
+# set timezone
 ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
+
+# set text encoding
 echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
+
+# set locale
 locale-gen
 echo LANG="${LANGUAGE}.${TEXT_ENCODING}" > /etc/locale.conf
+
+# change password for root
 echo "root:${ROOT_PASSWORD}"|chpasswd
 
-# let's make sure our keys are up to date
+# update pacman keys
 pacman-key --init
 pacman-key --populate archlinux
 
-cat > /usr/bin/reflect_mirrors <<END
+# make a script that makes sure we use fast package mirrors
+cat > /usr/sbin/reflect_mirrors.sh <<END
 #!/usr/bin/env bash
 
 if [[ \$(uname -m) == *"arm"* ]] ; then
@@ -184,19 +193,22 @@ else
   reflector --verbose -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
 fi
 END
-chown root:users /usr/bin/reflect_mirrors
-chmod ug+wx /usr/bin/reflect_mirrors
-reflect_mirrors
+chmod +x /usr/bin/reflect_mirrors.sh
+
+# use fast mirrors
+reflect_mirrors.sh
+
+# setup admin user
 if [ "$MAKE_ADMIN_USER" = true ] ; then
   useradd -m -G wheel -s /bin/bash ${ADMIN_USER_NAME}
   echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
   pacman -S --needed --noconfirm sudo
   sed -i 's/# %wheel ALL=(ALL)/%wheel ALL=(ALL)/g' /etc/sudoers
   
-  # AUR can only be enabled if a non-root user exists
+  # AUR can only be enabled if a non-root user exists, so we'll do it in here
   if [ "$ENABLE_AUR" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
-    # bootstrap install yaourt
+    # bootstrap yaourt
     su -c "(cd; bash <(curl aur.sh) -si --noconfirm package-query yaourt)" -s /bin/bash ${ADMIN_USER_NAME}
     rm -rf /home/${ADMIN_USER_NAME}/package-query
     rm -rf /home/${ADMIN_USER_NAME}/yaourt
@@ -205,13 +217,8 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     # install user supplied aur packages (and cower) now
     su -c "(yaourt -Syyua --needed --noconfirm cower {AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
   fi
-  # wheel group users need password for sudo:
+  # make sudo prompt for password
   sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
-fi
-
-# if grub is installed, don't boot quietly
-if pacman -Q grub > /dev/null 2>/dev/null; then
-  sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
 fi
 
 # if virtualbox is installed, let's enable its modules
@@ -308,6 +315,7 @@ ExecStopPost=/usr/bin/systemctl disable nativeSetupTasks.service
 WantedBy=multi-user.target
 END
 systemctl enable nativeSetupTasks.service
+
 cat > /usr/sbin/nativeSetupTasks.sh <<END
 #!/usr/bin/env bash
 echo "Running first boot script."
@@ -330,30 +338,35 @@ systemd-notify --ready
 END
 chmod +x /usr/sbin/nativeSetupTasks.sh
 
+# run mkinitcpio (if it exists, it won't under alarm)
 which mkinitcpio >/dev/null && mkinitcpio -p linux
 
+# setup & install grub bootloader (if it's been installed)
 if pacman -Q grub > /dev/null 2>/dev/null; then
+  GRUB_THEME="starfield"
+  
+  # don't boot quietly
+  sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
+  
   grub-mkconfig -o /boot/grub/grub.cfg
-fi
-if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
-  cat > /usr/sbin/fix-f2fs-grub.sh <<END
+  
+  # for EFI
+  mkdir -p /boot/EFI/BOOT
+  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes=$GRUB_THEME -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
+
+  if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
+    cat > /usr/sbin/fix-f2fs-grub.sh <<END
 #!/usr/bin/env bash
 echo "Running script to fix bug in grub.config when root is f2fs."
 ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
 ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
 sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
 END
-  chmod +x /usr/sbin/fix-f2fs-grub.sh
-  if pacman -Q grub > /dev/null 2>/dev/null; then
+    chmod +x /usr/sbin/fix-f2fs-grub.sh
     fix-f2fs-grub.sh /boot/grub/grub.cfg
   fi
-fi
-if pacman -Q grub > /dev/null 2>/dev/null; then
-  mkdir -p /boot/EFI/BOOT
-  GRUB_THEME="--themes=starfield"
-  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" ${GRUB_THEME} --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
-fi
-cat > /etc/systemd/system/fix-efi.service <<END
+  
+  cat > /etc/systemd/system/fix-efi.service <<END
 [Unit]
 Description=Re-Installs Grub-efi bootloader
 ConditionPathExists=/usr/sbin/fix-efi.sh
@@ -369,40 +382,47 @@ SysVStartPriority=99
 [Install]
 WantedBy=multi-user.target
 END
-cat > /usr/sbin/fix-efi.sh <<END
+
+  cat > /usr/sbin/fix-efi.sh <<END
 #!/usr/bin/env bash
-echo "Re-installing grub when efi boot."
 if efivar --list > /dev/null ; then
-  grub-install --removable --target=x86_64-efi --efi-directory=/boot --recheck && systemctl disable fix-efi.service
+  echo "Re-installing grub when efi boot."
+  grub-install --themes=$GRUB_THEME --removable --target=x86_64-efi --efi-directory=/boot --recheck && systemctl disable fix-efi.service
   grub-mkconfig -o /boot/grub/grub.cfg
   ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
   ROOT_FS_TYPE=\\\$(lsblk \\\${ROOT_DEVICE} -n -o FSTYPE)
   if [ "\\\$ROOT_FS_TYPE" = "f2fs" ] ; then
     fix-f2fs-grub.sh /boot/grub/grub.cfg
   fi
-fi
+else
+  echo "No efi: don't need to fix grub-efi" 
+end
 END
-chmod +x /usr/sbin/fix-efi.sh
-if pacman -Q grub > /dev/null 2>/dev/null; then
+  chmod +x /usr/sbin/fix-efi.sh
   systemctl enable fix-efi.service
-  grub-install --modules=part_gpt --target=i386-pc --recheck --debug ${TARGET_DEV}
+  
+  grub-install --themes=$GRUB_THEME --modules=part_gpt --target=i386-pc --recheck --debug ${TARGET_DEV}
 fi
 EOF
-if [ -b $DD_TO_DISK ] ; then
-  for n in ${DD_TO_DISK}* ; do umount $n || true; done
-  wipefs -a ${DD_TO_DISK}
-fi
+
+# run the setup script in th new install's root
 chmod +x /tmp/chroot.sh
 mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
 arch-chroot ${TMP_ROOT} /root/chroot.sh && SUCCESS=true || true
-rm -rf ${TMP_ROOT}/root/chroot.sh
+
 if [ "$SUCCESS" = "true" ] ; then
+  # remove the setup script from the install
+  rm -rf ${TMP_ROOT}/root/chroot.sh || true
+  
+  # copy *this* script into the install for installs later
   cp "$THIS" ${TMP_ROOT}/usr/sbin/mkarch.sh
-  sync
+  
+  # you might want to know what the install's fstab looks like
   echo "fstab is:"
   cat "${TMP_ROOT}/etc/fstab"
 fi
 
+# unmount and clean up everything
 umount ${TMP_ROOT}/boot || true
 if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
   umount ${TMP_ROOT}/home || true
@@ -410,26 +430,13 @@ fi
 umount ${TMP_ROOT} || true
 losetup -D || true
 sync
+
 if [ "$SUCCESS" = "true" ] ; then
   echo "Image sucessfully created"
-  if [ -b $DD_TO_DISK ] ; then
-    TARGET_DEV=$DD_TO_DISK
-    echo "Writing image to disk..."
-    dd if="${IMG_NAME}" of=${TARGET_DEV} bs=4M
-    sync
-    sgdisk -e ${TARGET_DEV}
-    sgdisk -v ${TARGET_DEV}
-    echo "Image sucessfully dd'd to fisk."
-  fi
-
-  if [ "$TARGET_IS_REMOVABLE" = true ] ; then
-    eject ${TARGET_DEV} && echo "It's now safe to remove $TARGET_DEV"
+  eject ${TARGET_DEV} || true
+  if [ $? -eq 0 ]; then
+    echo "It's now safe to remove $TARGET_DEV"
   fi
 else
-  echo "There was a failure while setting up the operating system."
-fi
-
-if [ "$CLEAN_UP" = true ] ; then
-  echo "Cleaning up."
-  rm -f "${IMG_NAME}"
+  echo "There was some failure while setting up the operating system."
 fi
