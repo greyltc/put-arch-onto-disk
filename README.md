@@ -60,19 +60,14 @@ This will generate a 2GiB disk image (suitable for dding to a USB stick) in the 
 S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 ---
-This will generate a 4GiB disk image (suitable for dding to a USB stick) in the current directory called bootable_arch.img, then use dd to copy it to a USB stick at /dev/sdX and then delete the image file:
+This will install directly to a device at /dev/sdX with a root file system suitable for flash media (f2fs):
 ```
-IMG_SIZE=4GiB DD_TO_DISK=/dev/sdX CLEAN_UP=true TARGET_IS_REMOVABLE=true S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
-```
----
-This will install directly to a device at /dev/sdX with a root file system suitable for a USB stick:
-```
-TARGET=/dev/sdX TARGET_IS_REMOVABLE=true S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
+TARGET=/dev/sdX S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 ---
-(Author favorite) This will install directly to a device at /dev/sdX with a root file system suitable for a USB stick and include a full gnome desktop with the gparted disk management utility:
+(Author favorite) This will install directly to a device at /dev/sdX with a root file system suitable for flash media and include a full gnome desktop with the gparted disk management utility:
 ```
-TARGET=/dev/sdX TARGET_IS_REMOVABLE=true PACKAGE_LIST="gnome gparted" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
+TARGET=/dev/sdX PACKAGE_LIST="gnome gparted" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 ---
 This will install directly to a device at /dev/sdX with a root file system suitable for a SSD/HDD and create a swap partition sized to match the amount of ram installed in the current machine and install a few addidional packages to the target system:
@@ -89,20 +84,22 @@ VBoxManage convertfromraw --format VDI bootable_arch.img bootable_arch.vdi
 ```
 TARGET=/dev/sdX TIME_ZONE="US/Eastern" THIS_HOSTNAME="optiplex745" ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="vim gparted cinnamon" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
+---
 ```
-TARGET=/dev/sdX ADMIN_USER_NAME=grey TIME_ZONE="Europe/London" THIS_HOSTNAME="epozz" ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="gnome gnome-extra gparted" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
+TARGET=/dev/sdX TIME_ZONE="Europe/London" THIS_HOSTNAME="epozz" ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="gnome gnome-extra gparted" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
-
-Put arch onto a raspberry pi2 sdcard:
+---
+Put arch onto a SD card which can boot a raspberry pi:
 ```
-TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
+TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
-
+---
 Pi with gnome gui:
 ```
-TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware gnome xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
+TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware gnome xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
+---
 Pi with lxde gui:
 ```
-TARGET=/dev/sdX TARGET_ARCH=armv7h TARGET_IS_REMOVABLE=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware lxde xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
+TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-firmware linux-raspberrypi raspberrypi-firmware lxde xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/l3iggs/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
