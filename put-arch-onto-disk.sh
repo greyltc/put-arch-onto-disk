@@ -38,24 +38,18 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${AUTOLOGIN_ADMIN:=false}
 : ${FIRST_BOOT_SCRIPT:=""}
 
-# these packages should not be in stalled if target is arm
-NOT_ARM="grub efibootmgr reflector jfsutils"
 
 if [[ $TARGET_ARCH == *"arm"* ]]
 then
-  which qemu-arm-static >/dev/null && which update-binfmts >/dev/null
-  if [ $? -eq 0 ]
-  then
-    update-binfmts --enable qemu-arm
-    NOT_ARM=""
-  else
-    echo "Please install qemu-user-static and binfmt-support from the AUR" >&2
-    exit
-  fi
+  pacman -Sy --needed --noconfirm qemu-user-static binfmt-support
+  update-binfmts --enable qemu-arm
+else
+  # alarm does not like/need these
+  NON_ARM_PKGS="grub efibootmgr reflector jfsutils"
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${NOT_ARM} btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync dialog wpa_actiond ifplugd"
+DEFAULT_PACKAGES="base ${NON_ARM_PKGS} btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync dialog wpa_actiond ifplugd"
 
 # install these packages on the host now. they're needed for the install process
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
