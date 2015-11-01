@@ -20,25 +20,23 @@ Variable Name|Description|Default Value
 `MAKE_SWAP_PARTITION`|create swap partition|`false`
 `SWAP_SIZE_IS_RAM_SIZE`|use amount of installed ram as swap size|`false`
 `SWAP_SIZE`|swap partition size (if `SWAP_SIZE_IS_RAM_SIZE`=`false`)|`100MiB`
-`TARGET`|installation target. if this is a block deivce, you'll get a direct install, if it's a file you'll get a disk image|`./bootable_arch.img`
+`TARGET`|installation target. if this is a block deivce, you'll get a direct install onto that media (repartitioning it and filling it entirely), if it's a file you'll get a dd-able disk image of size `IMG_SIZE`|`./bootable_arch.img`
 `IMG_SIZE`|disk image size|`2GiB`
 `TIME_ZONE`|installed system's timezone|`Europe/London`
 `LANGUAGE`|installed system's language|`en_US`
 `KEYMAP`|keyboard layout|`uk`
 `TEXT_ENCODING`|installed system's text encoding|`UTF-8`
 `ROOT_PASSWORD`|password for root user|`toor`
-`MAKE_ADMIN_USER`|create a user with sudo powers|`false`
-`ADMIN_USER_NAME`|user name for admin user|`admin`
-`ADMIN_USER_PASSWORD`|password for admin user|`admin`
-`THIS_HOSTNAME`|installed system's hostname|`bootdisk`
+`MAKE_ADMIN_USER`|create a user with sudo powers (and install sudo)|`true`
+`ADMIN_USER_NAME`|user name for admin user (requires `MAKE_ADMIN_USER`=`true`)|`admin`
+`ADMIN_USER_PASSWORD`|password for admin user (requires `MAKE_ADMIN_USER`=`true`)|`admin`
+`THIS_HOSTNAME`|installed system's hostname|`archthing`
 `PACKAGE_LIST`|list of additional official packages to install|
-`ENABLE_AUR`|install `yaourt` for easy installs from AUR|`true`
-`AUR_PACKAGE_LIST`|list of packages to install from the AUR|
-`AUTOLOGIN_ADMIN`|autologin admin user through display manager login page|`false`
-`FIRST_BOOT_SCRIPT`|path to a (local) script you wish to run on first boot|
-`DD_TO_DISK`|dd the created disk image to this block device|`false`
+`ENABLE_AUR`|install `yaourt` and cower|`true`
+`AUR_PACKAGE_LIST`|list of packages to install from the AUR (requires `ENABLE_AUR`=`true`)|
+`AUTOLOGIN_ADMIN`|autologin admin user through display manager login page (works for gdm and lxdm)|`false`
+`FIRST_BOOT_SCRIPT`|path to a (local) script you wish to run on first boot of the media|
 `TARGET_IS_REMOVABLE`|the target block device is removable|`false`
-`CLEAN_UP`|delete the disk image created here (if created)|`false`
 
 ### Requirements and notes
 1. This script must be run from a x86_64 Arch Linux environment
