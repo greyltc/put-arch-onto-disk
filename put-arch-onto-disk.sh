@@ -2,14 +2,19 @@
 set -e #break on error
 set -vx #echo on
 
+# put-arch-onto-disk.sh
+# This script installs Arch Linux onto media or into a disk image
+
 if [[ $EUID -ne 0 ]]; then
   echo "Please run with root permissions"
   exit
 fi
-THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
-echo "$*"
-echo "$-"
 
+# store off the absolute path to *this* script
+THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
+
+# set variable defaults. if any of these are defined elsewhere,
+# those values will be used instead of those listed here
 : ${TARGET_ARCH:=x86_64}
 : ${ROOT_FS_TYPE:=f2fs}
 : ${MAKE_SWAP_PARTITION:=false}
@@ -31,8 +36,6 @@ echo "$-"
 : ${AUR_PACKAGE_LIST:=""}
 : ${AUTOLOGIN_ADMIN:=false}
 : ${FIRST_BOOT_SCRIPT:=""}
-: ${TARGET_IS_REMOVABLE:=false}
-: ${CLEAN_UP:=false}
 
 # these packages should not be in stalled if target is arm
 NOT_ARM="grub efibootmgr reflector jfsutils"
@@ -50,7 +53,10 @@ then
   fi
 fi
 
+# here are a baseline set of packages for the new install
 DEFAULT_PACKAGES="base ${NOT_ARM} btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync dialog wpa_actiond ifplugd"
+
+# install these packages on the host now. they're needed for the install process
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
 
 if [ -b $TARGET ] ; then
