@@ -359,10 +359,6 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   
   grub-mkconfig -o /boot/grub/grub.cfg
   
-  # for EFI
-  mkdir -p /boot/EFI/BOOT
-  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes=$GRUB_THEME -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
-
   if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
     cat > /usr/sbin/fix-f2fs-grub.sh <<END
 #!/usr/bin/env bash
@@ -375,6 +371,10 @@ END
     fix-f2fs-grub.sh /boot/grub/grub.cfg
   fi
   
+  # for EFI
+  mkdir -p /boot/EFI/BOOT
+  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes=$GRUB_THEME -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
+
   cat > /etc/systemd/system/fix-efi.service <<END
 [Unit]
 Description=Re-Installs Grub-efi bootloader
