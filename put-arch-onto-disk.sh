@@ -261,11 +261,6 @@ ClientIdentifier=mac
 END
 fi
 
-# if f2fs is installed, make sure its module is loaded super early in case / is f2fs (arch wiki says I don't need this)
-if pacman -Q f2fs-tools > /dev/null 2>/dev/null; then
-  sed -i 's/MODULES="/MODULES="f2fs /g' /etc/mkinitcpio.conf
-fi
-
 # if bcache is installed, make sure its module is loaded super early in case / is bcache
 if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
   sed -i 's/MODULES="/MODULES="bcache /g' /etc/mkinitcpio.conf
