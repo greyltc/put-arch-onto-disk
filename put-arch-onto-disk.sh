@@ -49,7 +49,7 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${NON_ARM_PKGS} btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync dialog wpa_actiond ifplugd cpupower"
+DEFAULT_PACKAGES="base ${NON_ARM_PKGS} havegd btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync dialog wpa_actiond ifplugd cpupower"
 
 # install these packages on the host now. they're needed for the install process
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
@@ -178,8 +178,16 @@ echo LANG="${LANGUAGE}.${TEXT_ENCODING}" > /etc/locale.conf
 echo "root:${ROOT_PASSWORD}"|chpasswd
 
 # update pacman keys
+haveged -w 1024
 pacman-key --init
-pacman-key --populate archlinux
+pkill haveged
+pacman -Rs --noconfirm haveged
+if [[ \$(uname -m) == *"arm"* ]] ; then
+  pacman-key --populate archlinuxarm
+else
+  pacman-key --populate archlinux
+fi
+pkill gpg-agent
 
 # make a script that makes sure we use fast package mirrors
 cat > /usr/sbin/reflect_mirrors.sh <<END
