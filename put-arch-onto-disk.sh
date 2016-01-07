@@ -117,12 +117,24 @@ fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
 cp /etc/pacman.d/mirrorlist /tmp/mirrorlist
-cat > /tmp/pacman.conf <<EOF
+cat <<EOF > /tmp/pacman.conf
 [options]
 HoldPkg     = pacman glibc
 Architecture = ${TARGET_ARCH}
 CheckSpace
 SigLevel = Never
+EOF
+
+# enable the testing repo
+if [ "$USE_TESTING" = true ] ; then
+  cat <<EOF >> /tmp/pacman.conf
+
+[testing]
+Include = /tmp/mirrorlist
+EOF
+fi
+
+cat <<EOF >> /tmp/pacman.conf
 
 [core]
 Include = /tmp/mirrorlist
@@ -136,23 +148,19 @@ EOF
 
 if [[ $TARGET_ARCH == *"arm"* ]]
 then
-  echo "" >> /tmp/pacman.conf
-  echo "[alarm]" >> /tmp/pacman.conf
-  echo "Include = /tmp/mirrorlist" >> /tmp/pacman.conf
-  echo "" >> /tmp/pacman.conf
-  echo "[aur]" >> /tmp/pacman.conf
-  echo "Include = /tmp/mirrorlist" >> /tmp/pacman.conf
+  cat <<EOF >> /tmp/pacman.conf
+
+[alarm]
+Include = /tmp/mirrorlist
+
+[aur]
+Include = /tmp/mirrorlist
+EOF
   mkdir -p ${TMP_ROOT}/usr/bin
   cp /usr/bin/qemu-arm-static ${TMP_ROOT}/usr/bin
   echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /tmp/mirrorlist
 fi
 
-# enable the testing repo
-if [ "$USE_TESTING" = true ] ; then
-  echo "" >> /tmp/pacman.conf
-  echo "[testing]" >> /tmp/pacman.conf
-  echo "Include = /tmp/mirrorlist" >> /tmp/pacman.conf
-fi
 pacstrap -C /tmp/pacman.conf -M -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
 sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
