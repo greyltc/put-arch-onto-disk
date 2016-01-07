@@ -37,6 +37,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${AUR_PACKAGE_LIST:=""}
 : ${AUTOLOGIN_ADMIN:=false}
 : ${FIRST_BOOT_SCRIPT:=""}
+: ${USE_TESTING:=false}
 
 
 if [[ $TARGET_ARCH == *"arm"* ]]
@@ -144,6 +145,13 @@ then
   mkdir -p ${TMP_ROOT}/usr/bin
   cp /usr/bin/qemu-arm-static ${TMP_ROOT}/usr/bin
   echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /tmp/mirrorlist
+fi
+
+# enable the testing repo
+if [ "$USE_TESTING" = true ] ; then
+  echo "" >> /tmp/pacman.conf
+  echo "[testing]" >> /tmp/pacman.conf
+  echo "Include = /tmp/mirrorlist" >> /tmp/pacman.conf
 fi
 pacstrap -C /tmp/pacman.conf -M -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
