@@ -36,6 +36,7 @@ Variable Name|Description|Default Value
 `AUR_PACKAGE_LIST`|list of packages to install from the AUR (requires `ENABLE_AUR`=`true`)|
 `AUTOLOGIN_ADMIN`|autologin admin user through display manager login page (works for gdm and lxdm)|`false`
 `FIRST_BOOT_SCRIPT`|path to a (local) script you wish to run on first boot of the media|
+`USE_TESTING`|enables the testing repo|`false`
 
 ### Requirements and notes
 1. This script must be run from a x86_64 Arch Linux environment
