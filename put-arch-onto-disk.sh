@@ -339,7 +339,7 @@ cat > /usr/sbin/nativeSetupTasks.sh <<END
 echo "Running first boot script."
 
 echo "Enabling ntp client"
-sudo timedatectl set-ntp true
+timedatectl set-ntp true
 
 echo "Setting console keyboard layout"
 loadkeys $KEYMAP
