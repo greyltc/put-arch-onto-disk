@@ -205,23 +205,8 @@ else
 fi
 pkill gpg-agent
 
-# make a script that makes sure we use fast package mirrors
-cat > /usr/sbin/reflect_mirrors.sh <<END
-#!/usr/bin/env bash
-
-if [[ \$(uname -m) == *"arm"* ]] ; then
-  echo "No mirror rank for alarm"
-else
-  echo "Running reflector on mirrorlist, copying from backup first, overwriting"
-  mv /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
-  curl -o /etc/pacman.d/mirrorlist https://www.archlinux.org/mirrorlist/all/
-  reflector --verbose -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
-fi
-END
-chmod +x /usr/bin/reflect_mirrors.sh
-
 # use fast mirrors
-reflect_mirrors.sh
+reflector --verbose -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
 
 # setup admin user
 if [ "$MAKE_ADMIN_USER" = true ] ; then
