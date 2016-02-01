@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e #break on error
+set -eu -o pipefail
 set -vx #echo on
 
 # put-arch-onto-disk.sh
@@ -174,8 +174,7 @@ fi
 
 cat > /tmp/chroot.sh <<EOF
 #!/usr/bin/env bash
-set -e #break on error
-#set -vx #echo on
+set -eu -o pipefail
 set -x
 
 # set hostname
