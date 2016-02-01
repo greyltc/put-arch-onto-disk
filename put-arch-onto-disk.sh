@@ -199,7 +199,7 @@ pacman-key --init
 pkill haveged || true
 pacman -Rs --noconfirm --needed haveged
 if [[ \$(uname -m) == *"arm"* ]] ; then
-  pacman -D --noconfirm --needed archlinuxarm-keyring
+  pacman -S --noconfirm --needed archlinuxarm-keyring
   pacman-key --populate archlinuxarm
 else
   pacman-key --populate archlinux
