@@ -42,7 +42,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 
 if [[ $TARGET_ARCH == *"arm"* ]]
 then
-  su ${$SUDO_USER} -c 'pacaur -Sy --needed --noconfirm qemu-user-static binfmt-support'
+  su ${SUDO_USER} -c 'pacaur -Sy --needed --noconfirm qemu-user-static binfmt-support'
   update-binfmts --enable qemu-arm
   NON_ARM_PKGS=""
 else
