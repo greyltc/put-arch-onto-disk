@@ -427,9 +427,9 @@ EOF
 # run the setup script in th new install's root
 chmod +x /tmp/chroot.sh
 mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
-arch-chroot ${TMP_ROOT} /root/chroot.sh && SUCCESS=true || true
+arch-chroot ${TMP_ROOT} /root/chroot.sh; REPLY=$? || true
 
-if [ "$SUCCESS" = "true" ] ; then
+if [ "$REPLY" -eq 0 ] ; then
   # remove the setup script from the install
   rm -rf ${TMP_ROOT}/root/chroot.sh || true
   
@@ -450,7 +450,7 @@ umount ${TMP_ROOT} || true
 losetup -D || true
 sync
 
-if [ "$SUCCESS" = "true" ] ; then
+if [ "$REPLY" -eq 0 ] ; then
   echo "Image sucessfully created"
   eject ${TARGET_DEV} || true
   if [ $? -eq 0 ]; then
