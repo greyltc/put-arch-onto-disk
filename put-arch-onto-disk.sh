@@ -196,14 +196,14 @@ echo "root:${ROOT_PASSWORD}"|chpasswd
 # update pacman keys
 haveged -w 1024
 pacman-key --init
-pkill haveged
+pkill haveged || true
 pacman -Rs --noconfirm haveged
 if [[ \$(uname -m) == *"arm"* ]] ; then
   pacman-key --populate archlinuxarm
 else
   pacman-key --populate archlinux
 fi
-pkill gpg-agent
+pkill gpg-agent || true
 
 if [[ $TARGET_ARCH != *"arm"* ]]; then
   # use fast mirrors
