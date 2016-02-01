@@ -422,6 +422,11 @@ END
   
   grub-install --themes=$GRUB_THEME --modules=part_gpt --target=i386-pc --recheck --debug ${TARGET_DEV}
 fi
+
+# if we're on a pi, maybe the display is upside down, fix it
+if pacman -Q raspberrypi-firmware > /dev/null 2>/dev/null; then
+  echo "lcd_rotate=2" >> /boot/config.txt
+fi
 EOF
 
 # run the setup script in th new install's root
