@@ -40,8 +40,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${USE_TESTING:=false}
 
 
-if [[ $TARGET_ARCH == *"arm"* ]]
-then
+if [[ $TARGET_ARCH == *"arm"* ]]; then
   su ${SUDO_USER} -c 'pacaur -Sy --needed --noconfirm qemu-user-static binfmt-support'
   update-binfmts --enable qemu-arm
   NON_ARM_PKGS=""
@@ -149,8 +148,7 @@ Include = /tmp/mirrorlist
 Include = /tmp/mirrorlist
 EOF
 
-if [[ $TARGET_ARCH == *"arm"* ]]
-then
+if [[ $TARGET_ARCH == *"arm"* ]]; then
   cat <<EOF >> /tmp/pacman.conf
 
 [alarm]
@@ -207,8 +205,10 @@ else
 fi
 pkill gpg-agent
 
-# use fast mirrors
-reflector --verbose -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
+if [[ $TARGET_ARCH != *"arm"* ]]; then
+  # use fast mirrors
+  reflector -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
+fi
 
 # setup admin user
 if [ "$MAKE_ADMIN_USER" = true ] ; then
