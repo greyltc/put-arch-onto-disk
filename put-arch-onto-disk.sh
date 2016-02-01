@@ -339,12 +339,8 @@ cat > /usr/sbin/nativeSetupTasks.sh <<END
 #!/usr/bin/env bash
 echo "Running first boot script."
 
-echo "Reinstalling all packages"
-pacman -Q | awk '{ print $1 }' | sort > /tmp/pacman-installed.tmp
-pacman -Qm | awk '{ print $1 }' | sort | comm -3 /tmp/pacman-installed.tmp - > /tmp/pacman-to-reinstall.tmp
-
-pacman -S --noconfirm $(cat /tmp/pacman-to-reinstall.tmp)
-rm /tmp/pacman-{to-reinstall,installed}.tmp
+echo "Reinstall all the packages"
+pacman -S $(pacman -Qq) --noconfirm
 
 echo "Enabling ntp client"
 timedatectl set-ntp true
