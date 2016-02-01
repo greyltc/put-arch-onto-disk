@@ -42,8 +42,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 
 if [[ $TARGET_ARCH == *"arm"* ]]
 then
-  echo "Please ensure qemu-user-static and binfmt-support are installed from the AUR"
-  #su ${USER} -c 'pacaur -Sy --needed --noconfirm qemu-user-static binfmt-support'
+  su ${$SUDO_USER} -c 'pacaur -Sy --needed --noconfirm qemu-user-static binfmt-support'
   update-binfmts --enable qemu-arm
   NON_ARM_PKGS=""
 else
@@ -60,6 +59,8 @@ pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpa
 if [ -b $TARGET ] ; then
   TARGET_DEV=$TARGET
   for n in ${TARGET_DEV}* ; do umount $n || true; done
+  PEE=""
+  IMG_NAME=""
 else
   IMG_NAME=$TARGET
   rm -f "${IMG_NAME}"
