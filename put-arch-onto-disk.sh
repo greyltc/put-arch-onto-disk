@@ -365,7 +365,6 @@ which mkinitcpio >/dev/null && mkinitcpio -p linux
 
 # setup & install grub bootloader (if it's been installed)
 if pacman -Q grub > /dev/null 2>/dev/null; then
-  GRUB_THEME="starfield"
   
   # don't boot quietly
   sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
@@ -386,7 +385,7 @@ END
   
   # for EFI
   mkdir -p /boot/EFI/BOOT
-  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes=$GRUB_THEME -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
+  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
 
   cat > /etc/systemd/system/fix-efi.service <<END
 [Unit]
@@ -409,7 +408,7 @@ END
 #!/usr/bin/env bash
 if efivar --list > /dev/null 2>/dev/null ; then
   echo "Re-installing grub when efi boot."
-  grub-install --themes=$GRUB_THEME --removable --target=x86_64-efi --efi-directory=/boot --recheck && systemctl disable fix-efi.service
+  grub-install --themes="" --removable --target=x86_64-efi --efi-directory=/boot --recheck && systemctl disable fix-efi.service
   grub-mkconfig -o /boot/grub/grub.cfg
   ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
   ROOT_FS_TYPE=\\\$(lsblk \\\${ROOT_DEVICE} -n -o FSTYPE)
@@ -417,13 +416,13 @@ if efivar --list > /dev/null 2>/dev/null ; then
     fix-f2fs-grub.sh /boot/grub/grub.cfg
   fi
 else
-  echo "No efi: don't need to fix grub-efi" 
+  echo "No efi: don't need to fix grub-efi"
 fi
 END
   chmod +x /usr/sbin/fix-efi.sh
   systemctl enable fix-efi.service
   
-  grub-install --themes=$GRUB_THEME --modules=part_gpt --target=i386-pc --recheck --debug ${TARGET_DEV}
+  grub-install --themes="" --modules=part_gpt --target=i386-pc --recheck --debug ${TARGET_DEV}
 fi
 
 # if we're on a pi, maybe the display is upside down, fix it
