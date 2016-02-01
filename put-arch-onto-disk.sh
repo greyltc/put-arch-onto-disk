@@ -45,6 +45,7 @@ then
   echo "Please ensure qemu-user-static and binfmt-support are installed from the AUR"
   #su ${USER} -c 'pacaur -Sy --needed --noconfirm qemu-user-static binfmt-support'
   update-binfmts --enable qemu-arm
+  NON_ARM_PKGS=""
 else
   # alarm does not like/need these
   NON_ARM_PKGS="grub efibootmgr reflector jfsutils"
