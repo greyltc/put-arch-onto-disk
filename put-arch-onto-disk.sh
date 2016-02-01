@@ -42,7 +42,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 
 if [[ $TARGET_ARCH == *"arm"* ]]
 then
-  pacaur -Sy --needed --noconfirm qemu-user-static binfmt-support
+  su ${USER} -c 'pacaur -Sy --needed --noconfirm qemu-user-static binfmt-support'
   update-binfmts --enable qemu-arm
 else
   # alarm does not like/need these
