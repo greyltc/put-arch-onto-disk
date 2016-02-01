@@ -175,7 +175,7 @@ fi
 cat > /tmp/chroot.sh <<EOF
 #!/usr/bin/env bash
 set -eu -o pipefail
-set -x
+set -vx #echo on
 
 # set hostname
 echo ${THIS_HOSTNAME} > /etc/hostname
