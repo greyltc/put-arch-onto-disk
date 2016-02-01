@@ -253,8 +253,10 @@ fi
 
 # if networkmanager is installed, enable it, otherwise let systemd things manage the network
 if pacman -Q networkmanager > /dev/null 2>/dev/null; then
+  echo "Enabling NetworkManager service"
   systemctl enable NetworkManager.service
 else
+  vecho "Enabling systemd-networkd service"
   systemctl enable systemd-networkd
   systemctl enable systemd-resolved
   sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
