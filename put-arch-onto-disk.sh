@@ -197,18 +197,15 @@ echo "root:${ROOT_PASSWORD}"|chpasswd
 haveged -w 1024
 pacman-key --init
 pkill haveged || true
-pacman -Rs --noconfirm haveged
+pacman -Rs --noconfirm --needed haveged
 if [[ \$(uname -m) == *"arm"* ]] ; then
+  pacman -D --noconfirm --needed archlinuxarm-keyring
   pacman-key --populate archlinuxarm
 else
   pacman-key --populate archlinux
-fi
-pkill gpg-agent || true
-
-if [[ $TARGET_ARCH != *"arm"* ]]; then
-  # use fast mirrors
   reflector -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
 fi
+pkill gpg-agent || true
 
 # setup admin user
 if [ "$MAKE_ADMIN_USER" = true ] ; then
