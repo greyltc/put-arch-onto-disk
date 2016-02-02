@@ -190,8 +190,18 @@ echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
 locale-gen
 echo LANG="${LANGUAGE}.${TEXT_ENCODING}" > /etc/locale.conf
 
+# setup gnupg
+echo "keyserver hkp://keys.gnupg.net" >> /usr/share/gnupg/gpg-conf.skel
+sed -i "s,#keyserver-options auto-key-retrieve,keyserver-options auto-key-retrieve,g" /usr/share/gnupg/gpg-conf.skel
+mkdir -p /etc/skel/.gnupg
+cp /usr/share/gnupg/gpg-conf.skel /etc/skel/.gnupg/gpg.conf
+cp /usr/share/gnupg/dirmngr-conf.skel /etc/skel/.gnupg/dirmngr.conf
+
 # change password for root
 echo "root:${ROOT_PASSWORD}"|chpasswd
+
+# copy over the skel files for the root user
+cp -r /etc/skel/.[^.]* /root
 
 # update pacman keys
 haveged -w 1024
