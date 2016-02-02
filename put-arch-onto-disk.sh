@@ -228,13 +228,8 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   if [ "$ENABLE_AUR" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
     # bootstrap yaourt
-    su -c "(cd; bash <(curl aur.sh) -si --noconfirm package-query yaourt)" -s /bin/bash ${ADMIN_USER_NAME}
-    rm -rf /home/${ADMIN_USER_NAME}/package-query
-    rm -rf /home/${ADMIN_USER_NAME}/yaourt
-    # make yaourt save the packages it builds
-    sed -i '/EXPORT=/c\EXPORT=2' /etc/yaourtrc
-    # install user supplied aur packages (and cower) now TODO: fix cower gpg key
-    su -c "(yaourt -Syyua --needed --noconfirm cower {AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
+    su -c "(cd; bash <(curl aur.sh) -si --noconfirm --needed cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
+    su -c "(cd; rm -rf cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
   fi
   # make sudo prompt for password
   sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
