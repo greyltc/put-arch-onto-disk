@@ -379,6 +379,18 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   # generate the grub configuration file
   grub-mkconfig -o /boot/grub/grub.cfg
   
+  if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
+    cat > /usr/sbin/fix-f2fs-grub <<END
+#!/usr/bin/env bash
+echo "Running script to fix bug in grub.config when root is f2fs."
+ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
+ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
+sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
+END
+    chmod +x /usr/sbin/fix-f2fs-grub.sh
+    fix-f2fs-grub /boot/grub/grub.cfg
+  fi
+  
   # for grub UEFI (stanalone version)
   mkdir -p /boot/EFI/grub-standalone
   grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
