@@ -370,17 +370,20 @@ which mkinitcpio >/dev/null && mkinitcpio -p linux
 
 # setup & install grub bootloader (if it's been installed)
 if pacman -Q grub > /dev/null 2>/dev/null; then
+  # we always want os-prober if we have grub
+  pacman -S --noconfirm --needed os-prober
   
   # don't boot quietly
   sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
   
+  # generate the grub configuration file
   grub-mkconfig -o /boot/grub/grub.cfg
   
   # for UEFI (stanalone version)
   mkdir -p /boot/EFI/grub-standalone
   grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
 
-  # attempt normal UEFI install (fails if the install system is not UEFI)
+  # attempt normal UEFI install (fails if the install system is not UEFI, no problem we'll re-install UEFI grub natively)
   grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub || true
   
   cat > /etc/systemd/system/fix-efi.service <<END
