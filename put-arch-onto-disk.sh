@@ -379,14 +379,16 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   # generate the grub configuration file
   grub-mkconfig -o /boot/grub/grub.cfg
   
-  # for UEFI (stanalone version)
+  # for grub UEFI (stanalone version)
   mkdir -p /boot/EFI/grub-standalone
   grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
 
-  # attempt normal UEFI install (fails if the install system is not UEFI, no problem we'll re-install UEFI grub natively)
-  grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub || true
+  # attempt normal grub UEFI install (fails if the install system is not UEFI, no problem we'll re-install UEFI grub natively at first boot)
+  grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub;  REPLY=\$? || true
   
-  cat > /etc/systemd/system/fix-efi.service <<END
+  # do these things if the normal UEFI grub install failed
+  if [ "$REPLY" -eq 0 ] ; then
+    cat > /etc/systemd/system/fix-efi.service <<END
 [Unit]
 Description=Re-Installs Grub-efi bootloader
 ConditionPathExists=/usr/sbin/fix-efi.sh
@@ -403,20 +405,19 @@ SysVStartPriority=99
 WantedBy=multi-user.target
 END
 
-  cat > /usr/sbin/fix-efi.sh <<END
+    cat > /usr/sbin/fix-efi.sh <<END
 #!/usr/bin/env bash
 if efivar --list > /dev/null 2>/dev/null ; then
   echo "Re-installing grub when efi boot."
   grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub && systemctl disable fix-efi.service
   grub-mkconfig -o /boot/grub/grub.cfg
-  ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
-  ROOT_FS_TYPE=\\\$(lsblk \\\${ROOT_DEVICE} -n -o FSTYPE)
 else
   echo "No efi: don't need to fix grub-efi"
 fi
 END
-  chmod +x /usr/sbin/fix-efi.sh
-  systemctl enable fix-efi.service
+    chmod +x /usr/sbin/fix-efi.sh
+    systemctl enable fix-efi.service
+  fi
   
   # this is for legacy boot:
   grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
