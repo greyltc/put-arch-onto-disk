@@ -201,7 +201,7 @@ cp /usr/share/gnupg/dirmngr-conf.skel /etc/skel/.gnupg/dirmngr.conf
 echo "root:${ROOT_PASSWORD}"|chpasswd
 
 # copy over the skel files for the root user
-cp -r /etc/skel/.[^.]* /root
+cp -r $(find /etc/skel -name ".*") /root
 
 # update pacman keys
 haveged -w 1024
@@ -227,7 +227,7 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   # AUR can only be enabled if a non-root user exists, so we'll do it in here
   if [ "$ENABLE_AUR" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
-    # bootstrap yaourt
+    # bootstrap pacaur
     su -c "(cd; bash <(curl aur.sh) -si --noconfirm --needed cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
     su -c "(cd; rm -rf cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
   fi
