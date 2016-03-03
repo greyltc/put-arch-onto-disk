@@ -387,7 +387,7 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub;  REPLY=\$? || true
   
   # do these things if the normal UEFI grub install failed
-  if [ "$REPLY" -eq 0 ] ; then
+  if [ "\$REPLY" -eq 0 ] ; then
     cat > /etc/systemd/system/fix-efi.service <<END
 [Unit]
 Description=Re-Installs Grub-efi bootloader
