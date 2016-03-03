@@ -422,7 +422,6 @@ END
 if efivar --list > /dev/null 2>/dev/null ; then
   echo "Re-installing grub when efi boot."
   grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub && systemctl disable fix-efi.service
-  grub-mkconfig -o /boot/grub/grub.cfg
 else
   echo "No efi: don't need to fix grub-efi"
 fi
