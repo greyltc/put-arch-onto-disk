@@ -201,7 +201,7 @@ cp /usr/share/gnupg/dirmngr-conf.skel /etc/skel/.gnupg/dirmngr.conf
 echo "root:${ROOT_PASSWORD}"|chpasswd
 
 # copy over the skel files for the root user
-cp -r $(find /etc/skel -name ".*") "/root"
+cp -r $(find /etc/skel -name ".*") '/root/'
 
 # update pacman keys
 haveged -w 1024
