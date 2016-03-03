@@ -376,10 +376,13 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   
   grub-mkconfig -o /boot/grub/grub.cfg
   
-  # for EFI
+  # for UEFI (stanalone version)
   mkdir -p /boot/EFI/grub-standalone
   grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
 
+  # attempt normal UEFI install (fails if the install system is not UEFI)
+  grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub || true
+  
   cat > /etc/systemd/system/fix-efi.service <<END
 [Unit]
 Description=Re-Installs Grub-efi bootloader
