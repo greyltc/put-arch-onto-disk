@@ -389,8 +389,8 @@ END
   fi
   
   # for EFI
-  mkdir -p /boot/EFI/BOOT
-  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/BOOT/BOOTX64.EFI" /boot/grub/grub.cfg=/boot/grub/grub.cfg  -v
+  mkdir -p /boot/EFI/grub-standalone
+  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos nvme" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
 
   cat > /etc/systemd/system/fix-efi.service <<END
 [Unit]
@@ -413,7 +413,7 @@ END
 #!/usr/bin/env bash
 if efivar --list > /dev/null 2>/dev/null ; then
   echo "Re-installing grub when efi boot."
-  grub-install --themes="" --removable --target=x86_64-efi --efi-directory=/boot --recheck && systemctl disable fix-efi.service
+  grub-install --modules="part_gpt part_msdos nvme" --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub && systemctl disable fix-efi.service
   grub-mkconfig -o /boot/grub/grub.cfg
   ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
   ROOT_FS_TYPE=\\\$(lsblk \\\${ROOT_DEVICE} -n -o FSTYPE)
@@ -427,7 +427,8 @@ END
   chmod +x /usr/sbin/fix-efi.sh
   systemctl enable fix-efi.service
   
-  grub-install --themes="" --modules=part_gpt --target=i386-pc --recheck --debug ${TARGET_DEV}
+  # this is for legacy boot:
+  grub-install --modules="part_gpt part_msdos nvme" --target=i386-pc --recheck --debug ${TARGET_DEV}
 fi
 
 # if we're on a pi, maybe the display is upside down, fix it
