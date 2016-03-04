@@ -387,7 +387,7 @@ ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
 ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
 sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
 END
-    chmod +x /usr/sbin/fix-f2fs-grub.sh
+    chmod +x /usr/sbin/fix-f2fs-grub
     fix-f2fs-grub /boot/grub/grub.cfg
   fi
   
