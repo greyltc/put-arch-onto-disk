@@ -50,7 +50,7 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${NON_ARM_PKGS} haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync dialog wpa_actiond ifplugd cpupower"
+DEFAULT_PACKAGES="base ${NON_ARM_PKGS} haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g hfsprogs gdisk arch-install-scripts bash-completion rsync dialog wpa_actiond ifplugd cpupower ntp"
 
 # install these packages on the host now. they're needed for the install process
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
@@ -249,6 +249,11 @@ if pacman -Q cpupower > /dev/null 2>/dev/null; then
   systemctl enable cpupower.service
 fi
 
+# if ntp is installed, enable the service
+if pacman -Q ntp > /dev/null 2>/dev/null; then
+  systemctl enable ntpd.service
+fi
+
 # if openssh is installed, enable the service
 if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable sshd.service
@@ -346,9 +351,6 @@ echo "Running first boot script."
 
 echo "Reinstall all the packages"
 pacman -S $(pacman -Qq) --noconfirm
-
-echo "Enabling ntp client"
-timedatectl set-ntp true
 
 echo "Setting console keyboard layout"
 loadkeys $KEYMAP
