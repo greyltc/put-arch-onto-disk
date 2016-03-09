@@ -235,18 +235,13 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
 fi
 
-# if virtualbox is installed, let's enable its modules
-if pacman -Q virtualbox-guest-modules > /dev/null 2>/dev/null; then
-  cat > /etc/modules-load.d/vbox_guest.conf <<END
-vboxguest
-vboxsf
-vboxvideo
-END
-fi
-
 # if cpupower is installed, enable the service
 if pacman -Q cpupower > /dev/null 2>/dev/null; then
   systemctl enable cpupower.service
+  if [[ \$(uname -m) == *"arm"* ]] ; then
+    # set the ondemand governor for arm
+    sed -i "s/#governor='ondemand'/governor='ondemand'/g" /etc/default/cpupower
+  fi
 fi
 
 # if ntp is installed, enable the service
