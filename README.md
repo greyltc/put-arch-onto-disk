@@ -63,7 +63,7 @@ S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githu
 ---
 This will install directly to a device at /dev/sdX with a root file system suitable for flash media (f2fs):
 ```
-TARGET=/dev/sdX S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
+TARGET=/dev/sdX LEGACY_BOOTLOADER=false S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh'
 ```
 ---
 (Author favorite) This will install directly to a device at /dev/sdX with a root file system suitable for flash media and include a full gnome desktop with the gparted disk management utility:
