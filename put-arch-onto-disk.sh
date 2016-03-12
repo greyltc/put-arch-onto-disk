@@ -242,7 +242,7 @@ if pacman -Q cpupower > /dev/null 2>/dev/null; then
   systemctl enable cpupower.service
   if [[ \$(uname -m) == *"arm"* ]] ; then
     # set the ondemand governor for arm
-    sed -i "s/#governor='ondemand'/governor='ondemand'/g" /etc/default/cpupower
+    #sed -i "s/#governor='ondemand'/governor='ondemand'/g" /etc/default/cpupower
   fi
 fi
 
