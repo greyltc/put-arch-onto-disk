@@ -398,13 +398,13 @@ END
   grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch_grub;  REPLY=\$? || true
   
   # some retarded bioses are hardcoded to only boot from /boot/EFI/Boot/BOOTX64.EFI (looking at you Sony)
-  #if [ "$UEFI_COMPAT_STUB = "true" ] ; then
-    #TODO, make this check case insensative
-  #  if [ -d "/boot/EFI/Boot" ]; then 
-  #    cp /boot/EFI/Boot /boot/EFI/Boot.bak
-  #  fi
-  #  cp -a /boot/EFI/arch_grub/grubx64.efi  /boot/EFI/Boot/BOOTX64.EFI
-  #fi
+  #TODO, make this check case insensative
+  if [ "$UEFI_COMPAT_STUB = "true" ] ; then
+    if [ -d "/boot/EFI/Boot" ] ; then 
+      cp /boot/EFI/Boot /boot/EFI/Boot.bak
+    fi
+    cp -a /boot/EFI/arch_grub/grubx64.efi  /boot/EFI/Boot/BOOTX64.EFI
+  fi
   
   # do these things if the normal UEFI grub install failed
   if [ "\$REPLY" -eq 0 ] ; then
