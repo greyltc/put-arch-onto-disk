@@ -240,10 +240,10 @@ fi
 # if cpupower is installed, enable the service
 if pacman -Q cpupower > /dev/null 2>/dev/null; then
   systemctl enable cpupower.service
-  if [[ \$(uname -m) == *"arm"* ]] ; then
+  #if [[ \$(uname -m) == *"arm"* ]] ; then
     # set the ondemand governor for arm
     #sed -i "s/#governor='ondemand'/governor='ondemand'/g" /etc/default/cpupower
-  fi
+  #fi
 fi
 
 # if ntp is installed, enable the service
