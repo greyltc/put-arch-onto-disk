@@ -27,6 +27,8 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${KEYMAP:=uk}
 : ${LANGUAGE:=en_US}
 : ${TEXT_ENCODING:=UTF-8}
+: ${LEGACY_BOOTLOADER:=true}
+: ${UEFI_COMPAT_STUB:=true}
 : ${ROOT_PASSWORD:=toor}
 : ${MAKE_ADMIN_USER:=true}
 : ${ADMIN_USER_NAME:=admin}
@@ -391,9 +393,17 @@ END
   # for grub UEFI (stanalone version)
   mkdir -p /boot/EFI/grub-standalone
   grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
-
-  # attempt normal grub UEFI install (fails if the install system is not UEFI, no problem we'll re-install UEFI grub natively at first boot)
-  grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub;  REPLY=\$? || true
+  
+  # attempt normal grub UEFI install
+  grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch_grub;  REPLY=\$? || true
+  
+  # some retarded bioses are hardcoded to only boot from /boot/EFI/Boot/BOOTX64.EFI (looking at you Sony)
+  if [ "$UEFI_COMPAT_STUB = "true" ] ; then
+    if [ -d "/boot/EFI/Boot" ]; then #TODO, make this check case insensative
+      cp /boot/EFI/Boot /boot/EFI/Boot.bak
+    fi
+    cp -a /boot/EFI/arch_grub/grubx64.efi  /boot/EFI/Boot/BOOTX64.EFI
+  fi
   
   # do these things if the normal UEFI grub install failed
   if [ "\$REPLY" -eq 0 ] ; then
@@ -418,7 +428,7 @@ END
 #!/usr/bin/env bash
 if efivar --list > /dev/null 2>/dev/null ; then
   echo "Re-installing grub when efi boot."
-  grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub && systemctl disable fix-efi.service
+  grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch_grub && systemctl disable fix-efi.service
 else
   echo "No efi: don't need to fix grub-efi"
 fi
@@ -427,8 +437,10 @@ END
     systemctl enable fix-efi.service
   fi
   
-  # this is for legacy boot:
-  grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
+  if [ "$LEGACY_BOOTLOADER" = "true" ] ; then
+    # this is for legacy boot:
+    grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
+  fi
 fi
 
 # if we're on a pi, maybe the display is upside down, fix it
