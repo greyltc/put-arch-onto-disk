@@ -399,7 +399,8 @@ END
   
   # some retarded bioses are hardcoded to only boot from /boot/EFI/Boot/BOOTX64.EFI (looking at you Sony)
   if [ "$UEFI_COMPAT_STUB = "true" ] ; then
-    if [ -d "/boot/EFI/Boot" ]; then #TODO, make this check case insensative
+    #TODO, make this check case insensative
+    if [ -d "/boot/EFI/Boot" ]; then 
       cp /boot/EFI/Boot /boot/EFI/Boot.bak
     fi
     cp -a /boot/EFI/arch_grub/grubx64.efi  /boot/EFI/Boot/BOOTX64.EFI
