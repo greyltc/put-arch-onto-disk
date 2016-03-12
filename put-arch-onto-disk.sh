@@ -399,7 +399,7 @@ END
   
   # some retarded bioses are hardcoded to only boot from /boot/EFI/Boot/BOOTX64.EFI (looking at you Sony)
   #TODO, make this check case insensative
-  if [ "$UEFI_COMPAT_STUB = true ] ; then
+  if [ "$UEFI_COMPAT_STUB" = true ] ; then
     if [ -d "/boot/EFI/Boot" ] ; then 
       cp /boot/EFI/Boot /boot/EFI/Boot.bak
     fi
