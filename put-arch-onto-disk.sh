@@ -72,6 +72,7 @@ else
 fi
 
 wipefs -a -f "${TARGET_DEV}"
+sgdisk -Z "${TARGET_DEV}"  || true # zap (destroy) all partition tables
 
 NEXT_PARTITION=1
 if [[ $TARGET_ARCH == *"arm"* ]]; then
