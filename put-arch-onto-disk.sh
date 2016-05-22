@@ -192,6 +192,7 @@ echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
 # set locale
 locale-gen
 locale > /etc/locale.conf
+source /etc/locale.conf
 
 # setup gnupg
 echo "keyserver hkp://keys.gnupg.net" >> /usr/share/gnupg/gpg-conf.skel
