@@ -212,6 +212,7 @@ haveged -w 1024
 pacman-key --init
 pkill haveged || true
 pacman -Rs --noconfirm haveged
+echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 if [[ \$(uname -m) == *"arm"* ]] ; then
   pacman -S --noconfirm --needed archlinuxarm-keyring
   pacman-key --populate archlinuxarm
