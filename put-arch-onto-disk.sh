@@ -352,6 +352,7 @@ END
 
 cat > /usr/sbin/nativeSetupTasks.sh <<END
 #!/usr/bin/env bash
+set -eu -o pipefail
 echo "Running first boot script."
 
 echo "Reinstall all the packages"
@@ -389,6 +390,7 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
     cat > /usr/sbin/fix-f2fs-grub <<END
 #!/usr/bin/env bash
+set -eu -o pipefail
 echo "Running script to fix bug in grub.config when root is f2fs."
 ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
 ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
@@ -437,6 +439,7 @@ END
 
     cat > /usr/sbin/fix-efi.sh <<END
 #!/usr/bin/env bash
+set -eu -o pipefail
 if efivar --list > /dev/null 2>/dev/null ; then
   echo "Re-installing grub when efi boot."
   grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch_grub && systemctl disable fix-efi.service
