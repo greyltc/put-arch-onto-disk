@@ -345,6 +345,11 @@ WantedBy=multi-user.target
 END
 systemctl enable nativeSetupTasks.service
 
+# enable magic sysrq
+cat > /etc/sysctl.d/99-sysctl.conf <<END
+kernel.sysrq = 1
+END
+
 cat > /usr/sbin/nativeSetupTasks.sh <<END
 #!/usr/bin/env bash
 echo "Running first boot script."
