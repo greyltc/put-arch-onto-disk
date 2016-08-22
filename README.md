@@ -32,7 +32,7 @@ Variable Name|Description|Default Value
 `ADMIN_USER_PASSWORD`|password for admin user (requires `MAKE_ADMIN_USER`=`true`)|`admin`
 `THIS_HOSTNAME`|target system's hostname|`archthing`
 `PACKAGE_LIST`|list of additional official packages to install|
-`ENABLE_AUR`|install `yaourt` and cower (requires `MAKE_ADMIN_USER`=`true`)|`true`
+`ENABLE_AUR`|install `yaourt`, `pacaur` and `cower` [AUR helpers](https://wiki.archlinux.org/index.php/AUR_helpers) (requires `MAKE_ADMIN_USER`=`true`)|`true`
 `AUR_PACKAGE_LIST`|list of packages to install from the AUR (requires `ENABLE_AUR`=`true`)|
 `AUTOLOGIN_ADMIN`|autologin admin user through display manager login page (works for gdm and lxdm)|`false`
 `FIRST_BOOT_SCRIPT`|path to a (local) script you wish to run on first boot of the media|
