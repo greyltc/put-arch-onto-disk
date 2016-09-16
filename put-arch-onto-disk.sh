@@ -82,7 +82,7 @@ else
   sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
   BOOT_P_TYPE=ef00
 fi
-BOOT_P_SIZE_MB=100
+BOOT_P_SIZE_MB=300
 sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:boot "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
