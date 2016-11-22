@@ -233,8 +233,8 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   if [ "$ENABLE_AUR" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
     # bootstrap pacaur
-    su -c "(cd; bash <(curl aur.sh) -si --noconfirm --needed cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
-    su -c "(cd; rm -rf cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
+    su -c "(cd; bash <(curl aur.sh) -si --noconfirm --needed pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
+    su -c "(cd; rm -rf pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
   fi
   # make sudo prompt for password
   sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
