@@ -60,6 +60,8 @@ pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpa
 if [ -b $TARGET ] ; then
   TARGET_DEV=$TARGET
   for n in ${TARGET_DEV}* ; do umount $n || true; done
+  for n in ${TARGET_DEV}* ; do umount $n || true; done
+  for n in ${TARGET_DEV}* ; do umount $n || true; done
   PEE=""
   IMG_NAME=""
 else
