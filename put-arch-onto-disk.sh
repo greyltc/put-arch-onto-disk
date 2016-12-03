@@ -366,7 +366,8 @@ pacman -S $(pacman -Qq) --noconfirm
 echo "Setting console keyboard layout"
 loadkeys $KEYMAP
 
-if [ -a /link_reslov_conf ] ; then
+# we can't do this from inside the chroot
+if [ -a /link_resolv_conf ] ; then
   echo "Making resolv.conf compatible with networkd"
   rm /link_resolv_conf
   mv "/etc/resolv.conf" "/etc/resolv.conf.bak"
