@@ -220,7 +220,7 @@ if [[ \$(uname -m) == *"arm"* ]] ; then
   pacman-key --populate archlinuxarm
 else
   pacman-key --populate archlinux
-  reflector -l 200 -p http --sort rate --save /etc/pacman.d/mirrorlist
+  reflector --latest 200 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 fi
 pkill gpg-agent || true
 
