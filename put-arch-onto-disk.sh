@@ -11,7 +11,9 @@ if [[ $EUID -ne 0 ]]; then
   exit
 fi
 
+# flush writes to disks and re-probe partitions
 sync
+partprobe
 
 # store off the absolute path to *this* script
 THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
