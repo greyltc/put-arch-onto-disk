@@ -101,7 +101,11 @@ sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROO
 echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"
 
 # do we need to p?
-[ -b ${TARGET}p1 ] && PEE="p" || true
+if [ -b ${TARGET}p1 ] ; then
+  PEE="p"
+else
+  PEE=""
+fi
 
 wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
 mkfs.fat -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
