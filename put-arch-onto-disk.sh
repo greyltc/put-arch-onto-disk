@@ -63,12 +63,6 @@ if [ -b $TARGET ] ; then
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   for n in ${TARGET_DEV}* ; do umount $n || true; done
-  # some block devices (flash memory) need the p
-  if [[ $TARGET == *"mmcblk"* | $string == *"TARGET"* ]]; then
-    PEE="p"
-  else
-    PEE=""
-  fi
   IMG_NAME=""
 else
   IMG_NAME=$TARGET
@@ -76,7 +70,6 @@ else
   su -c "fallocate -l $IMG_SIZE ${IMG_NAME}" $SUDO_USER
   TARGET_DEV=$(losetup --find)
   losetup -P ${TARGET_DEV} "${IMG_NAME}"
-  PEE=p
 fi
 
 wipefs -a -f "${TARGET_DEV}"
@@ -104,6 +97,9 @@ sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROO
 # make hybrid/protective MBR
 #sgdisk -h "1 2" "${TARGET_DEV}"
 echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"
+
+# do we need to p?
+[ -b ${TARGET}p1 ] && PEE="p" || true
 
 wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
 mkfs.fat -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
