@@ -57,12 +57,18 @@ DEFAULT_PACKAGES="base ${NON_ARM_PKGS} haveged btrfs-progs dosfstools exfat-util
 # install these packages on the host now. they're needed for the install process
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
 
+# is this a block device?
 if [ -b $TARGET ] ; then
   TARGET_DEV=$TARGET
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   for n in ${TARGET_DEV}* ; do umount $n || true; done
-  PEE=""
+  # some block devices (flash memory) need the p
+  if [[ $TARGET == *"mmcblk"* | $string == *"TARGET"* ]]; then
+    PEE="p"
+  else
+    PEE=""
+  fi
   IMG_NAME=""
 else
   IMG_NAME=$TARGET
