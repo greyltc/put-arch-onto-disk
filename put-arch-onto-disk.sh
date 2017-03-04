@@ -11,6 +11,8 @@ if [[ $EUID -ne 0 ]]; then
   exit
 fi
 
+sync
+
 # store off the absolute path to *this* script
 THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 
