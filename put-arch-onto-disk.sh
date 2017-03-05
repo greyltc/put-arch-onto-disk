@@ -394,6 +394,9 @@ which mkinitcpio >/dev/null && mkinitcpio -p linux
 
 # setup & install grub bootloader (if it's been installed)
 if pacman -Q grub > /dev/null 2>/dev/null; then
+  # disable lvm here because it doesn't do will inside of chroot
+  echo "use_lvmetad = 0" >> /etc/lvm/lvm.conf
+
   # we always want os-prober if we have grub
   pacman -S --noconfirm --needed os-prober
   
@@ -471,6 +474,9 @@ END
     # this is for legacy boot:
     grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
   fi
+  
+  # re-enable lvm
+  sed -i 's,^use_lvmetad = 0,#use_lvmetad = 0,g' /etc/lvm/lvm.conf
 fi
 
 # if we're on a pi, maybe the display is upside down, fix it
