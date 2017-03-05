@@ -32,7 +32,8 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${LANGUAGE:=en_US}
 : ${TEXT_ENCODING:=UTF-8}
 : ${LEGACY_BOOTLOADER:=true}
-: ${UEFI_COMPAT_STUB:=true}
+: ${UEFI_BOOTLOADER:=true}
+: ${UEFI_COMPAT_STUB:=false}
 : ${ROOT_PASSWORD:=toor}
 : ${MAKE_ADMIN_USER:=true}
 : ${ADMIN_USER_NAME:=admin}
@@ -419,27 +420,28 @@ END
     fix-f2fs-grub /boot/grub/grub.cfg
   fi
   
-  # for grub UEFI (stanalone version)
-  mkdir -p /boot/EFI/grub-standalone
-  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
-  
-  # attempt normal grub UEFI install
-  grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch_grub;  REPLY=\$? || true
-  
-  # some retarded bioses are hardcoded to only boot from /boot/EFI/Boot/BOOTX64.EFI (looking at you Sony)
-  #TODO, make this check case insensative
   if [ "$UEFI_COMPAT_STUB" = true ] ; then
-    if [ -d "/boot/EFI/Boot" ] ; then 
-      cp /boot/EFI/Boot /boot/EFI/Boot.bak
-    else
-      mkdir -p /boot/EFI/Boot
-    fi
-    cp -a /boot/EFI/arch_grub/grubx64.efi  /boot/EFI/Boot/BOOTX64.EFI
-  fi
+    # for grub UEFI (stanalone version)
+    mkdir -p /boot/EFI/grub-standalone
+    grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
   
-  # do these things if the normal UEFI grub install failed
-  if [ "\$REPLY" -eq 0 ] ; then
-    cat > /etc/systemd/system/fix-efi.service <<END
+    # attempt normal grub UEFI install
+    grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch_grub;  REPLY=\$? || true
+  
+    # some retarded bioses are hardcoded to only boot from /boot/EFI/Boot/BOOTX64.EFI (looking at you Sony)
+    #TODO, make this check case insensative
+    if [ "$UEFI_COMPAT_STUB" = true ] ; then
+      if [ -d "/boot/EFI/Boot" ] ; then 
+        cp /boot/EFI/Boot /boot/EFI/Boot.bak
+      else
+        mkdir -p /boot/EFI/Boot
+      fi
+      cp -a /boot/EFI/arch_grub/grubx64.efi  /boot/EFI/Boot/BOOTX64.EFI
+    fi
+  
+    # do these things if the normal UEFI grub install failed
+    if [ "\$REPLY" -eq 0 ] ; then
+      cat > /etc/systemd/system/fix-efi.service <<END
 [Unit]
 Description=Re-Installs Grub-efi bootloader
 ConditionPathExists=/usr/sbin/fix-efi.sh
@@ -456,7 +458,7 @@ SysVStartPriority=99
 WantedBy=multi-user.target
 END
 
-    cat > /usr/sbin/fix-efi.sh <<END
+      cat > /usr/sbin/fix-efi.sh <<END
 #!/usr/bin/env bash
 set -eu -o pipefail
 if efivar --list > /dev/null 2>/dev/null ; then
@@ -466,9 +468,10 @@ else
   echo "No efi: don't need to fix grub-efi"
 fi
 END
-    chmod +x /usr/sbin/fix-efi.sh
-    systemctl enable fix-efi.service
-  fi
+      chmod +x /usr/sbin/fix-efi.sh
+      systemctl enable fix-efi.service
+    fi # end if UEFI grub install failed
+  fi # end UEFI grub install
   
   if [ "$LEGACY_BOOTLOADER" = "true" ] ; then
     # this is for legacy boot:
@@ -477,7 +480,7 @@ END
   
   # re-enable lvm
   sed -i 's,^use_lvmetad = 0,#use_lvmetad = 0,g' /etc/lvm/lvm.conf
-fi
+fi # end grub section
 
 # if we're on a pi, maybe the display is upside down, fix it
 if pacman -Q raspberrypi-firmware > /dev/null 2>/dev/null ; then
