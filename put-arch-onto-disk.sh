@@ -395,8 +395,8 @@ which mkinitcpio >/dev/null && mkinitcpio -p linux || true
 
 # setup & install grub bootloader (if it's been installed)
 if pacman -Q grub > /dev/null 2>/dev/null; then
-  # disable lvm here because it doesn't do will inside of chroot
-  echo "use_lvmetad = 0" >> /etc/lvm/lvm.conf
+  # disable lvm here because it doesn't do well inside of chroot
+  sed -i 's,use_lvmetad = 1,use_lvmetad = 0,g' /etc/lvm/lvm.conf
 
   # we always want os-prober if we have grub
   pacman -S --noconfirm --needed os-prober
@@ -484,7 +484,7 @@ END
   fi
   
   # re-enable lvm
-  sed -i 's,^use_lvmetad = 0,#use_lvmetad = 0,g' /etc/lvm/lvm.conf
+  sed -i 's,use_lvmetad = 0,use_lvmetad = 1,g' /etc/lvm/lvm.conf
 fi # end grub section
 
 # if we're on a pi, maybe the display is upside down, fix it
