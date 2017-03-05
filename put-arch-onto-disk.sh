@@ -391,7 +391,7 @@ END
 chmod +x /usr/sbin/nativeSetupTasks.sh
 
 # run mkinitcpio (if it exists, it won't under alarm)
-which mkinitcpio >/dev/null && mkinitcpio -p linux
+which mkinitcpio >/dev/null && mkinitcpio -p linux || true
 
 # setup & install grub bootloader (if it's been installed)
 if pacman -Q grub > /dev/null 2>/dev/null; then
@@ -403,6 +403,11 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   
   # don't boot quietly
   sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
+  
+  # use systemd if we have it
+  if pacman -Q systemd > /dev/null 2>/dev/null; then
+    sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT=",GRUB_CMDLINE_LINUX_DEFAULT="init=/usr/lib/systemd/systemd ,g' /etc/default/grub
+  fi
   
   # generate the grub configuration file
   grub-mkconfig -o /boot/grub/grub.cfg
