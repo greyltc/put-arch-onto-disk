@@ -5,6 +5,9 @@ set -vx #echo on
 # put-arch-onto-disk.sh
 # This script installs Arch Linux onto media (making it bootable)
 # or into a disk image which can later be dd'd onto some media to make it bootable
+# this is an unattedded, one-shot command for making an Arch install that works out-of-the-box
+# I've made attempts to make it reasonably configurable, but there is some stuff in here
+# that you may not want (eg. the network comes up and sshd runs) so don't use this blindly
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run with root permissions"
@@ -48,9 +51,14 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 
 
 if [[ $TARGET_ARCH == *"arm"* ]]; then
-  su ${SUDO_USER} -c 'pacaur -Sy --needed --noconfirm qemu-user-static binfmt-support'
-  update-binfmts --enable qemu-arm
-  NON_ARM_PKGS=""
+  if pacman -Q qemu-user-static > /dev/null 2>/dev/null && pacman -Q binfmt-support > /dev/null 2>/dev/null; then
+    update-binfmts --enable qemu-arm
+    NON_ARM_PKGS=""
+  else
+    echo "Please install qemu-user-static and binfmt-support from the AUR"
+    echo "so that we can chroot into the ARM install"
+    exit
+  fi
 else
   # alarm does not like/need these
   NON_ARM_PKGS="grub efibootmgr reflector jfsutils"
@@ -103,7 +111,7 @@ sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROO
 #sgdisk -h "1 2" "${TARGET_DEV}"
 echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"
 
-# do we need to p?
+# do we need to p? (depends on what the media is we're installing to)
 if [ -b ${TARGET}p1 ] ; then
   PEE="p"
 else
