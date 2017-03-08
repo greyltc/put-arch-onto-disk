@@ -8,9 +8,9 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
  - Optimized for removable flash storage (choose `f2fs` as root file system type)
  - Optimized for HDD and SSD targets (choose `btrfs` as root file system type)
  - Installations have persistant storage
- - Installations have (optional) AUR suport (in the form of yaourt)
+ - Installations have (optional) AUR suport (in the form of pacaur)
  - Installtions are up-to-date as of the minute you run the script
- - Easily set many installtion parameters programatically:
+ - Easily set many installtion parameters programatically for an one-shot, no-further-setup-required Arch install:
 
 ### Variables
 Variable Name|Description|Default Value
