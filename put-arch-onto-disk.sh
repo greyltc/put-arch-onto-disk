@@ -53,6 +53,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 if [[ $TARGET_ARCH == *"arm"* ]]; then
   if pacman -Q qemu-user-static > /dev/null 2>/dev/null && pacman -Q binfmt-support > /dev/null 2>/dev/null; then
     update-binfmts --enable qemu-arm
+    update-binfmts --enable qemu-aarch64
     NON_ARM_PKGS=""
   else
     echo "Please install qemu-user-static and binfmt-support from the AUR"
@@ -183,6 +184,7 @@ Include = /tmp/mirrorlist
 EOF
   mkdir -p ${TMP_ROOT}/usr/bin
   cp /usr/bin/qemu-arm-static ${TMP_ROOT}/usr/bin
+  cp /usr/bin/qemu-aarch64-static ${TMP_ROOT}/usr/bin
   echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /tmp/mirrorlist
 fi
 
