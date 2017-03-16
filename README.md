@@ -97,7 +97,7 @@ TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspbe
 ---
 Put arch onto a SD card which can boot a raspberry pi3:
 ```
-TARGET=/dev/sdX TARGET_ARCH=aarch64 THIS_HOSTNAME="pi" PACKAGE_LIST="linux-aarch64 uboot-raspberrypi raspberrypi-bootloader raspberrypi-firmware" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
+TARGET=/dev/sdX TARGET_ARCH=aarch64 THIS_HOSTNAME="pi" PACKAGE_LIST="linux-aarch64 uboot-raspberrypi raspberrypi-bootloader" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
 ```
 ---
 Pi with gnome gui:
