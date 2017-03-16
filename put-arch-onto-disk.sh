@@ -267,7 +267,7 @@ fi
 # if cpupower is installed, enable the service
 if pacman -Q cpupower > /dev/null 2>/dev/null; then
   systemctl enable cpupower.service
-  if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
+  if pacman -Q | grep raspberry > /dev/null 2>/dev/null ; then
     # set the ondemand governor for arm
     sed -i "s/#governor='ondemand'/governor='ondemand'/g" /etc/default/cpupower
   fi
@@ -499,12 +499,11 @@ END
 fi # end grub section
 
 # if we're on a pi, add some stuff I like to config.txt
-if pacman -Q uboot-raspberrypi > /dev/null 2>/dev/null ; then
+if pacman -Q | grep raspberry > /dev/null 2>/dev/null ; then
   echo "lcd_rotate=2" >> /boot/config.txt
   echo "dtparam=audio=on" >> /boot/config.txt
   echo "dtparam=device_tree_param=spi=on" >> /boot/config.txt
   echo "dtparam=i2c_arm=on" >> /boot/config.txt
-  
 fi
 EOF
 
