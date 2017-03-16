@@ -498,9 +498,13 @@ END
   sed -i 's,use_lvmetad = 0,use_lvmetad = 1,g' /etc/lvm/lvm.conf
 fi # end grub section
 
-# if we're on a pi, maybe the display is upside down, fix it
-if pacman -Q raspberrypi-firmware > /dev/null 2>/dev/null ; then
+# if we're on a pi, add some stuff I like to config.txt
+if pacman -Q uboot-raspberrypi > /dev/null 2>/dev/null ; then
   echo "lcd_rotate=2" >> /boot/config.txt
+  echo "dtparam=audio=on" >> /boot/config.txt
+  echo "dtparam=device_tree_param=spi=on" >> /boot/config.txt
+  echo "dtparam=i2c_arm=on" >> /boot/config.txt
+  
 fi
 EOF
 
