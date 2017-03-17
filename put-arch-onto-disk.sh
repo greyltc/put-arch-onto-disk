@@ -213,9 +213,9 @@ ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
 echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
 
 # set locale
-locale-gen
-locale > /etc/locale.conf
-source /etc/locale.conf
+#locale-gen
+#locale > /etc/locale.conf
+#source /etc/locale.conf
 
 # setup gnupg
 echo "keyserver hkp://keys.gnupg.net" >> /usr/share/gnupg/gpg-conf.skel
@@ -381,6 +381,10 @@ cat > /usr/sbin/nativeSetupTasks.sh <<END
 #!/usr/bin/env bash
 set -eu -o pipefail
 echo "Running first boot script."
+
+locale-gen
+locale > /etc/locale.conf
+source /etc/locale.conf
 
 echo "Reinstall all the packages"
 pacman -S $(pacman -Qq) --noconfirm
