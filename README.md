@@ -109,3 +109,8 @@ Pi with lxde gui:
 ```
 TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi raspberrypi-firmware raspberrypi-bootloader raspberrypi-bootloader-x lxde xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
 ```
+---
+Pi with official touchscreen:
+```
+TARGET=/dev/sdX TARGET_ARCH=armv7h AUTOLOGIN_ADMIN=true THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi raspberrypi-firmware raspberrypi-bootloader raspberrypi-bootloader-x gnome gnome-extra networkmanager xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
+```
