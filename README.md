@@ -90,22 +90,22 @@ TARGET=/dev/sdX TIME_ZONE="US/Eastern" THIS_HOSTNAME="optiplex745" ROOT_FS_TYPE=
 TARGET=/dev/sdX TIME_ZONE="Europe/London" THIS_HOSTNAME="epozz" ROOT_FS_TYPE=btrfs MAKE_SWAP_PARTITION=true SWAP_SIZE_IS_RAM_SIZE=true PACKAGE_LIST="gnome gnome-extra gparted" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
 ```
 ---
-Put arch onto a SD card which can boot a raspberry pi:
-```
-TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi raspberrypi-firmware" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
-```
----
 Put arch onto a SD card which can boot a raspberry pi3:
 ```
-TARGET=/dev/sdX TARGET_ARCH=aarch64 THIS_HOSTNAME="pi" PACKAGE_LIST="linux-aarch64 uboot-raspberrypi raspberrypi-bootloader" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
+TARGET=/dev/sdX TARGET_ARCH=aarch64 THIS_HOSTNAME="pi" PACKAGE_LIST="linux-aarch64 uboot-raspberrypi  raspberrypi-bootloader raspberrypi-bootloader-x" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
+```
+---
+Put arch onto a SD card which can boot a raspberry pi:
+```
+TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi raspberrypi-firmware raspberrypi-bootloader raspberrypi-bootloader-x" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
 ```
 ---
 Pi with gnome gui:
 ```
-TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi raspberrypi-firmware gnome xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
+TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi raspberrypi-firmware raspberrypi-bootloader raspberrypi-bootloader-x gnome xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
 ```
 ---
 Pi with lxde gui:
 ```
-TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi raspberrypi-firmware lxde xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
+TARGET=/dev/sdX TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi raspberrypi-firmware raspberrypi-bootloader raspberrypi-bootloader-x lxde xf86-video-fbturbo-git" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
 ```
