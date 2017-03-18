@@ -505,9 +505,11 @@ fi # end grub section
 # if we're on a pi, add some stuff I like to config.txt
 if pacman -Q | grep raspberry > /dev/null 2>/dev/null ; then
   echo "lcd_rotate=2" >> /boot/config.txt
-  echo "dtparam=audio=on" >> /boot/config.txt
-  echo "dtparam=device_tree_param=spi=on" >> /boot/config.txt
-  echo "dtparam=i2c_arm=on" >> /boot/config.txt
+  #echo "dtparam=audio=on" >> /boot/config.txt
+  #echo "dtparam=device_tree_param=spi=on" >> /boot/config.txt
+  #echo "dtparam=i2c_arm=on" >> /boot/config.txt
+  echo "dtoverlay=vc4-kms-v3d" >> /boot/config.txt
+  echo "dtoverlay=dtoverlay=rpi-backlight" >> /boot/config.txt
 fi
 EOF
 
