@@ -113,7 +113,7 @@ sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROO
 echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"
 
 # do we need to p? (depends on what the media is we're installing to)
-if [ -b ${TARGET}p1 ] ; then
+if [ -b ${TARGET_DEV}p1 ] ; then
   PEE="p"
 else
   PEE=""
