@@ -218,11 +218,9 @@ echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
 #source /etc/locale.conf
 
 # setup gnupg
-echo "keyserver hkp://keys.gnupg.net" >> /usr/share/gnupg/gpg-conf.skel
-sed -i "s,#keyserver-options auto-key-retrieve,keyserver-options auto-key-retrieve,g" /usr/share/gnupg/gpg-conf.skel
 mkdir -p /etc/skel/.gnupg
-cp /usr/share/gnupg/gpg-conf.skel /etc/skel/.gnupg/gpg.conf
-cp /usr/share/gnupg/dirmngr-conf.skel /etc/skel/.gnupg/dirmngr.conf
+echo "keyserver hkp://keys.gnupg.net" >> /etc/skel/.gnupg/gpg.conf
+echo "keyserver-options auto-key-retrieve" >> /etc/skel/.gnupg/gpg.conf
 
 # change password for root
 echo "root:${ROOT_PASSWORD}"|chpasswd
