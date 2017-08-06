@@ -442,7 +442,10 @@ END
     # for grub UEFI (stanalone version)
     mkdir -p /boot/EFI/grub-standalone
     grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
+  fi
   
+  if efivar --list > /dev/null 2>/dev/null ; then
+    echo "EFI BOOT detected doing EFI grub install..."
     # attempt normal grub UEFI install
     grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch_grub;  REPLY=\$? || true
   
