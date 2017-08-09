@@ -208,6 +208,7 @@ echo ${THIS_HOSTNAME} > /etc/hostname
 
 # set timezone
 ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
+timedatectl set-ntp true
 
 # set text encoding
 echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
