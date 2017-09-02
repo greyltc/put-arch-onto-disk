@@ -213,9 +213,9 @@ ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
 echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
 
 # set locale
-#locale-gen
-#locale > /etc/locale.conf
-#source /etc/locale.conf
+locale-gen
+localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
+source /etc/locale.conf
 
 # setup gnupg
 mkdir -p /etc/skel/.gnupg
