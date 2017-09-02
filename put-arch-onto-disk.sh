@@ -209,13 +209,12 @@ echo ${THIS_HOSTNAME} > /etc/hostname
 # set timezone
 ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
 
-# set text encoding
+# do locale things
 echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
-
-# set locale
-locale-gen
-sed -i "s,LANG=.*,LANG=${LANGUAGE}.${TEXT_ENCODING},g" /etc/locale.conf
+echo "LANG=${LANGUAGE}.${TEXT_ENCODING}" >> /etc/locale.conf
+#sed -i "s,LANG=.*,LANG=${LANGUAGE}.${TEXT_ENCODING},g" /etc/locale.conf
 #localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
+locale-gen
 source /etc/locale.conf
 
 # setup gnupg
