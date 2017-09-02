@@ -211,8 +211,10 @@ ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
 
 # do locale things
 echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
-echo "LANG=${LANGUAGE}.${TEXT_ENCODING}" >> /etc/locale.conf
-#sed -i "s,LANG=.*,LANG=${LANGUAGE}.${TEXT_ENCODING},g" /etc/locale.conf
+locale-gen
+locale > /etc/locale.conf
+#echo "LANG=${LANGUAGE}.${TEXT_ENCODING}" >> /etc/locale.conf
+sed -i "s,LANG=.*,LANG=${LANGUAGE}.${TEXT_ENCODING},g" /etc/locale.conf
 #localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
 locale-gen
 source /etc/locale.conf
