@@ -214,7 +214,8 @@ echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
 
 # set locale
 locale-gen
-localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
+sed -i "s,LANG=.*,LANG=${LANGUAGE}.${TEXT_ENCODING},g" /etc/locale.conf
+#localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
 source /etc/locale.conf
 
 # setup gnupg
