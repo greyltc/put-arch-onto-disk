@@ -208,7 +208,6 @@ echo ${THIS_HOSTNAME} > /etc/hostname
 
 # set timezone
 ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
-timedatectl set-ntp true
 
 # set text encoding
 echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
@@ -390,6 +389,8 @@ pacman -S $(pacman -Qq) --noconfirm
 
 echo "Setting console keyboard layout"
 loadkeys $KEYMAP
+
+timedatectl set-ntp true
 
 # we can't do this from inside the chroot
 if [ -a /link_resolv_conf ] ; then
