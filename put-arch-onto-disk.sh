@@ -94,11 +94,11 @@ if [[ $TARGET_ARCH == *"arm"*  || $TARGET_ARCH == "aarch64" ]]; then
   echo "No bios grub for arm"
   BOOT_P_TYPE=0700
 else
-  sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:biosGrub "${TARGET_DEV}" && ((NEXT_PARTITION++))
+  sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:"Legacy BIOS GRUB partition" "${TARGET_DEV}" && ((NEXT_PARTITION++))
   BOOT_P_TYPE=ef00
 fi
 BOOT_P_SIZE_MB=300
-sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:boot "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition" "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
     SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
@@ -106,7 +106,7 @@ if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 fi
 #sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:"Linux ${ROOT_FS_TYPE} data parition" "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
 
 # make hybrid/protective MBR
 #sgdisk -h "1 2" "${TARGET_DEV}"
@@ -120,7 +120,7 @@ else
 fi
 
 wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-mkfs.fat -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+mkfs.fat32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
   mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
