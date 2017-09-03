@@ -452,7 +452,7 @@ END
     echo "EFI BOOT detected doing EFI grub install..."
     # attempt normal grub UEFI install
     #grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=boot;  REPLY=\$? || true
-    grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=boot
+    grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=Boot
   
 #    # some retarded bioses are hardcoded to only boot from /boot/EFI/Boot/BOOTX64.EFI (looking at you Sony/InsydeH20)
 #    #TODO, make this check case insensative
