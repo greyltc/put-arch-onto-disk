@@ -29,7 +29,8 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${SWAP_SIZE_IS_RAM_SIZE:=false}
 : ${SWAP_SIZE:=100MiB}
 : ${TARGET:=./bootable_arch.img}
-: ${PORTABLE:=true} #set true when the target will be a removable drive, fase when the install is only for the machine runnning this script
+ #set true when the target will be a removable drive, fase when the install is only for the machine runnning this script
+: ${PORTABLE:=true}
 : ${IMG_SIZE:=2GiB}
 : ${TIME_ZONE:=Europe/London}
 : ${KEYMAP:=uk}
@@ -452,9 +453,11 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   if efivar --list > /dev/null 2>/dev/null ; then
     echo "EFI BOOT detected doing EFI grub install..."
     if [ "$PORTABLE" = true ] ; then
-      grub-install --no-nvram --removable --target=x86_64-efi # this puts our entry point at ${EFI_PART}/EFI/BOOT/BOOTX64.EFI
+      # this puts our entry point at [EFI_PART]/EFI/BOOT/BOOTX64.EFI
+      grub-install --no-nvram --removable --target=x86_64-efi
     else
-      grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=ArchGRUB # this puts our entry point at ${EFI_PART}/EFI/ArchGRUB/grubx64.efi
+      # this puts our entry point at [EFI_PART]/EFI/ArchGRUB/grubx64.efi
+      grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=ArchGRUB
     fi
   
 #    # do these things if the normal UEFI grub install failed
