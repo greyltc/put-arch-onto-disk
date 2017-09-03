@@ -451,51 +451,52 @@ END
   if efivar --list > /dev/null 2>/dev/null ; then
     echo "EFI BOOT detected doing EFI grub install..."
     # attempt normal grub UEFI install
-    grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch_grub;  REPLY=\$? || true
+    #grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=boot;  REPLY=\$? || true
+    grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=boot
   
-    # some retarded bioses are hardcoded to only boot from /boot/EFI/Boot/BOOTX64.EFI (looking at you Sony/InsydeH20)
-    #TODO, make this check case insensative
-    if [ "$UEFI_COMPAT_STUB" = true ] ; then
-      if [ -d "/boot/EFI/Boot" ] ; then 
-        cp /boot/EFI/Boot /boot/EFI/Boot.bak
-      else
-        mkdir -p /boot/EFI/Boot
-      fi
-      cp -a /boot/EFI/arch_grub/grubx64.efi  /boot/EFI/Boot/BOOTX64.EFI
-    fi
+#    # some retarded bioses are hardcoded to only boot from /boot/EFI/Boot/BOOTX64.EFI (looking at you Sony/InsydeH20)
+#    #TODO, make this check case insensative
+#    if [ "$UEFI_COMPAT_STUB" = true ] ; then
+#      if [ -d "/boot/EFI/Boot" ] ; then 
+#        cp /boot/EFI/Boot /boot/EFI/Boot.bak
+#      else
+#        mkdir -p /boot/EFI/Boot
+#      fi
+#      cp -a /boot/EFI/arch_grub/grubx64.efi  /boot/EFI/Boot/BOOTX64.EFI
+#    fi
   
-    # do these things if the normal UEFI grub install failed
-    if [ "\$REPLY" -eq 0 ] ; then
-      cat > /etc/systemd/system/fix-efi.service <<END
-[Unit]
-Description=Re-Installs Grub-efi bootloader
-ConditionPathExists=/usr/sbin/fix-efi.sh
-
-[Service]
-Type=forking
-ExecStart=/usr/sbin/fix-efi.sh
-TimeoutSec=0
-StandardOutput=tty
-RemainAfterExit=yes
-SysVStartPriority=99
-
-[Install]
-WantedBy=multi-user.target
-END
-
-      cat > /usr/sbin/fix-efi.sh <<END
-#!/usr/bin/env bash
-set -eu -o pipefail
-if efivar --list > /dev/null 2>/dev/null ; then
-  echo "Re-installing grub when efi boot."
-  grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch_grub && systemctl disable fix-efi.service
-else
-  echo "No efi: don't need to fix grub-efi"
-fi
-END
-      chmod +x /usr/sbin/fix-efi.sh
-      systemctl enable fix-efi.service
-    fi # end if UEFI grub install failed
+#    # do these things if the normal UEFI grub install failed
+#    if [ "\$REPLY" -eq 0 ] ; then
+#      cat > /etc/systemd/system/fix-efi.service <<END
+#[Unit]
+#Description=Re-Installs Grub-efi bootloader
+#ConditionPathExists=/usr/sbin/fix-efi.sh
+#
+#[Service]
+#Type=forking
+#ExecStart=/usr/sbin/fix-efi.sh
+#TimeoutSec=0
+#StandardOutput=tty
+#RemainAfterExit=yes
+#SysVStartPriority=99
+#
+#[Install]
+#WantedBy=multi-user.target
+#END
+#
+#      cat > /usr/sbin/fix-efi.sh <<END
+##!/usr/bin/env bash
+#set -eu -o pipefail
+#if efivar --list > /dev/null 2>/dev/null ; then
+#  echo "Re-installing grub when efi boot."
+#  grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch_grub && systemctl disable fix-efi.service
+#else
+#  echo "No efi: don't need to fix grub-efi"
+#fi
+#END
+#      chmod +x /usr/sbin/fix-efi.sh
+#      systemctl enable fix-efi.service
+#    fi # end if UEFI grub install failed
   else # if UEFI grub install
     echo "EFI boot mode support not detected, set LEGACY_BOOTLOADER=true to install grub"
   fi # end UEFI grub install
