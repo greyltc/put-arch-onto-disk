@@ -451,24 +451,11 @@ END
   
   if efivar --list > /dev/null 2>/dev/null ; then
     echo "EFI BOOT detected doing EFI grub install..."
-    # attempt normal grub UEFI install
-    #grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=boot;  REPLY=\$? || true
     if [ "$PORTABLE" = true ] ; then
-      grub-install --no-nvram --removable --target=x86_64-efi --efi-directory=/boot --bootloader-id=Boot
+      grub-install --no-nvram --removable --target=x86_64-efi # this puts our entry point at ${EFI_PART}/EFI/BOOT/BOOTX64.EFI
     else
-      grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub
+      grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=ArchGRUB # this puts our entry point at ${EFI_PART}/EFI/ArchGRUB/grubx64.efi
     fi
-  
-#    # some retarded bioses are hardcoded to only boot from /boot/EFI/Boot/BOOTX64.EFI (looking at you Sony/InsydeH20)
-#    #TODO, make this check case insensative
-#    if [ "$UEFI_COMPAT_STUB" = true ] ; then
-#      if [ -d "/boot/EFI/Boot" ] ; then 
-#        cp /boot/EFI/Boot /boot/EFI/Boot.bak
-#      else
-#        mkdir -p /boot/EFI/Boot
-#      fi
-#      cp -a /boot/EFI/arch_grub/grubx64.efi  /boot/EFI/Boot/BOOTX64.EFI
-#    fi
   
 #    # do these things if the normal UEFI grub install failed
 #    if [ "\$REPLY" -eq 0 ] ; then
