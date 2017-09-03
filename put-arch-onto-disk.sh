@@ -120,7 +120,7 @@ else
 fi
 
 wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-mkfs.fat32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+mkfs.vfat -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
 if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
   mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
