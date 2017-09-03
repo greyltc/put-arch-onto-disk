@@ -29,6 +29,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${SWAP_SIZE_IS_RAM_SIZE:=false}
 : ${SWAP_SIZE:=100MiB}
 : ${TARGET:=./bootable_arch.img}
+: ${PORTABLE:=true} #set true when the target will be a removable drive, fase when the install is only for the machine runnning this script
 : ${IMG_SIZE:=2GiB}
 : ${TIME_ZONE:=Europe/London}
 : ${KEYMAP:=uk}
@@ -452,7 +453,11 @@ END
     echo "EFI BOOT detected doing EFI grub install..."
     # attempt normal grub UEFI install
     #grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=boot;  REPLY=\$? || true
-    grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=Boot
+    if [ "$PORTABLE" = true ] ; then
+      grub-install --no-nvram --removeable --target=x86_64-efi --efi-directory=/boot --bootloader-id=Boot
+    else
+      grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=grub
+    fi
   
 #    # some retarded bioses are hardcoded to only boot from /boot/EFI/Boot/BOOTX64.EFI (looking at you Sony/InsydeH20)
 #    #TODO, make this check case insensative
