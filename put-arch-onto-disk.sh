@@ -430,18 +430,18 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   # generate the grub configuration file
   grub-mkconfig -o /boot/grub/grub.cfg
   
-  if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
-    cat > /usr/sbin/fix-f2fs-grub <<END
-#!/usr/bin/env bash
-set -eu -o pipefail
-echo "Running script to fix bug in grub.config when root is f2fs."
-ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
-ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
-sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
-END
-    chmod +x /usr/sbin/fix-f2fs-grub
-    fix-f2fs-grub /boot/grub/grub.cfg
-  fi
+#  if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
+#    cat > /usr/sbin/fix-f2fs-grub <<END
+##!/usr/bin/env bash
+#set -eu -o pipefail
+#echo "Running script to fix bug in grub.config when root is f2fs."
+#ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
+#ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
+#sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
+#END
+#    chmod +x /usr/sbin/fix-f2fs-grub
+#    fix-f2fs-grub /boot/grub/grub.cfg
+#  fi
   
   #if [ "$UEFI_COMPAT_STUB" = true ] ; then
   #  # for grub UEFI (stanalone version)
