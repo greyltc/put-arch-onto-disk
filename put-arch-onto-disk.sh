@@ -454,7 +454,7 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
     echo "EFI BOOT detected doing EFI grub install..."
     if [ "$PORTABLE" = true ] ; then
       # this puts our entry point at [EFI_PART]/EFI/BOOT/BOOTX64.EFI
-      grub-install --no-nvram --removable --target=x86_64-efi
+      grub-install --no-nvram --removable --target=x86_64-efi --efi-directory=/boot
     else
       # this puts our entry point at [EFI_PART]/EFI/ArchGRUB/grubx64.efi
       grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=ArchGRUB
