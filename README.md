@@ -4,6 +4,7 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
 
 ### Features
  - Installations are bootable on both BIOS and UEFI systems
+ - LUKS whole partition encryption support
  - Create a disk image (suitable for dding later) or install directly to target disk
  - Optimized for removable flash storage (choose `f2fs` as root file system type)
  - Optimized for HDD and SSD targets (choose `btrfs` as root file system type)
@@ -26,7 +27,7 @@ Variable Name|Description|Default Value
 `LANGUAGE`|installed system's language|`en_US`
 `KEYMAP`|keyboard layout|`uk`
 `TEXT_ENCODING`|installed system's text encoding|`UTF-8`
-`ROOT_PASSWORD`|password for root user|`toor`
+`ROOT_PASSWORD`|password for root user|
 `MAKE_ADMIN_USER`|create a user with sudo powers (and install sudo)|`true`
 `ADMIN_USER_NAME`|user name for admin user (requires `MAKE_ADMIN_USER`=`true`)|`admin`
 `ADMIN_USER_PASSWORD`|password for admin user (requires `MAKE_ADMIN_USER`=`true`)|`admin`
@@ -37,6 +38,7 @@ Variable Name|Description|Default Value
 `AUTOLOGIN_ADMIN`|autologin admin user through display manager login page (works for gdm and lxdm)|`false`
 `FIRST_BOOT_SCRIPT`|path to a (local) script you wish to run on first boot of the media|
 `USE_TESTING`|enables the testing repo|`false`
+`LUKS_KEYFILE`|[keyfile](https://wiki.archlinux.org/index.php/Dm-crypt/Device_encryption#Keyfiles) used for LUKS encryption|
 
 ### Requirements and notes
 1. This script must be run from a x86_64 Arch Linux environment

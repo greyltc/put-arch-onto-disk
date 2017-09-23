@@ -39,7 +39,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${LEGACY_BOOTLOADER:=true}
 : ${UEFI_BOOTLOADER:=true}
 : ${UEFI_COMPAT_STUB:=false}
-: ${ROOT_PASSWORD:=toor}
+: ${ROOT_PASSWORD:=""}
 : ${MAKE_ADMIN_USER:=true}
 : ${ADMIN_USER_NAME:=admin}
 : ${ADMIN_USER_PASSWORD:=admin}
@@ -50,7 +50,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${AUTOLOGIN_ADMIN:=false}
 : ${FIRST_BOOT_SCRIPT:=""}
 : ${USE_TESTING:=false}
-
+: ${LUKS_KEYFILE:=""}
 
 if [[ $TARGET_ARCH == *"arm"* || $TARGET_ARCH == "aarch64" ]]; then
   if pacman -Q qemu-user-static > /dev/null 2>/dev/null && pacman -Q binfmt-support > /dev/null 2>/dev/null; then
@@ -127,21 +127,39 @@ if [ "$MAKE_SWAP_PARTITION" = true ] ; then
   wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
   mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
 fi
-wipefs -a -f ${TARGET_DEV}${PEE}${ROOT_PARTITION}
+
+ROOT_DEVICE=${TARGET_DEV}${PEE}${ROOT_PARTITION}
+wipefs -a -f ${ROOT_DEVICE}
+LUKS_UUID=""
+if [ "$LUKS_KEYFILE" = "" ]; then
+  echo "Not using encryption"
+else
+  if [ -f "$LUKS_KEYFILE" ]; then
+    echo "LUKS encryption with keyfile: $(readlink -f "$LUKS_KEYFILE")"
+    cryptsetup -q luksFormat ${ROOT_DEVICE} "${LUKS_KEYFILE}"
+    LUKS_UUID=$(cryptsetup luksUUID ${ROOT_DEVICE})
+    cryptsetup -q --key-file ${LUKS_KEYFILE} open ${ROOT_DEVICE} luks-${LUKS_UUID}
+    ROOT_DEVICE=/dev/mapper/luks-${LUKS_UUID}
+  else
+    echo "Could not find $LUKS_KEYFILE"
+    echo "Not using encryption"
+  fi
+fi
+
 ELL=L
 [ "$ROOT_FS_TYPE" = "f2fs" ] && ELL=l
-mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${TARGET_DEV}${PEE}${ROOT_PARTITION}
+mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${ROOT_DEVICE}
 sgdisk -p "${TARGET_DEV}"
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
-mount -t${ROOT_FS_TYPE} ${TARGET_DEV}${PEE}${ROOT_PARTITION} ${TMP_ROOT}
+mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
 if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
   btrfs subvolume create ${TMP_ROOT}/root
   btrfs subvolume create ${TMP_ROOT}/home
   umount ${TMP_ROOT}
-  mount ${TARGET_DEV}${PEE}${ROOT_PARTITION} -o subvol=root,compress=lzo ${TMP_ROOT}
+  mount ${ROOT_DEVICE} -o subvol=root,compress=lzo ${TMP_ROOT}
   mkdir ${TMP_ROOT}/home
-  mount ${TARGET_DEV}${PEE}${ROOT_PARTITION} -o subvol=home,compress=lzo ${TMP_ROOT}/home
+  mount ${ROOT_DEVICE} -o subvol=home,compress=lzo ${TMP_ROOT}/home
 fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
@@ -227,7 +245,12 @@ echo "keyserver hkp://keys.gnupg.net" >> /etc/skel/.gnupg/gpg.conf
 echo "keyserver-options auto-key-retrieve" >> /etc/skel/.gnupg/gpg.conf
 
 # change password for root
-echo "root:${ROOT_PASSWORD}"|chpasswd
+if [ "$ROOT_PASSWORD" = "" ]
+then
+   echo "No password for root"
+else
+   echo "root:${ROOT_PASSWORD}"|chpasswd
+fi
 
 # copy over the skel files for the root user
 cp -r \$(find /etc/skel -name ".*") /root
@@ -305,6 +328,15 @@ DHCP=yes
 [DHCP]
 ClientIdentifier=mac
 END
+fi
+
+# setup for encfs
+if [ "$LUKS_UUID" = "" ]; then
+  echo "No encryption"
+else
+  sed -i 's/MODULES="/MODULES="nls_cp437 /g' /etc/mkinitcpio.conf
+  sed -i 's/block filesystems/block encrypt filesystems/g' /etc/mkinitcpio.conf
+
 fi
 
 # add crc modules to initcpio (needed for f2fs)
@@ -422,6 +454,13 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   
   # don't boot quietly
   sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
+
+  # for LUKS
+  if [ "$LUKS_UUID" = "" ]; then
+    echo "No encryption"
+  else
+    sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT="rootwait,GRUB_CMDLINE_LINUX_DEFAULT="rootwait cryptdevice=UUID=${LUKS_UUID}:luks-${LUKS_UUID},g' /etc/default/grub
+  fi
   
   # use systemd if we have it
   if pacman -Q systemd > /dev/null 2>/dev/null; then
@@ -441,7 +480,7 @@ ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
 sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
 END
     chmod +x /usr/sbin/fix-f2fs-grub
-    fix-f2fs-grub /boot/grub/grub.cfg
+    [ "$LUKS_UUID" = "" ] && fix-f2fs-grub /boot/grub/grub.cfg
   fi
   
   #if [ "$UEFI_COMPAT_STUB" = true ] ; then
@@ -541,6 +580,7 @@ if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
   umount ${TMP_ROOT}/home || true
 fi
 umount ${TMP_ROOT} || true
+cryptsetup close /dev/mapper/${LUKS_UUID} || true
 losetup -D || true
 sync
 
