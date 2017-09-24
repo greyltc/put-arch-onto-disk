@@ -29,7 +29,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${SWAP_SIZE_IS_RAM_SIZE:=false}
 : ${SWAP_SIZE:=100MiB}
 : ${TARGET:=./bootable_arch.img}
- #set true when the target will be a removable drive, fase when the install is only for the machine runnning this script
+ #set true when the target will be a removable drive, false when the install is only for the machine runnning this script
 : ${PORTABLE:=true}
 : ${IMG_SIZE:=2GiB}
 : ${TIME_ZONE:=Europe/London}
@@ -281,9 +281,10 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   if [ "$ENABLE_AUR" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
     # bootstrap pacaur
+    
     su -c "(cd; bash <(curl aur.sh) -si --noconfirm --needed cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
     su -c "(cd; rm -rf cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
-    su -c "(pacaur -Syyu --needed --noconfirm $AUR_PACKAGE_LIST)" -s /bin/bash ${ADMIN_USER_NAME}
+    su -c "(EDITOR=vi VISUAL=vi pacaur -Syyu --needed --noconfirm $AUR_PACKAGE_LIST)" -s /bin/bash ${ADMIN_USER_NAME}
   fi
   # make sudo prompt for password
   sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
