@@ -282,6 +282,8 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
     # bootstrap pacaur
     
+    gpg --recv-key 1EB2638FF56C0C53
+    su -c "gpg --recv-key 1EB2638FF56C0C53" -s /bin/bash ${ADMIN_USER_NAME}
     su -c "(cd; bash <(curl aur.sh) -si --noconfirm --needed cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
     su -c "(cd; rm -rf cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
     su -c "(EDITOR=vi VISUAL=vi pacaur -Syyu --needed --noconfirm $AUR_PACKAGE_LIST)" -s /bin/bash ${ADMIN_USER_NAME}
