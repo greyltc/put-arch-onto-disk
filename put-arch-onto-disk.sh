@@ -231,13 +231,17 @@ ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
 
 # do locale things
 echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
-locale-gen
-locale > /etc/locale.conf
-#echo "LANG=${LANGUAGE}.${TEXT_ENCODING}" >> /etc/locale.conf
-sed -i "s,LANG=.*,LANG=${LANGUAGE}.${TEXT_ENCODING},g" /etc/locale.conf
-#localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
-locale-gen
-source /etc/locale.conf
+if [[ $TARGET_ARCH == *"arm"*  || $TARGET_ARCH == "aarch64" ]]; then
+  echo "locale-gen is broken in qemu"
+else
+  locale-gen
+  locale > /etc/locale.conf
+  #echo "LANG=${LANGUAGE}.${TEXT_ENCODING}" >> /etc/locale.conf
+  sed -i "s,LANG=.*,LANG=${LANGUAGE}.${TEXT_ENCODING},g" /etc/locale.conf
+  #localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
+  locale-gen
+  source /etc/locale.conf
+fi
 
 # setup gnupg
 mkdir -p /etc/skel/.gnupg
