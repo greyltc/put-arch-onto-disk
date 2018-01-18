@@ -25,6 +25,7 @@ Variable Name|Description|Default Value
 `IMG_SIZE`|disk image size|`2GiB`
 `TIME_ZONE`|installed system's timezone|`Europe/London`
 `LANGUAGE`|installed system's language|`en_US`
+`PORTABLE`|true if you want this media to run on multiple computers|`true`
 `KEYMAP`|keyboard layout|`uk`
 `TEXT_ENCODING`|installed system's text encoding|`UTF-8`
 `ROOT_PASSWORD`|password for root user|
