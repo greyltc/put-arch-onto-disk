@@ -453,40 +453,6 @@ which mkinitcpio >/dev/null && mkinitcpio -p linux || true
 if pacman -Q grub > /dev/null 2>/dev/null; then
   # disable lvm here because it doesn't do well inside of chroot
   sed -i 's,use_lvmetad = 1,use_lvmetad = 0,g' /etc/lvm/lvm.conf
-
-  # we always want os-prober if we have grub
-  pacman -S --noconfirm --needed os-prober
-  
-  # don't boot quietly
-  sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
-
-  # for LUKS
-  if [ "$LUKS_UUID" = "" ]; then
-    echo "No encryption"
-  else
-    sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT="rootwait,GRUB_CMDLINE_LINUX_DEFAULT="rootwait cryptdevice=UUID=${LUKS_UUID}:luks-${LUKS_UUID},g' /etc/default/grub
-  fi
-  
-  # use systemd if we have it
-  if pacman -Q systemd > /dev/null 2>/dev/null; then
-    sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT=",GRUB_CMDLINE_LINUX_DEFAULT="init=/usr/lib/systemd/systemd ,g' /etc/default/grub
-  fi
-  
-  # generate the grub configuration file
-  grub-mkconfig -o /boot/grub/grub.cfg
-  
-  if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
-    cat > /usr/sbin/fix-f2fs-grub <<END
-#!/usr/bin/env bash
-set -eu -o pipefail
-echo "Running script to fix bug in grub.config when root is f2fs."
-ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
-ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
-sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
-END
-    chmod +x /usr/sbin/fix-f2fs-grub
-    [ "$LUKS_UUID" = "" ] && fix-f2fs-grub /boot/grub/grub.cfg
-  fi
   
   #if [ "$UEFI_COMPAT_STUB" = true ] ; then
   #  # for grub UEFI (stanalone version)
@@ -545,6 +511,40 @@ END
   if [ "$LEGACY_BOOTLOADER" = "true" ] ; then
     # this is for legacy boot:
     grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
+  fi
+  
+    # we always want os-prober if we have grub
+  pacman -S --noconfirm --needed os-prober
+  
+  # don't boot quietly
+  sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
+
+  # for LUKS
+  if [ "$LUKS_UUID" = "" ]; then
+    echo "No encryption"
+  else
+    sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT="rootwait,GRUB_CMDLINE_LINUX_DEFAULT="rootwait cryptdevice=UUID=${LUKS_UUID}:luks-${LUKS_UUID},g' /etc/default/grub
+  fi
+  
+  # use systemd if we have it
+  if pacman -Q systemd > /dev/null 2>/dev/null; then
+    sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT=",GRUB_CMDLINE_LINUX_DEFAULT="init=/usr/lib/systemd/systemd ,g' /etc/default/grub
+  fi
+  
+  # generate the grub configuration file
+  grub-mkconfig -o /boot/grub/grub.cfg
+  
+  if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
+    cat > /usr/sbin/fix-f2fs-grub <<END
+#!/usr/bin/env bash
+set -eu -o pipefail
+echo "Running script to fix bug in grub.config when root is f2fs."
+ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
+ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
+sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
+END
+    chmod +x /usr/sbin/fix-f2fs-grub
+    [ "$LUKS_UUID" = "" ] && fix-f2fs-grub /boot/grub/grub.cfg
   fi
   
   # re-enable lvm
