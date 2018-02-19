@@ -459,8 +459,8 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   #  mkdir -p /boot/EFI/grub-standalone
   #  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
   #fi
-  
-  if [ efivar --list > /dev/null 2>/dev/null ] &&  [ "$UEFI_BOOTLOADER" = "true" ] ; then
+  efivar --list > /dev/null 2>/dev/null
+  if [ "$?" = "0" ] &&  [ "$UEFI_BOOTLOADER" = "true" ] ; then
     echo "EFI BOOT detected doing EFI grub install..."
     if [ "$PORTABLE" = true ] ; then
       # this puts our entry point at [EFI_PART]/EFI/BOOT/BOOTX64.EFI
