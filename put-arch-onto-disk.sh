@@ -274,6 +274,9 @@ else
 fi
 pkill gpg-agent || true
 
+# make pacman color
+sed -i 's/#Color/Color/g' /etc/pacman.conf
+
 # setup admin user
 if [ "$MAKE_ADMIN_USER" = true ] ; then
   useradd -m -G wheel -s /bin/bash ${ADMIN_USER_NAME}
@@ -284,11 +287,12 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   # AUR can only be enabled if a non-root user exists, so we'll do it in here
   if [ "$ENABLE_AUR" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
-    # bootstrap pacaur
-    
-    su -c "(cd; bash <(curl aur.sh) -si --noconfirm --needed cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
-    su -c "(cd; rm -rf cower pacaur)" -s /bin/bash ${ADMIN_USER_NAME}
-    su -c "(EDITOR=vi VISUAL=vi pacaur -Syyu --needed --noconfirm $AUR_PACKAGE_LIST)" -s /bin/bash ${ADMIN_USER_NAME}
+    # bootstrap yay
+    pacman -S --needed --noconfirm go # needed for yay
+
+    su -c "(cd; git clone https://aur.archlinux.org/yay.git)" -s /bin/bash ${ADMIN_USER_NAME}
+    su -c "(cd; cd yay; makepkg -i; cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
+    su -c "(EDITOR=vi VISUAL=vi yay -Syyu --needed --noconfirm $AUR_PACKAGE_LIST)" -s /bin/bash ${ADMIN_USER_NAME}
   fi
   # make sudo prompt for password
   sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
