@@ -291,7 +291,7 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     pacman -S --needed --noconfirm go git # needed for yay
 
     su -c "(cd; git clone https://aur.archlinux.org/yay.git)" -s /bin/bash ${ADMIN_USER_NAME}
-    su -c "(cd; cd yay; makepkg -i; cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
+    su -c "(cd; cd yay; makepkg -i --noconfirm; cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
     su -c "(EDITOR=vi VISUAL=vi yay -Syyu --needed --noconfirm $AUR_PACKAGE_LIST)" -s /bin/bash ${ADMIN_USER_NAME}
   fi
   # make sudo prompt for password
