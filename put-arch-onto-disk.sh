@@ -288,7 +288,7 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   if [ "$ENABLE_AUR" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
     # bootstrap yay
-    pacman -S --needed --noconfirm go # needed for yay
+    pacman -S --needed --noconfirm go git # needed for yay
 
     su -c "(cd; git clone https://aur.archlinux.org/yay.git)" -s /bin/bash ${ADMIN_USER_NAME}
     su -c "(cd; cd yay; makepkg -i; cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
