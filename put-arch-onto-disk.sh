@@ -463,61 +463,31 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   #  mkdir -p /boot/EFI/grub-standalone
   #  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
   #fi
-  efivar --list > /dev/null 2>/dev/null
-  if [ "$?" = "0" ] &&  [ "$UEFI_BOOTLOADER" = "true" ] ; then
-    echo "EFI BOOT detected doing EFI grub install..."
-    if [ "$PORTABLE" = true ] ; then
-      # this puts our entry point at [EFI_PART]/EFI/BOOT/BOOTX64.EFI
-      echo "Doing portable UEFI setup"
-      grub-install --no-nvram --removable --target=x86_64-efi --efi-directory=/boot
-    else
-      # this puts our entry point at [EFI_PART]/EFI/ArchGRUB/grubx64.efi
-      echo "Doing fixed disk UEFI setup"
-      grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=ArchGRUB
-    fi
-  
-#    # do these things if the normal UEFI grub install failed
-#    if [ "\$REPLY" -eq 0 ] ; then
-#      cat > /etc/systemd/system/fix-efi.service <<END
-#[Unit]
-#Description=Re-Installs Grub-efi bootloader
-#ConditionPathExists=/usr/sbin/fix-efi.sh
-#
-#[Service]
-#Type=forking
-#ExecStart=/usr/sbin/fix-efi.sh
-#TimeoutSec=0
-#StandardOutput=tty
-#RemainAfterExit=yes
-#SysVStartPriority=99
-#
-#[Install]
-#WantedBy=multi-user.target
-#END
-#
-#      cat > /usr/sbin/fix-efi.sh <<END
-##!/usr/bin/env bash
-#set -eu -o pipefail
-#if efivar --list > /dev/null 2>/dev/null ; then
-#  echo "Re-installing grub when efi boot."
-#  grub-install --modules="part_gpt part_msdos" --target=x86_64-efi --efi-directory=/boot --bootloader-id=arch_grub && systemctl disable fix-efi.service
-#else
-#  echo "No efi: don't need to fix grub-efi"
-#fi
-#END
-#      chmod +x /usr/sbin/fix-efi.sh
-#      systemctl enable fix-efi.service
-#    fi # end if UEFI grub install failed
-  else # if UEFI grub install
-    echo "Not doing EFI bootloader install. Set LEGACY_BOOTLOADER=true to install grub"
-  fi # end UEFI grub install
+  if efivar --list > /dev/null 2>/dev/null ; then # is this machine UEFI?
+    if [ "$UEFI_BOOTLOADER" = "true" ] ; then
+      echo "EFI BOOT detected doing EFI grub install..."
+      if [ "$PORTABLE" = true ] ; then
+        # this puts our entry point at [EFI_PART]/EFI/BOOT/BOOTX64.EFI
+        echo "Doing portable UEFI setup"
+        grub-install --no-nvram --removable --target=x86_64-efi --efi-directory=/boot
+      else # non-portable
+        # this puts our entry point at [EFI_PART]/EFI/ArchGRUB/grubx64.efi
+        echo "Doing fixed disk UEFI setup"
+        grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=ArchGRUB
+      fi # portable
+    else # if UEFI grub install
+      echo "Not doing EFI bootloader install. Set LEGACY_BOOTLOADER=true to install grub"
+    fi # end UEFI grub install
+  else
+    echo "This machine does not support UEFI"
+  fi
   
   if [ "$LEGACY_BOOTLOADER" = "true" ] ; then
     # this is for legacy boot:
     grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
   fi
   
-    # we always want os-prober if we have grub
+  # we always want os-prober if we have grub
   pacman -S --noconfirm --needed os-prober
   
   # don't boot quietly
@@ -531,7 +501,7 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   fi
   
   # use systemd if we have it
-  if pacman -Q systemd > /dev/null 2>/dev/null; then
+  if pacman -Q systemd > /dev/null 2>/dev/null ; then
     sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT=",GRUB_CMDLINE_LINUX_DEFAULT="init=/usr/lib/systemd/systemd ,g' /etc/default/grub
   fi
   
