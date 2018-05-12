@@ -349,7 +349,7 @@ else
 fi
 
 # add crc modules to initcpio (needed for f2fs)
-sed -i 's/MODULES="/MODULES="crc32_generic crc32-pclmul libcrc32c crc32c_generic crc32c-intel /g' /etc/mkinitcpio.conf
+sed -i 's/MODULES="/MODULES="crc32_generic crc32-pclmul libcrc32c crc32c_generic crc32c-intel crc32 f2fs /g' /etc/mkinitcpio.conf
 
 # if bcache is installed, make sure its module is loaded super early in case / is bcache
 if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
