@@ -343,18 +343,18 @@ fi
 if [ "$LUKS_UUID" = "" ]; then
   echo "No encryption"
 else
-  sed -i 's/MODULES="/MODULES="nls_cp437 /g' /etc/mkinitcpio.conf
+  sed -i 's/MODULES=(/MODULES=(nls_cp437 /g' /etc/mkinitcpio.conf
   sed -i 's/block filesystems/block encrypt filesystems/g' /etc/mkinitcpio.conf
 
 fi
 
 # add crc modules to initcpio (needed for f2fs)
-sed -i 's/MODULES="/MODULES="crc32_generic crc32-pclmul libcrc32c crc32c_generic crc32c-intel crc32 f2fs /g' /etc/mkinitcpio.conf
+sed -i 's/MODULES=(/MODULES=(crc32_generic crc32-pclmul libcrc32c crc32c_generic crc32c-intel crc32 f2fs /g' /etc/mkinitcpio.conf
 
 # if bcache is installed, make sure its module is loaded super early in case / is bcache
 if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
-  sed -i 's/MODULES="/MODULES="bcache /g' /etc/mkinitcpio.conf
-  sed -i 's/HOOKS="base udev autodetect modconf block/HOOKS="base udev autodetect modconf block bcache/g' /etc/mkinitcpio.conf
+  sed -i 's/MODULES=("/MODULES=(bcache /g' /etc/mkinitcpio.conf
+  sed -i 's/HOOKS=(base udev autodetect modconf block/HOOKS=(base udev autodetect modconf block bcache/g' /etc/mkinitcpio.conf
 fi
 
 # if gdm was installed, let's do a few things
