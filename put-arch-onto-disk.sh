@@ -245,7 +245,7 @@ fi
 
 # setup gnupg
 mkdir -p /etc/skel/.gnupg
-echo "keyserver hkps://keys.gnupg.net:443" >> /etc/skel/.gnupg/gpg.conf
+echo "keyserver hkps://hkps.pool.sks-keyservers.net:443" >> /etc/skel/.gnupg/gpg.conf
 echo "keyserver-options auto-key-retrieve" >> /etc/skel/.gnupg/gpg.conf
 
 # change password for root
