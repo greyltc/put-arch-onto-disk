@@ -64,7 +64,7 @@ if [[ $TARGET_ARCH == *"arm"* || $TARGET_ARCH == "aarch64" ]]; then
   fi
 else
   # alarm does not like/need these
-  NON_ARM_PKGS="grub efibootmgr reflector jfsutils"
+  NON_ARM_PKGS="grub efibootmgr reflector jfsutils os-prober"
 fi
 
 # here are a baseline set of packages for the new install
@@ -486,9 +486,6 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
     # this is for legacy boot:
     grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
   fi
-  
-  # we always want os-prober if we have grub
-  pacman -S --noconfirm --needed os-prober
   
   # don't boot quietly
   sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
