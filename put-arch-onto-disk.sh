@@ -53,10 +53,12 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${LUKS_KEYFILE:=""}
 
 if [[ $TARGET_ARCH == *"arm"* || $TARGET_ARCH == "aarch64" ]]; then
-  if pacman -Q qemu-user-static > /dev/null 2>/dev/null; then
+  if pacman -Q qemu-user-static > /dev/null 2>/dev/null && pacman -Q binfmt-support > /dev/null 2>/dev/null; then
+    update-binfmts --enable qemu-arm
+    update-binfmts --enable qemu-aarch64
     NON_ARM_PKGS=""
   else
-    echo "Please install qemu-user-static from the AUR"
+    echo "Please install qemu-user-static and binfmt-support from the AUR"
     echo "so that we can chroot into the ARM install"
     exit
   fi
