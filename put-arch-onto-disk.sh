@@ -14,10 +14,6 @@ if [[ $EUID -ne 0 ]]; then
   exit
 fi
 
-# flush writes to disks and re-probe partitions
-sync
-partprobe
-
 # store off the absolute path to *this* script
 THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 
@@ -70,6 +66,10 @@ DEFAULT_PACKAGES="base ${NON_ARM_PKGS} haveged btrfs-progs dosfstools exfat-util
 
 # install these packages on the host now. they're needed for the install process
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
+
+# flush writes to disks and re-probe partitions
+sync
+partprobe
 
 # is this a block device?
 if [ -b $TARGET ] ; then
