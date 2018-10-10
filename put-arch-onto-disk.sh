@@ -262,9 +262,11 @@ haveged -w 1024
 pacman-key --init
 pkill haveged || true
 pacman -Rs --noconfirm haveged
-echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+echo "nameserver 1.0.0.1" >> /etc/resolv.conf
 if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
   pacman -S --noconfirm --needed archlinuxarm-keyring
+  pacman-key --init
   pacman-key --populate archlinuxarm
 else
   pacman-key --populate archlinux
@@ -274,6 +276,9 @@ pkill gpg-agent || true
 
 # make pacman color
 sed -i 's/#Color/Color/g' /etc/pacman.conf
+
+# do an update
+pacman -Syyu --noconfirm
 
 # setup admin user
 if [ "$MAKE_ADMIN_USER" = true ] ; then
