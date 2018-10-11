@@ -433,7 +433,8 @@ locale > /etc/locale.conf
 source /etc/locale.conf
 
 echo "Reinstall all the packages"
-pacman -S $(pacman -Qq) --noconfirm
+PKGS=\\\$(pacman -Qq)
+pacman -S \\\${PKGS//yay} --noconfirm
 
 echo "Setting console keyboard layout"
 loadkeys $KEYMAP
