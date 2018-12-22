@@ -295,7 +295,8 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     
     su -c "(cd; git clone https://aur.archlinux.org/yay.git)" -s /bin/bash ${ADMIN_USER_NAME}
     su -c "(cd; cd yay; makepkg --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}
-    pacman -U --noconfirm "/home/${ADMIN_USER_NAME}/yay/*.tar.xz"
+    cd "/home/${ADMIN_USER_NAME}/yay"
+    pacman -U --noconfirm *.tar.xz
     su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
     su -c "(EDITOR=vi VISUAL=vi yay -Syyu --needed --noconfirm $AUR_PACKAGE_LIST)" -s /bin/bash ${ADMIN_USER_NAME}
   fi
