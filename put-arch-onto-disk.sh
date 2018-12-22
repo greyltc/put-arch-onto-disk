@@ -298,7 +298,9 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     cd "/home/${ADMIN_USER_NAME}/yay"
     pacman -U --noconfirm *.tar.xz
     su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
-    su -c "(EDITOR=vi VISUAL=vi yay -Syyu --needed --noconfirm $AUR_PACKAGE_LIST)" -s /bin/bash ${ADMIN_USER_NAME}
+    if [ !  -z  $AUR_PACKAGE_LIST  ] ; then # this seems to be broken (tested with rpi, yay doesn't work here)
+      su -c "(EDITOR=vi VISUAL=vi yay -Syyu --needed --noconfirm $AUR_PACKAGE_LIST)" -s /bin/bash ${ADMIN_USER_NAME}
+    fi
   fi
   # make sudo prompt for password
   sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
