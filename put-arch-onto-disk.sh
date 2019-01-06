@@ -292,12 +292,12 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
     # backup makepkg built packages
     MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
-    mkdir -p "${MAKEPKG_BACKUP}"
+    mkdir -p "\${MAKEPKG_BACKUP}"
     groupadd yay
     usermod -a -G yay ${ADMIN_USER_NAME}
-    chgrp yay "${MAKEPKG_BACKUP}"
-    chmod g+w "${MAKEPKG_BACKUP}"
-    sed -i "s,#PKGDEST=/home/packages,PKGDEST=${MAKEPKG_BACKUP},g" /etc/makepkg.conf
+    chgrp yay "\${MAKEPKG_BACKUP}"
+    chmod g+w "\${MAKEPKG_BACKUP}"
+    sed -i "s,#PKGDEST=/home/packages,PKGDEST=\${MAKEPKG_BACKUP},g" /etc/makepkg.conf
     # bootstrap yay
     pacman -S --needed --noconfirm go git # needed for yay
     
