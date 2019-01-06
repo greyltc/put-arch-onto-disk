@@ -290,6 +290,10 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   # AUR can only be enabled if a non-root user exists, so we'll do it in here
   if [ "$ENABLE_AUR" = true ] ; then
     pacman -S --needed --noconfirm base-devel # needed to build aur packages
+    # backup makepkg built packages
+    MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
+    mkdir -p "${MAKEPKG_BACKUP}"
+    sed -i "s,#PKGDEST=/home/packages,PKGDEST=${MAKEPKG_BACKUP},g" /etc/makepkg.conf
     # bootstrap yay
     pacman -S --needed --noconfirm go git # needed for yay
     
