@@ -33,8 +33,8 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${IMG_SIZE:=2GiB}
 : ${TIME_ZONE:=Europe/London}
 : ${KEYMAP:=uk}
-: ${LANGUAGE:=en_US}
-: ${TEXT_ENCODING:=UTF-8}
+: ${LOCALE:=en_US.UTF-8}
+: ${CHARSET:=UTF-8}
 : ${LEGACY_BOOTLOADER:=true}
 : ${UEFI_BOOTLOADER:=true}
 : ${UEFI_COMPAT_STUB:=false}
@@ -234,22 +234,14 @@ echo ${THIS_HOSTNAME} > /etc/hostname
 ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
 
 # do locale things
-echo "${LANGUAGE}.${TEXT_ENCODING} ${TEXT_ENCODING}" >> /etc/locale.gen
-#if [[ $TARGET_ARCH == *"arm"*  || $TARGET_ARCH == "aarch64" ]]; then
-#  echo "locale-gen is broken in qemu"
-#else
+sed -i "s,^#${LOCALE} ${CHARSET}$,${LOCALE} ${CHARSET},g" /etc/locale.gen
+#echo "${LOCALE} ${CHARSET}" >> /etc/locale.gen
 locale-gen
-localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
-#locale > /etc/locale.conf
-#echo "LANG=${LANGUAGE}.${TEXT_ENCODING}" >> /etc/locale.conf
-##sed -i "s,LANG=.*,LANG=${LANGUAGE}.${TEXT_ENCODING},g" /etc/locale.conf
-##localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
-##locale-gen
+localectl set-locale LANG=${LOCALE}
 unset LANG
 set +o nounset
 source /etc/profile.d/locale.sh
 set -o nounset
-#fi
 
 # setup gnupg
 mkdir -p /etc/skel/.gnupg
