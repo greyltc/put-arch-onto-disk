@@ -239,8 +239,8 @@ localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
 ##sed -i "s,LANG=.*,LANG=${LANGUAGE}.${TEXT_ENCODING},g" /etc/locale.conf
 ##localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
 ##locale-gen
-unset LANG
-source /etc/profile.d/locale.sh
+#unset LANG
+LANG='' source /etc/profile.d/locale.sh
 #fi
 
 # setup gnupg
