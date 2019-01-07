@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-set -eu -o pipefail
-set -vx #echo on
+set -o pipefail
+set -o errexit
+set -o nounset
+set -o verbose
+set -o xtrace
 
 # put-arch-onto-disk.sh
 # This script installs Arch Linux onto media (making it bootable)
@@ -445,7 +448,9 @@ END
 
 cat > /usr/sbin/nativeSetupTasks.sh <<END
 #!/usr/bin/env bash
-set -eu -o pipefail
+set -o pipefail
+set -o errexit
+set -o nounset
 echo "Running first boot script."
 
 locale-gen
@@ -532,7 +537,9 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
     cat > /usr/sbin/fix-f2fs-grub <<END
 #!/usr/bin/env bash
-set -eu -o pipefail
+set -o pipefail
+set -o errexit
+set -o nounset
 echo "Running script to fix bug in grub.config when root is f2fs."
 ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
 ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
