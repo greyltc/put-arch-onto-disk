@@ -218,8 +218,11 @@ fi
 
 cat > /tmp/chroot.sh <<EOF
 #!/usr/bin/env bash
-set -eu -o pipefail
-set -vx #echo on
+set -o pipefail
+set -o errexit
+set -o nounset
+set -o verbose
+set -o xtrace
 
 # set hostname
 echo ${THIS_HOSTNAME} > /etc/hostname
@@ -239,8 +242,10 @@ localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
 ##sed -i "s,LANG=.*,LANG=${LANGUAGE}.${TEXT_ENCODING},g" /etc/locale.conf
 ##localectl set-locale LANG=${LANGUAGE}.${TEXT_ENCODING}
 ##locale-gen
-#unset LANG
-LANG='' source /etc/profile.d/locale.sh
+unset LANG
+set +o nounset
+source /etc/profile.d/locale.sh
+set -o nounset
 #fi
 
 # setup gnupg
