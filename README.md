@@ -24,10 +24,10 @@ Variable Name|Description|Default Value
 `TARGET`|installation target. if this is a block deivce, you'll get a direct install onto that media (repartitioning it and filling it entirely), if it's a file you'll get a dd-able disk image of size `IMG_SIZE`|`./bootable_arch.img`
 `IMG_SIZE`|disk image size|`2GiB`
 `TIME_ZONE`|installed system's timezone|`Europe/London`
-`LANGUAGE`|installed system's language|`en_US`
+`LOCALE`|installed system's locale|`en_US.UTF-8`
+`CHARSET`|installed system's character set|`UTF-8`
 `PORTABLE`|true if you want this media to run on multiple computers|`true`
 `KEYMAP`|keyboard layout|`uk`
-`TEXT_ENCODING`|installed system's text encoding|`UTF-8`
 `ROOT_PASSWORD`|password for root user|
 `MAKE_ADMIN_USER`|create a user with sudo powers (and install sudo)|`true`
 `ADMIN_USER_NAME`|user name for admin user (requires `MAKE_ADMIN_USER`=`true`)|`admin`
