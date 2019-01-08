@@ -305,7 +305,7 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     
     su -c "(cd; git clone https://aur.archlinux.org/yay.git)" -s /bin/bash ${ADMIN_USER_NAME}
     su -c "(cd; cd yay; makepkg --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}
-    cd "/home/${ADMIN_USER_NAME}/yay"
+    cd "\${MAKEPKG_BACKUP}"
     pacman -U --noconfirm *.tar.xz
     su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
     if [ !  -z  $AUR_PACKAGE_LIST  ] ; then # this seems to be broken (tested with rpi, yay doesn't work here)
