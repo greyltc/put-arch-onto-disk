@@ -61,11 +61,11 @@ if [[ $TARGET_ARCH == *"arm"* || $TARGET_ARCH == "aarch64" ]]; then
   fi
 else
   # alarm does not like/need these
-  NON_ARM_PKGS="grub efibootmgr reflector jfsutils os-prober"
+  NON_ARM_PKGS="grub efibootmgr reflector os-prober"
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${NON_ARM_PKGS} haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog wpa_actiond ifplugd cpupower ntp"
+DEFAULT_PACKAGES="base ${NON_ARM_PKGS} haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp"
 
 # install these packages on the host now. they're needed for the install process
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
