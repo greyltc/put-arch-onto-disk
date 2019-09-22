@@ -234,7 +234,7 @@ echo ${THIS_HOSTNAME} > /etc/hostname
 ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
 
 # do locale things
-sed -i "s,^#${LOCALE} ${CHARSET}$,${LOCALE} ${CHARSET},g" /etc/locale.gen
+sed -i "s,^#${LOCALE} ${CHARSET},${LOCALE} ${CHARSET},g" /etc/locale.gen
 #echo "${LOCALE} ${CHARSET}" >> /etc/locale.gen
 locale-gen
 localectl set-locale LANG=${LOCALE}
