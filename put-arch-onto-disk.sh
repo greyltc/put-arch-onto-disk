@@ -410,6 +410,7 @@ ExecStop=systemctl disable firstBootScript.service
 TimeoutSec=0
 RemainAfterExit=yes
 SysVStartPriority=99
+TimeoutSec=900
 
 [Install]
 WantedBy=multi-user.target
