@@ -525,7 +525,9 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   fi
   
   # generate the grub configuration file
+  pvscan --cache
   grub-mkconfig -o /boot/grub/grub.cfg
+  cat /boot/grub/grub.cfg
   
   if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
     cat > /usr/sbin/fix-f2fs-grub <<END
