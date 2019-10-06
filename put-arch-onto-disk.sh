@@ -525,7 +525,9 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   fi
   
   # generate the grub configuration file
-  pvscan --cache
+  sync
+  partprobe
+  pvscan --cache -aay
   grub-mkconfig -o /boot/grub/grub.cfg
   cat /boot/grub/grub.cfg
   
