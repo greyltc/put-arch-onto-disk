@@ -585,8 +585,16 @@ if [ "$REPLY" -eq 0 ] ; then
     umount ${TMP_ROOT}/home
   fi
   umount ${TMP_ROOT}
+  f [ -b $TARGET ] ; then
+    TARGET_DEV=$TARGET
+    for n in ${TARGET_DEV}* ; do umount $n || true; done
+    for n in ${TARGET_DEV}* ; do umount $n || true; done
+    for n in ${TARGET_DEV}* ; do umount $n || true; done
+  fi
+  mount
   sync
   pvscan --cache -aay
+  partprobe
   mount
   
   # re-enter to do grub mkconfig
