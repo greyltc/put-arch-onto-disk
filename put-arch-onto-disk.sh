@@ -587,6 +587,7 @@ if [ "$REPLY" -eq 0 ] ; then
   umount ${TMP_ROOT}
   sync
   pvscan --cache -aay
+  mount
   
   # re-enter to do grub mkconfig
   mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
