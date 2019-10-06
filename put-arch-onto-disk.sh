@@ -578,11 +578,13 @@ if [ "$REPLY" -eq 0 ] ; then
   cat "${TMP_ROOT}/etc/fstab"
   
   # unmount
-  umount ${TMP_ROOT}/boot || true
+  sync
+  umount ${TMP_ROOT}/boot
+  sync
   if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
-    umount ${TMP_ROOT}/home || true
+    umount ${TMP_ROOT}/home
   fi
-  umount ${TMP_ROOT} || true
+  umount ${TMP_ROOT}
   sync
   pvscan --cache -aay
   
