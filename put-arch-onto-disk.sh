@@ -525,26 +525,26 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   fi
   
   # generate the grub configuration file
-  sync
-  partprobe
-  pvscan --cache -aay
-  grub-mkconfig -o /boot/grub/grub.cfg
-  cat /boot/grub/grub.cfg
+  #sync
+  #partprobe
+  #pvscan --cache -aay
+  #grub-mkconfig -o /boot/grub/grub.cfg
+  #cat /boot/grub/grub.cfg
   
-  if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
-    cat > /usr/sbin/fix-f2fs-grub <<END
-#!/usr/bin/env bash
-set -o pipefail
-set -o errexit
-set -o nounset
-echo "Running script to fix bug in grub.config when root is f2fs."
-ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
-ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
-sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
-END
-    chmod +x /usr/sbin/fix-f2fs-grub
-    [ "$LUKS_UUID" = "" ] && fix-f2fs-grub /boot/grub/grub.cfg
-  fi
+#  if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
+#    cat > /usr/sbin/fix-f2fs-grub <<END
+##!/usr/bin/env bash
+#set -o pipefail
+#set -o errexit
+#set -o nounset
+#echo "Running script to fix bug in grub.config when root is f2fs."
+#ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
+#ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
+#sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
+#END
+#    chmod +x /usr/sbin/fix-f2fs-grub
+#    [ "$LUKS_UUID" = "" ] && fix-f2fs-grub /boot/grub/grub.cfg
+#  fi
   
   # re-enable lvm
   sed -i 's,use_lvmetad = 0,use_lvmetad = 1,g' /etc/lvm/lvm.conf
@@ -576,6 +576,26 @@ if [ "$REPLY" -eq 0 ] ; then
   # you might want to know what the install's fstab looks like
   echo "fstab is:"
   cat "${TMP_ROOT}/etc/fstab"
+  
+  # unmount
+  umount ${TMP_ROOT}/boot || true
+  if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
+    umount ${TMP_ROOT}/home || true
+  fi
+  umount ${TMP_ROOT} || true
+  sync
+  pvscan --cache -aay
+  
+  # re-enter to do grub mkconfig
+  mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
+  if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
+    mount ${ROOT_DEVICE} -o subvol=root,compress=lzo ${TMP_ROOT}
+  else
+    mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
+  fi
+  mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
+  arch-chroot ${TMP_ROOT} "grub-mkconfig -o /boot/grub/grub.cfg"
+  cat "${TMP_ROOT}/boot/grub/grub.cfg"
 fi
 
 # unmount and clean up everything
@@ -587,6 +607,7 @@ umount ${TMP_ROOT} || true
 cryptsetup close /dev/mapper/${LUKS_UUID} || true
 losetup -D || true
 sync
+pvscan --cache -aay
 
 if [ "$REPLY" -eq 0 ] ; then
   echo "Image sucessfully created"
