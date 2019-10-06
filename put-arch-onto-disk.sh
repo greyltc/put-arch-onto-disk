@@ -65,7 +65,7 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${NON_ARM_PKGS} haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp"
+DEFAULT_PACKAGES="base ${NON_ARM_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp"
 
 # install these packages on the host now. they're needed for the install process
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
@@ -366,7 +366,7 @@ else
 
 fi
 
-# add come modules to initcpio (needed for f2fs and usb)
+# add some modules to initcpio (needed for f2fs and usb)
 sed -i 's/MODULES=(/MODULES=(usbcore ehci_hcd uhci_hcd crc32_generic libcrc32c crc32c_generic crc32 f2fs /g' /etc/mkinitcpio.conf
 
 # if bcache is installed, make sure its module is loaded super early in case / is bcache
@@ -472,7 +472,7 @@ systemd-notify --ready
 END
 chmod +x /usr/sbin/nativeSetupTasks.sh
 
-# run mkinitcpio (if it exists, it won't under alarm)
+# run mkinitcpio (if it exists, it might not under alarm)
 which mkinitcpio >/dev/null && mkinitcpio -p linux || true
 
 # setup & install grub bootloader (if it's been installed)
