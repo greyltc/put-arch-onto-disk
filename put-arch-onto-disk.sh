@@ -578,34 +578,36 @@ if [ "$REPLY" -eq 0 ] ; then
   cat "${TMP_ROOT}/etc/fstab"
   
   # unmount
-  sync
-  umount ${TMP_ROOT}/boot
-  sync
-  if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
-    umount ${TMP_ROOT}/home
-  fi
-  umount ${TMP_ROOT}
-  if [ -b $TARGET ] ; then
-    TARGET_DEV=$TARGET
-    for n in ${TARGET_DEV}* ; do umount $n || true; done
-    for n in ${TARGET_DEV}* ; do umount $n || true; done
-    for n in ${TARGET_DEV}* ; do umount $n || true; done
-  fi
-  mount
-  sync
-  pvscan --cache -aay
-  partprobe
-  mount
+  #sync
+  #umount ${TMP_ROOT}/boot
+  #sync
+  #if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
+  #  umount ${TMP_ROOT}/home
+  #fi
+  #umount ${TMP_ROOT}
+  #if [ -b $TARGET ] ; then
+  #  TARGET_DEV=$TARGET
+  #  for n in ${TARGET_DEV}* ; do umount $n || true; done
+  #  for n in ${TARGET_DEV}* ; do umount $n || true; done
+  #  for n in ${TARGET_DEV}* ; do umount $n || true; done
+  #fi
+  #mount
+  #sync
+  #pvscan --cache -aay
+  #partprobe
+  #mount
   
   # re-enter to do grub mkconfig
-  if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
-    mount ${ROOT_DEVICE} -o subvol=root,compress=lzo ${TMP_ROOT}
-  else
-    mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
-  fi
-  mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
-  arch-chroot ${TMP_ROOT} "grub-mkconfig -o /boot/grub/grub.cfg"
-  cat "${TMP_ROOT}/boot/grub/grub.cfg"
+  #if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
+  #  mount ${ROOT_DEVICE} -o subvol=root,compress=lzo ${TMP_ROOT}
+  #else
+  #  mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
+  #fi
+  #mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
+  #arch-chroot ${TMP_ROOT} "grub-mkconfig -o /boot/grub/grub.cfg"
+  #cat "${TMP_ROOT}/boot/grub/grub.cfg"
+  pvscan --cache -aay
+  grub-mkconfig -o "${TMP_ROOT}/boot/grub/grub.cfg"
 fi
 
 # unmount and clean up everything
