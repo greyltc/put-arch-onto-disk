@@ -598,6 +598,7 @@ if [ "$REPLY" -eq 0 ] ; then
   mount
   
   # re-enter to do grub mkconfig
+  mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
   if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
     mount ${ROOT_DEVICE} -o subvol=root,compress=lzo ${TMP_ROOT}
   else
