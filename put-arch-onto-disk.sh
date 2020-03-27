@@ -65,7 +65,7 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${NON_ARM_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp"
+DEFAULT_PACKAGES="base linux ${NON_ARM_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi"
 
 # install these packages on the host now. they're needed for the install process
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
@@ -472,14 +472,16 @@ systemd-notify --ready
 END
 chmod +x /usr/sbin/nativeSetupTasks.sh
 
-# run mkinitcpio (if it exists, it might not under alarm)
-which mkinitcpio >/dev/null && mkinitcpio -p linux || true
+# run mkinitcpio
+mkinitcpio -p linux
 
 # setup & install grub bootloader (if it's been installed)
 if pacman -Q grub > /dev/null 2>/dev/null; then
   # disable lvm here because it doesn't do well inside of chroot
-  sed -i 's,use_lvmetad = 1,use_lvmetad = 0,g' /etc/lvm/lvm.conf
-  
+  if [ -f "/etc/lvm/lvm.conf" ]; then
+    sed -i 's,use_lvmetad = 1,use_lvmetad = 0,g' /etc/lvm/lvm.conf
+  fi
+
   #if [ "$UEFI_COMPAT_STUB" = true ] ; then
   #  # for grub UEFI (stanalone version)
   #  mkdir -p /boot/EFI/grub-standalone
@@ -523,12 +525,14 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   if pacman -Q systemd > /dev/null 2>/dev/null ; then
     sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT=",GRUB_CMDLINE_LINUX_DEFAULT="init=/usr/lib/systemd/systemd ,g' /etc/default/grub
   fi
-  
+ 
   # generate the grub configuration file
-  #sync
-  #partprobe
-  #pvscan --cache -aay
-  #grub-mkconfig -o /boot/grub/grub.cfg
+  sync
+  partprobe
+  if pacman -Q lvm2 > /dev/null 2>/dev/null ; then
+    pvscan --cache -aay
+  fi
+  grub-mkconfig -o /boot/grub/grub.cfg
   #cat /boot/grub/grub.cfg
   
 #  if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
@@ -546,8 +550,10 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
 #    [ "$LUKS_UUID" = "" ] && fix-f2fs-grub /boot/grub/grub.cfg
 #  fi
   
-  # re-enable lvm
-  sed -i 's,use_lvmetad = 0,use_lvmetad = 1,g' /etc/lvm/lvm.conf
+ # re-enable lvm
+ if [ -f "/etc/lvm/lvm.conf" ]; then
+    sed -i 's,use_lvmetad = 0,use_lvmetad = 1,g' /etc/lvm/lvm.conf
+  fi
 fi # end grub section
 
 # if we're on a pi, add some stuff I like to config.txt
@@ -577,37 +583,6 @@ if [ "$REPLY" -eq 0 ] ; then
   echo "fstab is:"
   cat "${TMP_ROOT}/etc/fstab"
   
-  # unmount
-  #sync
-  #umount ${TMP_ROOT}/boot
-  #sync
-  #if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
-  #  umount ${TMP_ROOT}/home
-  #fi
-  #umount ${TMP_ROOT}
-  #if [ -b $TARGET ] ; then
-  #  TARGET_DEV=$TARGET
-  #  for n in ${TARGET_DEV}* ; do umount $n || true; done
-  #  for n in ${TARGET_DEV}* ; do umount $n || true; done
-  #  for n in ${TARGET_DEV}* ; do umount $n || true; done
-  #fi
-  #mount
-  #sync
-  #pvscan --cache -aay
-  #partprobe
-  #mount
-  
-  # re-enter to do grub mkconfig
-  #if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
-  #  mount ${ROOT_DEVICE} -o subvol=root,compress=lzo ${TMP_ROOT}
-  #else
-  #  mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
-  #fi
-  #mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
-  #arch-chroot ${TMP_ROOT} "grub-mkconfig -o /boot/grub/grub.cfg"
-  #cat "${TMP_ROOT}/boot/grub/grub.cfg"
-  pvscan --cache -aay
-  grub-mkconfig -o "${TMP_ROOT}/boot/grub/grub.cfg"
 fi
 
 # unmount and clean up everything
@@ -619,7 +594,9 @@ umount ${TMP_ROOT} || true
 cryptsetup close /dev/mapper/${LUKS_UUID} || true
 losetup -D || true
 sync
-pvscan --cache -aay
+if pacman -Q lvm2 > /dev/null 2>/dev/null ; then
+  pvscan --cache -aay
+fi
 
 if [ "$REPLY" -eq 0 ] ; then
   echo "Image sucessfully created"
