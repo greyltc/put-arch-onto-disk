@@ -32,6 +32,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${PORTABLE:=true}
 : ${IMG_SIZE:=2GiB}
 : ${TIME_ZONE:=Europe/London}
+# possible keymap options can be seen by `localectl list-keymaps`
 : ${KEYMAP:=uk}
 : ${LOCALE:=en_US.UTF-8}
 : ${CHARSET:=UTF-8}
@@ -233,15 +234,19 @@ echo ${THIS_HOSTNAME} > /etc/hostname
 # set timezone
 ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
 
+# generate adjtime
+hwclock --systohc
+
 # do locale things
 sed -i "s,^#${LOCALE} ${CHARSET},${LOCALE} ${CHARSET},g" /etc/locale.gen
-#echo "${LOCALE} ${CHARSET}" >> /etc/locale.gen
 locale-gen
 localectl set-locale LANG=${LOCALE}
 unset LANG
 set +o nounset
 source /etc/profile.d/locale.sh
 set -o nounset
+localectl set-keymap ${KEYMAP}
+localectl status
 
 # setup gnupg
 mkdir -p /etc/skel/.gnupg
@@ -287,11 +292,13 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
   useradd -m -G wheel -s /bin/bash ${ADMIN_USER_NAME}
   echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
   pacman -S --needed --noconfirm sudo
-  sed -i 's/# %wheel ALL=(ALL)/%wheel ALL=(ALL)/g' /etc/sudoers
   
+  # users in the wheel group have sudo powers
+  sed -i 's/# %wheel ALL=(ALL)/%wheel ALL=(ALL)/g' /etc/sudoers
+
   # AUR can only be enabled if a non-root user exists, so we'll do it in here
   if [ "$ENABLE_AUR" = true ] ; then
-    pacman -S --needed --noconfirm base-devel # needed to build aur packages
+    pacman -S --needed --noconfirm base-devel go git # needed to build aur packages and for yay
     # backup makepkg built packages
     MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
     mkdir -p "\${MAKEPKG_BACKUP}"
@@ -300,20 +307,23 @@ if [ "$MAKE_ADMIN_USER" = true ] ; then
     chgrp yay "\${MAKEPKG_BACKUP}"
     chmod g+w "\${MAKEPKG_BACKUP}"
     sed -i "s,#PKGDEST=/home/packages,PKGDEST=\${MAKEPKG_BACKUP},g" /etc/makepkg.conf
-    # bootstrap yay
-    pacman -S --needed --noconfirm go git # needed for yay
     
+    # make and install yay 
     su -c "(cd; git clone https://aur.archlinux.org/yay.git)" -s /bin/bash ${ADMIN_USER_NAME}
-    su -c "(cd; cd yay; makepkg --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}
-    cd "\${MAKEPKG_BACKUP}"
-    pacman -U --noconfirm *.tar.xz
-    su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
+    
+    # temporarily give wheel users passwordless sudo powers
+    sed -i 's/# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
+    
+    su -c "(cd; cd yay; makepkg -i --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}
     if [ !  -z  $AUR_PACKAGE_LIST  ] ; then # this seems to be broken (tested with rpi, yay doesn't work here)
-      su -c "(EDITOR=vi VISUAL=vi yay -Syyu --needed --noconfirm $AUR_PACKAGE_LIST)" -s /bin/bash ${ADMIN_USER_NAME}
+      su -c "(EDITOR=vi VISUAL=vi yay -Syyu --needed --noconfirm ${AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
     fi
+
+    # make sudo prompt wheel users for a password again
+    sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
+
+    su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
   fi
-  # make sudo prompt for password
-  sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
 fi
 
 # if cpupower is installed, enable the service
@@ -406,11 +416,10 @@ ConditionPathExists=/usr/sbin/runOnFirstBoot.sh
 [Service]
 Type=forking
 ExecStart=/usr/sbin/runOnFirstBoot.sh
-ExecStop=systemctl disable firstBootScript.service
+ExecStopPost=/usr/bin/systemctl disable firstBootScript.service
 TimeoutSec=0
 RemainAfterExit=yes
 SysVStartPriority=99
-TimeoutSec=900
 
 [Install]
 WantedBy=multi-user.target
@@ -426,6 +435,7 @@ Before=multi-user.target
 
 [Service]
 Type=notify
+TimeoutSec=0
 ExecStart=/usr/sbin/nativeSetupTasks.sh
 ExecStopPost=/usr/bin/systemctl disable nativeSetupTasks.service
 
@@ -446,26 +456,54 @@ set -o errexit
 set -o nounset
 echo "Running first boot script."
 
-locale-gen
-locale > /etc/locale.conf
-source /etc/locale.conf
+# don't know why setting locale in the chroot doesn't work so we'll do it here again
+localectl set-locale LANG=${LOCALE}
+unset LANG
+set +o nounset
+source /etc/profile.d/locale.sh
+set -o nounset
+localectl set-keymap ${KEYMAP} 
+localectl status
 
-echo "Reinstall all the packages"
-PKGS=\\\$(pacman -Qq)
-pacman -S \\\${PKGS//yay} --noconfirm
+echo "Reinstall all native packages"
+pacman -Qqn | pacman -S --noconfirm -
 
-echo "Setting console keyboard layout"
-loadkeys $KEYMAP
+# make sure everything is up to date
+#pacman -Syu --needed --noconfirm  # requires internet
 
-timedatectl set-ntp true
+hwclock --systohc
+
+if [ "$MAKE_ADMIN_USER" = true ] && [ "$ENABLE_AUR" = true ] ; then
+  echo "Reinstall all foreign packages"
+  # rebuild & reinstall yay
+  su -c "(cd; git clone https://aur.archlinux.org/yay.git)" -s /bin/bash ${ADMIN_USER_NAME}
+  
+  # temporary passwordless sudo for wheel users
+  sed -i 's,# %wheel ALL=(ALL) NOPASSWD: ALL,%wheel ALL=(ALL) NOPASSWD: ALL,g' /etc/sudoers
+
+  su -c "(cd; cd yay; makepkg -Cfi --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}
+
+  # rebuild and install all aur packages
+  su -c "(yay -S --noconfirm --rebuildall \\\$(echo """\\\$(pacman -Qqm)""" | sed s,yay,,))" -s /bin/bash ${ADMIN_USER_NAME}
+  
+  # ensure everything is up to date
+  #su -c "(yay -Syyu --needed --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}  # requires internet
+
+  # make sudo prompt for password again
+  sed -i 's,%wheel ALL=(ALL) NOPASSWD: ALL,# %wheel ALL=(ALL) NOPASSWD: ALL,g' /etc/sudoers
+
+  su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
+fi
 
 # we can't do this from inside the chroot
 if [ -a /link_resolv_conf ] ; then
   echo "Making resolv.conf compatible with networkd"
   rm /link_resolv_conf
   mv "/etc/resolv.conf" "/etc/resolv.conf.bak"
-  ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
+  ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 fi
+
+timedatectl set-ntp true
 
 echo "First boot script finished"
 systemd-notify --ready
@@ -569,28 +607,28 @@ EOF
 
 # run the setup script in th new install's root
 chmod +x /tmp/chroot.sh
-mv /tmp/chroot.sh ${TMP_ROOT}/root/chroot.sh
-arch-chroot ${TMP_ROOT} /root/chroot.sh; REPLY=$? || true
+mv /tmp/chroot.sh "${TMP_ROOT}/root/chroot.sh"
+arch-chroot "${TMP_ROOT}" /root/chroot.sh; REPLY=$? || true
+rm "${TMP_ROOT}/var/lib/pacman/db.lck" || true
 
 if [ "$REPLY" -eq 0 ] ; then
   # remove the setup script from the install
-  rm -rf ${TMP_ROOT}/root/chroot.sh || true
+  rm -rf "${TMP_ROOT}/root/chroot.sh" || true
   
   # copy *this* script into the install for installs later
-  cp "$THIS" ${TMP_ROOT}/usr/sbin/mkarch.sh
+  cp "$THIS" "${TMP_ROOT}/usr/sbin/mkarch.sh"
   
   # you might want to know what the install's fstab looks like
   echo "fstab is:"
   cat "${TMP_ROOT}/etc/fstab"
-  
 fi
 
 # unmount and clean up everything
-umount ${TMP_ROOT}/boot || true
+umount "${TMP_ROOT}/boot" || true
 if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
-  umount ${TMP_ROOT}/home || true
+  umount "${TMP_ROOT}/home" || true
 fi
-umount ${TMP_ROOT} || true
+umount "${TMP_ROOT}" || true
 cryptsetup close /dev/mapper/${LUKS_UUID} || true
 losetup -D || true
 sync
