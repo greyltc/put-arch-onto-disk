@@ -51,6 +51,21 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${FIRST_BOOT_SCRIPT:=""}
 : ${USE_TESTING:=false}
 : ${LUKS_KEYFILE:=""}
+: ${PREEXISTING_BOOT_PARTITION_NUM:=""} # this will not be formatted
+: ${PREEXISTING_ROOT_PARTITION_NUM:=""} # this WILL be formatted
+# any pre-existing swap partition will just be used via systemd magic
+
+TO_EXISTING=true
+if [[ p${PREEXISTING_BOOT_PARTITION_NUM} == p"" && p${PREEXISTING_ROOT_PARTITION_NUM} == p"" ]]; then
+  TO_EXISTING=false
+fi
+
+if [ "${TO_EXISTING}" = true ] ; then
+  if [[ p${PREEXISTING_BOOT_PARTITION_NUM} == p"" || p${PREEXISTING_ROOT_PARTITION_NUM} == p"" ]]; then
+    echo "You must specify both root and boot pre-existing partition numbers"
+    exit
+  fi
+fi
 
 if [[ $TARGET_ARCH == *"arm"* || $TARGET_ARCH == "aarch64" ]]; then
   if pacman -Q qemu-user-static-bin > /dev/null 2>/dev/null && pacman -Q binfmt-qemu-static > /dev/null 2>/dev/null; then
@@ -90,32 +105,6 @@ else
   losetup -P ${TARGET_DEV} "${IMG_NAME}"
 fi
 
-wipefs -a -f "${TARGET_DEV}"
-sgdisk -Z "${TARGET_DEV}"  || true # zap (destroy) all partition tables
-
-NEXT_PARTITION=1
-if [[ $TARGET_ARCH == *"arm"*  || $TARGET_ARCH == "aarch64" ]]; then
-  echo "No bios grub for arm"
-  BOOT_P_TYPE=0700
-else
-  sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:"Legacy BIOS GRUB partition" "${TARGET_DEV}" && ((NEXT_PARTITION++))
-  BOOT_P_TYPE=ef00
-fi
-BOOT_P_SIZE_MB=300
-sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition" "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-if [ "$MAKE_SWAP_PARTITION" = true ] ; then
-  if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
-    SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
-  fi
-  sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-fi
-#sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:"Linux ${ROOT_FS_TYPE} data parition" "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-
-# make hybrid/protective MBR
-#sgdisk -h "1 2" "${TARGET_DEV}"
-echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"
-
 # do we need to p? (depends on what the media is we're installing to)
 if [ -b ${TARGET_DEV}p1 ] ; then
   PEE="p"
@@ -123,17 +112,56 @@ else
   PEE=""
 fi
 
-wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-mkfs.fat -F32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-if [ "$MAKE_SWAP_PARTITION" = true ] ; then
-  wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
-  mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
+# check that install to existing will work here
+if [ "${TO_EXISTING}" = true ] ; then
+  PARTLINE=$(parted -s ${TARGET_DEV} print | sed -n "/^ ${PREEXISTING_BOOT_PARTITION_NUM}/p")
+  if [[ ${PARTLINE} == *"fat32"*  && ${PARTLINE} == *"boot"* && ${PARTLINE} == *"esp"* ]]; then
+    echo "Pre-existing boot partition looks good"
+  else
+    echo "Pre-existing boot partition must be fat32 with boot and esp flags"
+    exit
+  fi
+  BOOT_PARTITION=${PREEXISTING_BOOT_PARTITION_NUM}
+  ROOT_PARTITION=${PREEXISTING_ROOT_PARTITION_NUM}
+else # non-preexisting
+  wipefs -a -f "${TARGET_DEV}"
+  sgdisk -Z "${TARGET_DEV}"  || true # zap (destroy) all partition tables
+  
+  NEXT_PARTITION=1
+  if [[ $TARGET_ARCH == *"arm"*  || $TARGET_ARCH == "aarch64" ]]; then
+    echo "No bios grub for arm"
+    BOOT_P_TYPE=0700
+  else
+    sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:"Legacy BIOS GRUB partition" "${TARGET_DEV}" && ((NEXT_PARTITION++))
+    BOOT_P_TYPE=ef00
+  fi
+  BOOT_P_SIZE_MB=300
+  sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition" "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+  if [ "$MAKE_SWAP_PARTITION" = true ] ; then
+    if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
+      SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
+    fi
+    sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+  fi
+  #sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+  sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:"Linux ${ROOT_FS_TYPE} data parition" "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+
+  # make hybrid/protective MBR
+  #sgdisk -h "1 2" "${TARGET_DEV}"
+  echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"
+
+  wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+  mkfs.fat -F32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+  if [ "$MAKE_SWAP_PARTITION" = true ] ; then
+    wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
+    mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
+  fi
 fi
 
 ROOT_DEVICE=${TARGET_DEV}${PEE}${ROOT_PARTITION}
 wipefs -a -f ${ROOT_DEVICE}
 LUKS_UUID=""
-if [ "$LUKS_KEYFILE" = "" ]; then
+if [ p"$LUKS_KEYFILE" = p"" ]; then
   echo "Not using encryption"
 else
   if [ -f "$LUKS_KEYFILE" ]; then
