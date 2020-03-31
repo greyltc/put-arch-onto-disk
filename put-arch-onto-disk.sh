@@ -179,7 +179,9 @@ fi
 ELL=L
 [ "$ROOT_FS_TYPE" = "f2fs" ] && ELL=l
 mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${ROOT_DEVICE}
-sgdisk -p "${TARGET_DEV}"
+
+sgdisk -p "${TARGET_DEV}"  # just prints the current partition table
+
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
 mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
@@ -567,9 +569,12 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
     echo "This machine does not support UEFI"
   fi
   
-  if [ "$LEGACY_BOOTLOADER" = "true" ] ; then
-    # this is for legacy boot:
-    grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
+  # make sure never to put a legacy bootloader into a preformatted disk
+  if [ "${TO_EXISTING}" = "false" ] ; then
+    if [ "$LEGACY_BOOTLOADER" = "true" ] ; then
+      # this is for legacy boot:
+      grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
+    fi
   fi
   
   # don't boot quietly
@@ -595,21 +600,6 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   fi
   grub-mkconfig -o /boot/grub/grub.cfg
   #cat /boot/grub/grub.cfg
-  
-#  if [ "$ROOT_FS_TYPE" = "f2fs" ] ; then
-#    cat > /usr/sbin/fix-f2fs-grub <<END
-##!/usr/bin/env bash
-#set -o pipefail
-#set -o errexit
-#set -o nounset
-#echo "Running script to fix bug in grub.config when root is f2fs."
-#ROOT_DEVICE=\\\$(df | grep -w / | awk {'print \\\$1'})
-#ROOT_UUID=\\\$(blkid -s UUID -o value \\\${ROOT_DEVICE})
-#sed -i 's,root=/[^ ]* ,root=UUID='\\\${ROOT_UUID}' ,g' \\\$1
-#END
-#    chmod +x /usr/sbin/fix-f2fs-grub
-#    [ "$LUKS_UUID" = "" ] && fix-f2fs-grub /boot/grub/grub.cfg
-#  fi
   
  # re-enable lvm
  if [ -f "/etc/lvm/lvm.conf" ]; then
