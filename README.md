@@ -11,6 +11,7 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
  - Installations have persistant storage
  - Installations have (optional) AUR suport (in the form of pacaur)
  - Installtions are up-to-date as of the minute you run the script
+ - Can install into a disk with a pre-existing windows install for dual booting
  - Easily set many installtion parameters programatically for an one-shot, no-further-setup-required Arch install:
 
 ### Variables
