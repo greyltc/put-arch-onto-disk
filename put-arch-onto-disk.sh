@@ -36,7 +36,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${KEYMAP:=uk}
 : ${LOCALE:=en_US.UTF-8}
 : ${CHARSET:=UTF-8}
-: ${LEGACY_BOOTLOADER:=true}
+: ${LEGACY_BOOTLOADER:=false}
 : ${UEFI_BOOTLOADER:=true}
 : ${UEFI_COMPAT_STUB:=false}
 : ${ROOT_PASSWORD:=""}
@@ -62,11 +62,11 @@ if [[ $TARGET_ARCH == *"arm"* || $TARGET_ARCH == "aarch64" ]]; then
   fi
 else
   # alarm does not like/need these
-  NON_ARM_PKGS="grub efibootmgr reflector os-prober"
+  NON_ARM_PKGS="linux grub efibootmgr reflector os-prober linux-firmware amd-ucode intel-ucode"
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base linux ${NON_ARM_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi"
+DEFAULT_PACKAGES="base ${NON_ARM_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi"
 
 # install these packages on the host now. they're needed for the install process
 pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
@@ -159,9 +159,9 @@ if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
   btrfs subvolume create ${TMP_ROOT}/root
   btrfs subvolume create ${TMP_ROOT}/home
   umount ${TMP_ROOT}
-  mount ${ROOT_DEVICE} -o subvol=root,compress=lzo ${TMP_ROOT}
+  mount ${ROOT_DEVICE} -o subvol=root,compress=zstd ${TMP_ROOT}
   mkdir ${TMP_ROOT}/home
-  mount ${ROOT_DEVICE} -o subvol=home,compress=lzo ${TMP_ROOT}/home
+  mount ${ROOT_DEVICE} -o subvol=home,compress=zstd ${TMP_ROOT}/home
 fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
@@ -213,11 +213,6 @@ fi
 pacstrap -C /tmp/pacman.conf -M -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
 sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
-if [ "$MAKE_SWAP_PARTITION" = true ] ; then
-  SWAP_UUID=$(lsblk -n -b -o UUID ${TARGET_DEV}${PEE}${SWAP_PARTITION})
-  sed -i '$a #swap' ${TMP_ROOT}/etc/fstab
-  sed -i '$a UUID='${SWAP_UUID}'	none      	swap      	defaults  	0 0' ${TMP_ROOT}/etc/fstab
-fi
 [ -f "$FIRST_BOOT_SCRIPT" ] && cp "$FIRST_BOOT_SCRIPT" ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh && chmod +x ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
 
 cat > /tmp/chroot.sh <<EOF
@@ -609,7 +604,6 @@ EOF
 chmod +x /tmp/chroot.sh
 mv /tmp/chroot.sh "${TMP_ROOT}/root/chroot.sh"
 arch-chroot "${TMP_ROOT}" /root/chroot.sh; REPLY=$? || true
-rm "${TMP_ROOT}/var/lib/pacman/db.lck" || true
 
 if [ "$REPLY" -eq 0 ] ; then
   # remove the setup script from the install
