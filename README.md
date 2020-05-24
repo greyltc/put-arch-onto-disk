@@ -11,7 +11,6 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
  - Installations have persistant storage
  - Installations have (optional) AUR support (in the form of yay)
  - Installtions are up-to-date as of the minute you run the script
- - Under the correct conditions, this can install Arch into a computer already running Windows 10 for multi-boot
  - Can install into disks with pre-existing operating systems (like windows) for multi-booting
  - Easily set many installtion parameters programatically for an one-shot, no-further-setup-required Arch install:
 
