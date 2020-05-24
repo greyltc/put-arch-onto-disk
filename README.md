@@ -9,7 +9,7 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
  - Optimized for removable flash storage (choose `f2fs` as root file system type)
  - Optimized for HDD and SSD targets (choose `btrfs` as root file system type)
  - Installations have persistant storage
- - Installations have (optional) AUR suport (in the form of pacaur)
+ - Installations have (optional) AUR support (in the form of yay)
  - Installtions are up-to-date as of the minute you run the script
  - Under the correct conditions, this can install Arch into a computer already running Windows 10 for multi-boot
  - Can install into disks with pre-existing operating systems (like windows) for multi-booting
