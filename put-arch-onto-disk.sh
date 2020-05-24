@@ -12,9 +12,13 @@ set -o xtrace
 # I've made attempts to make it reasonably configurable, but there is some stuff in here
 # that you may not want (eg. the network comes up and sshd runs) so don't use this blindly
 
-if [[ $EUID -ne 0 ]]; then
+# example usage:
+# TARGET=/dev/sdX PORTABLE=true sudo ./put-arch-onto-disk.sh |& tee archInstall.log
+
+if test $EUID -ne 0
+then
   echo "Please run with root permissions"
-  exit
+  exit 1
 fi
 
 # store off the absolute path to *this* script
@@ -55,25 +59,38 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${PREEXISTING_ROOT_PARTITION_NUM:=""} # this WILL be formatted
 # any pre-existing swap partition will just be used via systemd magic
 
-TO_EXISTING=true
-if [[ p${PREEXISTING_BOOT_PARTITION_NUM} == p"" && p${PREEXISTING_ROOT_PARTITION_NUM} == p"" ]]; then
-  TO_EXISTING=false
-fi
+contains() {
+  string="$1"
+  substring="$2"
+  if test "${string#*$substring}" != "$string"
+  then
+    true    # $substring is in $string
+  else
+    false    # $substring is not in $string
+  fi
+}
 
-if [ "${TO_EXISTING}" = true ] ; then
-  if [[ p${PREEXISTING_BOOT_PARTITION_NUM} == p"" || p${PREEXISTING_ROOT_PARTITION_NUM} == p"" ]]; then
+TO_EXISTING=true
+if test -z "${PREEXISTING_BOOT_PARTITION_NUM}" || test -z "${PREEXISTING_ROOT_PARTITION_NUM}"
+then
+  if test -z "${PREEXISTING_BOOT_PARTITION_NUM}" && test -z "${PREEXISTING_ROOT_PARTITION_NUM}"
+  then
+    TO_EXISTING=false
+  else
     echo "You must specify both root and boot pre-existing partition numbers"
-    exit
+    exit 1
   fi
 fi
 
-if [[ $TARGET_ARCH == *"arm"* || $TARGET_ARCH == "aarch64" ]]; then
-  if pacman -Q qemu-user-static-bin > /dev/null 2>/dev/null && pacman -Q binfmt-qemu-static > /dev/null 2>/dev/null; then
+if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
+then
+  if pacman -Q qemu-user-static-bin > /dev/null 2>/dev/null && pacman -Q binfmt-qemu-static > /dev/null 2>/dev/null
+  then
     NON_ARM_PKGS=""
   else
     echo "Please install qemu-user-static-bin and binfmt-qemu-static from the AUR"
     echo "so that we can chroot into the ARM install"
-    exit
+    exit 1
   fi
 else
   # alarm does not like/need these
@@ -84,15 +101,16 @@ fi
 DEFAULT_PACKAGES="base ${NON_ARM_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi"
 
 # install these packages on the host now. they're needed for the install process
-pacman -Sy --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
+pacman -Syu --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
 
 # flush writes to disks and re-probe partitions
 sync
 partprobe
 
 # is this a block device?
-if [ -b $TARGET ] ; then
-  TARGET_DEV=$TARGET
+if test -b "${TARGET}"
+then
+  TARGET_DEV="${TARGET}"
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   for n in ${TARGET_DEV}* ; do umount $n || true; done
@@ -105,79 +123,96 @@ else
   losetup -P ${TARGET_DEV} "${IMG_NAME}"
 fi
 
-# do we need to p? (depends on what the media is we're installing to)
-if [ -b ${TARGET_DEV}p1 ] ; then
-  PEE="p"
-else
-  PEE=""
+if test ! -b "${TARGET}"
+then
+  echo "ERROR: Install target ${TARGET} is not a block device."
+  exit 1
 fi
 
 # check that install to existing will work here
-if [ "${TO_EXISTING}" = true ] ; then
+if test "${TO_EXISTING}" = "true"
+then
   PARTLINE=$(parted -s ${TARGET_DEV} print | sed -n "/^ ${PREEXISTING_BOOT_PARTITION_NUM}/p")
-  if [[ ${PARTLINE} == *"fat32"*  && ${PARTLINE} == *"boot"* && ${PARTLINE} == *"esp"* ]]; then
+  if contains "${PARTLINE}" "fat32" && contains "${PARTLINE}" "boot" && contains "${PARTLINE}" "esp"
+  then
     echo "Pre-existing boot partition looks good"
   else
     echo "Pre-existing boot partition must be fat32 with boot and esp flags"
-    exit
+    exit 1
   fi
   BOOT_PARTITION=${PREEXISTING_BOOT_PARTITION_NUM}
   ROOT_PARTITION=${PREEXISTING_ROOT_PARTITION_NUM}
+  
+  # do we need to p? (depends on what the media is we're installing to)
+  if test -b "${TARGET_DEV}p1"; then PEE=p; else PEE=""; fi
 else # non-preexisting
-  wipefs -a -f "${TARGET_DEV}"
-  sgdisk -Z "${TARGET_DEV}"  || true # zap (destroy) all partition tables
+  # destroy all file systems and partition tables on the target
+  for n in ${TARGET_DEV}+([[:alnum:]]) ; do wipefs -a -f $n || true; done # wipe the partitions' file systems
+  for n in ${TARGET_DEV}+([[:alnum:]]) ; do sgdisk -Z $n || true; done # zap the partitions' part tables
+  wipefs -a -f ${TARGET_DEV} || true # wipe the device file system
+  sgdisk -Z ${TARGET_DEV}  || true # wipe the device partition table
   
   NEXT_PARTITION=1
-  if [[ $TARGET_ARCH == *"arm"*  || $TARGET_ARCH == "aarch64" ]]; then
+  if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
+  then
     echo "No bios grub for arm"
     BOOT_P_TYPE=0700
   else
-    sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:"Legacy BIOS GRUB partition" "${TARGET_DEV}" && ((NEXT_PARTITION++))
+    sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:"Legacy BIOS GRUB partition" "${TARGET_DEV}"; ((NEXT_PARTITION++))
     BOOT_P_TYPE=ef00
   fi
   BOOT_P_SIZE_MB=300
-  sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition" "${TARGET_DEV}"; BOOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-  if [ "$MAKE_SWAP_PARTITION" = true ] ; then
-    if [ "$SWAP_SIZE_IS_RAM_SIZE" = true ] ; then
+  sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+  if test "${MAKE_SWAP_PARTITION}" = "true"
+  then
+    if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"
+    then
       SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
     fi
-    sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+    sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
   fi
   #sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-  sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:"Linux ${ROOT_FS_TYPE} data parition" "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+  sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:"Linux ${ROOT_FS_TYPE} data parition" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 
   # make hybrid/protective MBR
   #sgdisk -h "1 2" "${TARGET_DEV}"
   echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"
 
+  # do we need to p? (depends on what the media is we're installing to)
+  if test -b "${TARGET_DEV}p1"; then PEE=p; else PEE=""; fi
+
   wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
   mkfs.fat -F32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-  if [ "$MAKE_SWAP_PARTITION" = true ] ; then
+  if test "${MAKE_SWAP_PARTITION}" = "true"
+  then
     wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
     mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
   fi
 fi
 
 ROOT_DEVICE=${TARGET_DEV}${PEE}${ROOT_PARTITION}
-wipefs -a -f ${ROOT_DEVICE}
+wipefs -a -f ${ROOT_DEVICE} || true
+
 LUKS_UUID=""
-if [ p"$LUKS_KEYFILE" = p"" ]; then
+if test -z "${LUKS_KEYFILE}"
+then
   echo "Not using encryption"
 else
-  if [ -f "$LUKS_KEYFILE" ]; then
-    echo "LUKS encryption with keyfile: $(readlink -f "$LUKS_KEYFILE")"
+  if test -f "${LUKS_KEYFILE}"
+  then
+    echo "LUKS encryption with keyfile: $(readlink -f "${LUKS_KEYFILE}")"
     cryptsetup -q luksFormat ${ROOT_DEVICE} "${LUKS_KEYFILE}"
     LUKS_UUID=$(cryptsetup luksUUID ${ROOT_DEVICE})
     cryptsetup -q --key-file ${LUKS_KEYFILE} open ${ROOT_DEVICE} luks-${LUKS_UUID}
     ROOT_DEVICE=/dev/mapper/luks-${LUKS_UUID}
   else
-    echo "Could not find $LUKS_KEYFILE"
+    echo "Could not find ${LUKS_KEYFILE}"
     echo "Not using encryption"
+    exit 1
   fi
 fi
 
-ELL=L
-[ "$ROOT_FS_TYPE" = "f2fs" ] && ELL=l
+if test "${ROOT_FS_TYPE}" = "f2fs"; then ELL=l; else ELL=L; fi
 mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${ROOT_DEVICE}
 
 sgdisk -p "${TARGET_DEV}"  # just prints the current partition table
@@ -185,7 +220,8 @@ sgdisk -p "${TARGET_DEV}"  # just prints the current partition table
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
 mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
-if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
+if test "${ROOT_FS_TYPE}" = "btrfs"
+then
   btrfs subvolume create ${TMP_ROOT}/root
   btrfs subvolume create ${TMP_ROOT}/home
   umount ${TMP_ROOT}
@@ -205,7 +241,8 @@ SigLevel = Never
 EOF
 
 # enable the testing repo
-if [ "$USE_TESTING" = true ] ; then
+if test "${USE_TESTING}" = "true"
+then
   cat <<EOF >> /tmp/pacman.conf
 
 [testing]
@@ -225,7 +262,8 @@ Include = /tmp/mirrorlist
 Include = /tmp/mirrorlist
 EOF
 
-if [[ $TARGET_ARCH == *"arm"*  || $TARGET_ARCH == "aarch64" ]]; then
+if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
+then
   cat <<EOF >> /tmp/pacman.conf
 
 [alarm]
@@ -240,10 +278,15 @@ EOF
   echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /tmp/mirrorlist
 fi
 
-pacstrap -C /tmp/pacman.conf -M -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST} 
+pacstrap -C /tmp/pacman.conf -M -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
+
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
 sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
-[ -f "$FIRST_BOOT_SCRIPT" ] && cp "$FIRST_BOOT_SCRIPT" ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh && chmod +x ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
+if test -f "${FIRST_BOOT_SCRIPT}" 
+then
+  cp "$FIRST_BOOT_SCRIPT" ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
+  chmod +x ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
+fi
 
 cat > /tmp/chroot.sh <<EOF
 #!/usr/bin/env bash
@@ -550,7 +593,8 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   #  mkdir -p /boot/EFI/grub-standalone
   #  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
   #fi
-  if efivar --list > /dev/null 2>/dev/null ; then # is this machine UEFI?
+  if efivar --list > /dev/null 2>/dev/null  # is this machine UEFI?
+  then
     if [ "$UEFI_BOOTLOADER" = "true" ] ; then
       echo "EFI BOOT detected doing EFI grub install..."
       if [ "$PORTABLE" = true ] ; then
@@ -618,12 +662,15 @@ if pacman -Q | grep raspberry > /dev/null 2>/dev/null ; then
 fi
 EOF
 
-# run the setup script in th new install's root
+# run the setup script in th new install's 
 chmod +x /tmp/chroot.sh
 mv /tmp/chroot.sh "${TMP_ROOT}/root/chroot.sh"
-arch-chroot "${TMP_ROOT}" /root/chroot.sh; REPLY=$? || true
+set +o errexit
+arch-chroot "${TMP_ROOT}" /root/chroot.sh; CHROOT_RESULT=$? || true
+set -o errexit
 
-if [ "$REPLY" -eq 0 ] ; then
+if test "${CHROOT_RESULT}" -eq 0
+then
   # remove the setup script from the install
   rm -rf "${TMP_ROOT}/root/chroot.sh" || true
   
@@ -637,21 +684,24 @@ fi
 
 # unmount and clean up everything
 umount "${TMP_ROOT}/boot" || true
-if [ "$ROOT_FS_TYPE" = "btrfs" ] ; then
+if test "${ROOT_FS_TYPE}" = "btrfs"
+then
   umount "${TMP_ROOT}/home" || true
 fi
 umount "${TMP_ROOT}" || true
 cryptsetup close /dev/mapper/${LUKS_UUID} || true
 losetup -D || true
 sync
-if pacman -Q lvm2 > /dev/null 2>/dev/null ; then
+if pacman -Q lvm2 > /dev/null 2>/dev/null
+then
   pvscan --cache -aay
 fi
 
-if [ "$REPLY" -eq 0 ] ; then
+if test "${CHROOT_RESULT}" -eq 0
+then
   echo "Image sucessfully created"
-  eject ${TARGET_DEV} || true
-  if [ $? -eq 0 ]; then
+  if eject ${TARGET_DEV}
+  then
     echo "It's now safe to remove $TARGET_DEV"
   fi
 else
