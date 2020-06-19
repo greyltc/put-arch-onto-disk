@@ -288,6 +288,21 @@ then
   chmod +x ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
 fi
 
+# make the reflector service
+cat > ${TMP_ROOT}/etc/systemd/system/reflector.service <<EOF
+[Unit]
+Description=Pacman mirrorlist update
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
+
+[Install]
+RequiredBy=multi-user.target
+EOF
+
 cat > /tmp/chroot.sh <<EOF
 #!/usr/bin/env bash
 set -o pipefail
@@ -345,7 +360,7 @@ if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
   pacman-key --populate archlinuxarm
 else
   pacman-key --populate archlinux
-  reflector --latest 200 --protocol http --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+  systemctl start reflector
 fi
 pkill gpg-agent || true
 
