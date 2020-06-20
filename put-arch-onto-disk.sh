@@ -368,7 +368,7 @@ pkill gpg-agent || true
 sed -i 's/#Color/Color/g' /etc/pacman.conf
 
 # do an update
-pacman -Syyu --noconfirm
+pacman -Syyuu --noconfirm
 
 # setup admin user
 if [ "$MAKE_ADMIN_USER" = true ] ; then
@@ -437,7 +437,7 @@ else
   systemctl enable systemd-networkd
   systemctl enable systemd-resolved
   sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
-  touch /link_resolv_conf #leave a marker so we can complete this setup at first boot
+  touch /link_resolv_conf #leave a marker so we can complete this setup later
   cat > /etc/systemd/network/DHCPany.network << END
 [Match]
 Name=*
@@ -578,14 +578,6 @@ if [ "$MAKE_ADMIN_USER" = true ] && [ "$ENABLE_AUR" = true ] ; then
   su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
 fi
 
-# we can't do this from inside the chroot
-if [ -a /link_resolv_conf ] ; then
-  echo "Making resolv.conf compatible with networkd"
-  rm /link_resolv_conf
-  mv "/etc/resolv.conf" "/etc/resolv.conf.bak"
-  ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-fi
-
 timedatectl set-ntp true
 
 echo "First boot script finished"
@@ -691,6 +683,15 @@ then
   
   # copy *this* script into the install for installs later
   cp "$THIS" "${TMP_ROOT}/usr/sbin/mkarch.sh"
+  
+  # we can't do this from inside the chroot
+  if test -a "${TMP_ROOT}/link_resolv_conf"
+  then
+    echo "Linking resolv.conf"
+    rm "${TMP_ROOT}/link_resolv_conf"
+    #mv "/etc/resolv.conf" "/etc/resolv.conf.bak"
+    ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+  fi
   
   # you might want to know what the install's fstab looks like
   echo "fstab is:"
