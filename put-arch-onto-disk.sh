@@ -4,6 +4,7 @@ set -o errexit
 set -o nounset
 set -o verbose
 set -o xtrace
+shopt -s extglob
 
 # put-arch-onto-disk.sh
 # This script installs Arch Linux onto media (making it bootable)
@@ -50,7 +51,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${THIS_HOSTNAME:=archthing}
 : ${PACKAGE_LIST:=""}
 : ${ENABLE_AUR:=true}
-: ${AUR_PACKAGE_LIST:=""}
+: ${AUR_PACKAGE_LIST:="yay"}
 : ${AUTOLOGIN_ADMIN:=false}
 : ${FIRST_BOOT_SCRIPT:=""}
 : ${USE_TESTING:=false}
@@ -98,7 +99,7 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${NON_ARM_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi"
+DEFAULT_PACKAGES="base ${NON_ARM_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi openssl"
 
 # install these packages on the host now. they're needed for the install process
 pacman -Syu --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
@@ -212,8 +213,15 @@ else
   fi
 fi
 
-if test "${ROOT_FS_TYPE}" = "f2fs"; then ELL=l; else ELL=L; fi
-mkfs.${ROOT_FS_TYPE} -${ELL} ${ROOT_FS_TYPE}Root ${ROOT_DEVICE}
+if test "${ROOT_FS_TYPE}" = "f2fs"
+then
+  ELL=l
+  ENCR="-O encrypt"
+else
+  ELL=L
+  ENCR=""
+fi
+mkfs.${ROOT_FS_TYPE} ${ENCR} -${ELL} ${ROOT_FS_TYPE}Root ${ROOT_DEVICE}
 
 sgdisk -p "${TARGET_DEV}"  # just prints the current partition table
 
@@ -223,11 +231,11 @@ mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
 if test "${ROOT_FS_TYPE}" = "btrfs"
 then
   btrfs subvolume create ${TMP_ROOT}/root
-  btrfs subvolume create ${TMP_ROOT}/home
+  #btrfs subvolume create ${TMP_ROOT}/home
   umount ${TMP_ROOT}
   mount ${ROOT_DEVICE} -o subvol=root,compress=zstd ${TMP_ROOT}
-  mkdir ${TMP_ROOT}/home
-  mount ${ROOT_DEVICE} -o subvol=home,compress=zstd ${TMP_ROOT}/home
+  #mkdir ${TMP_ROOT}/home
+  #mount ${ROOT_DEVICE} -o subvol=home,compress=zstd ${TMP_ROOT}/home
 fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
@@ -337,11 +345,11 @@ echo "keyserver hkps://hkps.pool.sks-keyservers.net:443" >> /etc/skel/.gnupg/gpg
 echo "keyserver-options auto-key-retrieve" >> /etc/skel/.gnupg/gpg.conf
 
 # change password for root
-if [ "$ROOT_PASSWORD" = "" ]
+if test -z "$ROOT_PASSWORD"
 then
-   echo "No password for root"
+  echo "No password for root"
 else
-   echo "root:${ROOT_PASSWORD}"|chpasswd
+  echo "root:${ROOT_PASSWORD}"|chpasswd
 fi
 
 # copy over the skel files for the root user
@@ -360,7 +368,7 @@ if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
   pacman-key --populate archlinuxarm
 else
   pacman-key --populate archlinux
-  systemctl start reflector
+  reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
 fi
 pkill gpg-agent || true
 
@@ -370,43 +378,83 @@ sed -i 's/#Color/Color/g' /etc/pacman.conf
 # do an update
 pacman -Syyuu --noconfirm
 
+if test "${ENABLE_AUR}" = "true"
+then
+  # needed to build aur packages and for aurutils
+  pacman -Syu --needed --noconfirm base-devel diffstat expac git jq pacutils parallel wget devtools
+  sed -i "s,^PKGEXT=.*,PKGEXT='.pkg.tar.zst',g" /etc/makepkg.conf
+  MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
+  groupadd aur
+  install -d "\${MAKEPKG_BACKUP}" -g aur -m=775
+
+  # build aurutils
+  # TODO: test without skipping pgp check
+  su -c "(git clone https://aur.archlinux.org/aurutils.git /var/tmp/aurutils && cd /var/tmp/aurutils && makepkg --skippgpcheck)" -s /bin/bash nobody
+
+  # install aurutils
+  pushd /var/tmp/aurutils
+  pacman -U --noconfirm *.pkg.tar.zst
+  mv *.pkg.tar.zst "\${MAKEPKG_BACKUP}/."
+  popd
+  rm -rf /var/tmp/aurutils
+
+  if test -n "${AUR_PACKAGE_LIST}"
+  then # this seems to be broken (tested with rpi, yay doesn't work here)
+    #su -c "(EDITOR=vi VISUAL=vi yay -Syyu --needed --noconfirm ${AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
+    install -d /var/tmp/aurbuilding -o nobody
+    pushd /var/tmp/aurbuilding
+    aur depends -a "${AUR_PACKAGE_LIST}" | while read -r pkg; do
+      pacman -Syu --needed --noconfirm  \${pkg} || true # install all the non-aur deps
+    done
+    aur depends "${AUR_PACKAGE_LIST}" | while read -r pkg; do
+      su -c "(aur fetch \${pkg})" -s /bin/bash nobody
+      cd \${pkg}
+      # TODO: test without skipping pgp check
+      su -c "(XDG_CACHE_HOME=/tmp XDG_CONFIG_HOME=/tmp makepkg --skippgpcheck)" -s /bin/bash nobody
+      pacman --needed --noconfirm -U *.pkg.tar.zst
+      mv *.pkg.tar.zst "\${MAKEPKG_BACKUP}/."
+      cd ..
+    done
+    popd
+    rm -rf /var/tmp/aurbuilding
+  fi
+
+  chgrp -R aur \${MAKEPKG_BACKUP}
+  # backup future makepkg built packages
+  sed -i "s,^#PKGDEST=.*,PKGDEST=\${MAKEPKG_BACKUP},g" /etc/makepkg.conf
+fi
+
 # setup admin user
-if [ "$MAKE_ADMIN_USER" = true ] ; then
-  useradd -m -G wheel -s /bin/bash ${ADMIN_USER_NAME}
-  echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
+if test "${MAKE_ADMIN_USER}" = "true"
+then
+  systemctl enable systemd-homed
+
   pacman -S --needed --noconfirm sudo
-  
+
+  # fix up PAM for systemd-homed
+  cat > /etc/pam.d/nss-auth <<END
+#%PAM-1.0
+
+auth     sufficient pam_unix.so try_first_pass nullok
+auth     sufficient pam_systemd_home.so
+auth     required   pam_deny.so
+
+account  sufficient pam_unix.so
+account  sufficient pam_systemd_home.so
+account  required   pam_deny.so
+
+password sufficient pam_unix.so try_first_pass nullok sha512 shadow
+password sufficient pam_systemd_home.so
+password required   pam_deny.so
+END
+
+  sed -i 's|^auth      required  pam_unix.so.*|auth      substack  nss-auth|g' /etc/pam.d/system-auth
+  sed -i 's|^account   required  pam_unix.so.*|account   substack  nss-auth|g' /etc/pam.d/system-auth
+  sed -i 's|^password  required  pam_unix.so.*|password  substack  nss-auth|g' /etc/pam.d/system-auth
+  sed -i 's|^session   required  pam_unix.so.*|session   optional  pam_systemd_home.so\nsession   required  pam_unix.so|g' /etc/pam.d/system-auth
+
   # users in the wheel group have sudo powers
   sed -i 's/# %wheel ALL=(ALL)/%wheel ALL=(ALL)/g' /etc/sudoers
-
-  # AUR can only be enabled if a non-root user exists, so we'll do it in here
-  if [ "$ENABLE_AUR" = true ] ; then
-    pacman -S --needed --noconfirm base-devel go git # needed to build aur packages and for yay
-    # backup makepkg built packages
-    MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
-    mkdir -p "\${MAKEPKG_BACKUP}"
-    groupadd yay
-    usermod -a -G yay ${ADMIN_USER_NAME}
-    chgrp yay "\${MAKEPKG_BACKUP}"
-    chmod g+w "\${MAKEPKG_BACKUP}"
-    sed -i "s,#PKGDEST=/home/packages,PKGDEST=\${MAKEPKG_BACKUP},g" /etc/makepkg.conf
-    
-    # make and install yay 
-    su -c "(cd; git clone https://aur.archlinux.org/yay.git)" -s /bin/bash ${ADMIN_USER_NAME}
-    
-    # temporarily give wheel users passwordless sudo powers
-    sed -i 's/# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
-    
-    su -c "(cd; cd yay; makepkg -i --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}
-    if [ !  -z  $AUR_PACKAGE_LIST  ] ; then # this seems to be broken (tested with rpi, yay doesn't work here)
-      su -c "(EDITOR=vi VISUAL=vi yay -Syyu --needed --noconfirm ${AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
-    fi
-
-    # make sudo prompt wheel users for a password again
-    sed -i 's/%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
-
-    su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
-  fi
 fi
 
 # if cpupower is installed, enable the service
@@ -451,7 +499,8 @@ END
 fi
 
 # setup for encfs
-if [ "$LUKS_UUID" = "" ]; then
+if test -z "$LUKS_UUID"
+then
   echo "No encryption"
 else
   sed -i 's/MODULES=(/MODULES=(nls_cp437 /g' /etc/mkinitcpio.conf
@@ -531,59 +580,6 @@ systemctl enable nativeSetupTasks.service
 cat > /etc/sysctl.d/99-sysctl.conf <<END
 kernel.sysrq = 1
 END
-
-cat > /usr/sbin/nativeSetupTasks.sh <<END
-#!/usr/bin/env bash
-set -o pipefail
-set -o errexit
-set -o nounset
-echo "Running first boot script."
-
-# don't know why setting locale in the chroot doesn't work so we'll do it here again
-localectl set-locale LANG=${LOCALE}
-unset LANG
-set +o nounset
-source /etc/profile.d/locale.sh
-set -o nounset
-localectl set-keymap ${KEYMAP} 
-localectl status
-
-echo "Reinstall all native packages"
-pacman -Qqn | pacman -S --noconfirm -
-
-# make sure everything is up to date
-#pacman -Syu --needed --noconfirm  # requires internet
-
-hwclock --systohc
-
-if [ "$MAKE_ADMIN_USER" = true ] && [ "$ENABLE_AUR" = true ] ; then
-  echo "Reinstall all foreign packages"
-  # rebuild & reinstall yay
-  su -c "(cd; git clone https://aur.archlinux.org/yay.git)" -s /bin/bash ${ADMIN_USER_NAME}
-  
-  # temporary passwordless sudo for wheel users
-  sed -i 's,# %wheel ALL=(ALL) NOPASSWD: ALL,%wheel ALL=(ALL) NOPASSWD: ALL,g' /etc/sudoers
-
-  su -c "(cd; cd yay; makepkg -Cfi --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}
-
-  # rebuild and install all aur packages
-  su -c "(yay -S --noconfirm --rebuildall \\\$(echo """\\\$(pacman -Qqm)""" | sed s,yay,,))" -s /bin/bash ${ADMIN_USER_NAME}
-  
-  # ensure everything is up to date
-  #su -c "(yay -Syyu --needed --noconfirm)" -s /bin/bash ${ADMIN_USER_NAME}  # requires internet
-
-  # make sudo prompt for password again
-  sed -i 's,%wheel ALL=(ALL) NOPASSWD: ALL,# %wheel ALL=(ALL) NOPASSWD: ALL,g' /etc/sudoers
-
-  su -c "(cd; rm -rf yay)" -s /bin/bash ${ADMIN_USER_NAME}
-fi
-
-timedatectl set-ntp true
-
-echo "First boot script finished"
-systemd-notify --ready
-END
-chmod +x /usr/sbin/nativeSetupTasks.sh
 
 # run mkinitcpio
 mkinitcpio -p linux
@@ -668,6 +664,69 @@ if pacman -Q | grep raspberry > /dev/null 2>/dev/null ; then
   echo "dtoverlay=rpi-backlight" >> /boot/config.txt
 fi
 EOF
+
+cat > "${TMP_ROOT}/usr/sbin/nativeSetupTasks.sh" <<END
+#!/usr/bin/env bash
+set -o pipefail
+set -o errexit
+set -o nounset
+echo "Running first boot script."
+
+# don't know why setting locale in the chroot doesn't work so we'll do it here again
+localectl set-locale LANG=${LOCALE}
+unset LANG
+set +o nounset
+source /etc/profile.d/locale.sh
+set -o nounset
+localectl set-keymap ${KEYMAP} 
+localectl status
+
+hwclock --systohc
+
+timedatectl set-ntp true
+
+# setup admin user
+if test "${MAKE_ADMIN_USER}" = "true"
+then
+  STORAGE="directory"
+  if test "${ROOT_FS_TYPE}" = "btrfs"
+  then
+    STORAGE="subvolume"
+  elif test "${ROOT_FS_TYPE}" = "f2fs"
+  then
+    STORAGE="fscrypt"
+  fi
+
+  GRPS="-G wheel"
+  if test "${ENABLE_AUR}" = "true"
+  then
+    GRPS="\${GRPS} -G aur"
+  fi
+
+  echo '{"secret":{"password":"'${ADMIN_USER_PASSWORD}'"},"privileged":{"hashedPassword":["'\$(openssl passwd -6 "${ADMIN_USER_PASSWORD}")'"]}}' | homectl --identity=- \
+  create ${ADMIN_USER_NAME} \${GRPS} --storage=\${STORAGE}
+fi
+
+echo "Reinstall all native packages"
+pacman -Qqn | pacman -S --noconfirm -
+
+# make sure everything is up to date
+pacman -Syyuu --needed --noconfirm || true # requires internet
+
+if test "${ENABLE_AUR}" = "true"
+then
+  echo "Reinstall all foreign packages"
+  pushd /var/cache/makepkg/pkg
+  pacman --noconfirm -U *.pkg.tar.zst
+  popd
+fi
+
+
+
+echo "First boot script finished"
+systemd-notify --ready
+END
+chmod +x "${TMP_ROOT}/usr/sbin/nativeSetupTasks.sh"
 
 # run the setup script in th new install's 
 chmod +x /tmp/chroot.sh
