@@ -85,21 +85,21 @@ fi
 
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
 then
-  if pacman -Q qemu-user-static-bin > /dev/null 2>/dev/null && pacman -Q binfmt-qemu-static > /dev/null 2>/dev/null
+  if pacman -Q qemu-user-static > /dev/null 2>/dev/null && pacman -Q binfmt-qemu-static > /dev/null 2>/dev/null && pacman -Q fakeroot-tcp > /dev/null 2>/dev/null
   then
-    NON_ARM_PKGS=""
+    ARCH_SPECIFIC_PKGS=""
   else
-    echo "Please install qemu-user-static-bin and binfmt-qemu-static from the AUR"
-    echo "so that we can chroot into the ARM install"
+    echo "Please install qemu-user-static, binfmt-qemu-static and fakeroot-tcp from the AUR"
+    echo "so that we can chroot into the ARM install and not run into strage build issues with fakeroot when we call it there"
     exit 1
   fi
 else
   # alarm does not like/need these
-  NON_ARM_PKGS="linux grub efibootmgr reflector os-prober linux-firmware amd-ucode intel-ucode"
+  ARCH_SPECIFIC_PKGS="linux grub efibootmgr reflector os-prober linux-firmware amd-ucode intel-ucode"
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${NON_ARM_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi openssl"
+DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi openssl"
 
 # install these packages on the host now. they're needed for the install process
 pacman -Syu --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
@@ -387,6 +387,8 @@ then
   groupadd aur
   install -d "\${MAKEPKG_BACKUP}" -g aur -m=775
 
+  # TODO: build and install fakeroot-tcp here for arm
+
   # build aurutils
   # TODO: test without skipping pgp check
   su -c "(git clone https://aur.archlinux.org/aurutils.git /var/tmp/aurutils && cd /var/tmp/aurutils && makepkg --skippgpcheck)" -s /bin/bash nobody
@@ -505,7 +507,6 @@ then
 else
   sed -i 's/MODULES=(/MODULES=(nls_cp437 /g' /etc/mkinitcpio.conf
   sed -i 's/block filesystems/block encrypt filesystems/g' /etc/mkinitcpio.conf
-
 fi
 
 # add some modules to initcpio (needed for f2fs and usb)
@@ -539,7 +540,8 @@ if pacman -Q lxdm > /dev/null 2>/dev/null; then
   fi
 fi
 
-if [ -f /usr/sbin/runOnFirstBoot.sh ]; then
+if test -f /usr/sbin/runOnFirstBoot.sh
+then
   cat > /etc/systemd/system/firstBootScript.service <<END
 [Unit]
 Description=Runs a user defined script on first boot
@@ -556,7 +558,7 @@ SysVStartPriority=99
 [Install]
 WantedBy=multi-user.target
 END
-systemctl enable firstBootScript.service
+  systemctl enable firstBootScript.service
 fi
 
 cat > /etc/systemd/system/nativeSetupTasks.service <<END
@@ -582,12 +584,14 @@ kernel.sysrq = 1
 END
 
 # run mkinitcpio
-mkinitcpio -p linux
+# ignore exit code here because of https://bugs.archlinux.org/task/65725
+mkinitcpio -P || true
 
 # setup & install grub bootloader (if it's been installed)
 if pacman -Q grub > /dev/null 2>/dev/null; then
   # disable lvm here because it doesn't do well inside of chroot
-  if [ -f "/etc/lvm/lvm.conf" ]; then
+  if test -f "/etc/lvm/lvm.conf"
+  then
     sed -i 's,use_lvmetad = 1,use_lvmetad = 0,g' /etc/lvm/lvm.conf
   fi
 
@@ -598,9 +602,11 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   #fi
   if efivar --list > /dev/null 2>/dev/null  # is this machine UEFI?
   then
-    if [ "$UEFI_BOOTLOADER" = "true" ] ; then
+    if test "$UEFI_BOOTLOADER" = "true"
+    then
       echo "EFI BOOT detected doing EFI grub install..."
-      if [ "$PORTABLE" = true ] ; then
+      if test "$PORTABLE" = "true"
+      then
         # this puts our entry point at [EFI_PART]/EFI/BOOT/BOOTX64.EFI
         echo "Doing portable UEFI setup"
         grub-install --no-nvram --removable --target=x86_64-efi --efi-directory=/boot
@@ -617,8 +623,10 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   fi
   
   # make sure never to put a legacy bootloader into a preformatted disk
-  if [ "${TO_EXISTING}" = "false" ] ; then
-    if [ "$LEGACY_BOOTLOADER" = "true" ] ; then
+  if test "${TO_EXISTING}" = "false"
+  then
+    if test "$LEGACY_BOOTLOADER" = "true"
+    then
       # this is for legacy boot:
       grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
     fi
@@ -628,40 +636,49 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
 
   # for LUKS
-  if [ "$LUKS_UUID" = "" ]; then
+  if test -z "$LUKS_UUID"
+  then
     echo "No encryption"
   else
     sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT="rootwait,GRUB_CMDLINE_LINUX_DEFAULT="rootwait cryptdevice=UUID=${LUKS_UUID}:luks-${LUKS_UUID},g' /etc/default/grub
   fi
   
   # use systemd if we have it
-  if pacman -Q systemd > /dev/null 2>/dev/null ; then
+  if pacman -Q systemd > /dev/null 2>/dev/null
+  then
     sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT=",GRUB_CMDLINE_LINUX_DEFAULT="init=/usr/lib/systemd/systemd ,g' /etc/default/grub
   fi
  
   # generate the grub configuration file
   sync
   partprobe
-  if pacman -Q lvm2 > /dev/null 2>/dev/null ; then
+  if pacman -Q lvm2 > /dev/null 2>/dev/null
+  then
     pvscan --cache -aay
   fi
   grub-mkconfig -o /boot/grub/grub.cfg
   #cat /boot/grub/grub.cfg
   
  # re-enable lvm
- if [ -f "/etc/lvm/lvm.conf" ]; then
+ if test -f "/etc/lvm/lvm.conf"
+ then
     sed -i 's,use_lvmetad = 0,use_lvmetad = 1,g' /etc/lvm/lvm.conf
   fi
 fi # end grub section
 
 # if we're on a pi, add some stuff I like to config.txt
-if pacman -Q | grep raspberry > /dev/null 2>/dev/null ; then
-  echo "lcd_rotate=2" >> /boot/config.txt
+if pacman -Q | grep raspberry > /dev/null 2>/dev/null
+then
+  touch /boot/config.txt
+  #echo "gpu_mem=64" >> /boot/config.txt
+  #echo "arm_64bit=1" >> /boot/config.txt
+  #echo "initramfs initramfs-linux.img followkernel" >> /boot/config.txt
+  #echo "lcd_rotate=2" >> /boot/config.txt
   #echo "dtparam=audio=on" >> /boot/config.txt
   #echo "dtparam=device_tree_param=spi=on" >> /boot/config.txt
   #echo "dtparam=i2c_arm=on" >> /boot/config.txt
-  echo "dtoverlay=vc4-fkms-v3d" >> /boot/config.txt
-  echo "dtoverlay=rpi-backlight" >> /boot/config.txt
+  #echo "dtoverlay=vc4-fkms-v3d" >> /boot/config.txt
+  #echo "dtoverlay=rpi-backlight" >> /boot/config.txt
 fi
 EOF
 
@@ -681,7 +698,12 @@ set -o nounset
 localectl set-keymap ${KEYMAP} 
 localectl status
 
-hwclock --systohc
+if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
+  echo "Doing arm only setup things"
+else
+  echo "Doing non-arm only setup things"
+  hwclock --systohc # probably the arm thing doesn't have a rtc
+fi
 
 timedatectl set-ntp true
 
