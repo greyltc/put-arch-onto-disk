@@ -99,7 +99,7 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi openssl"
+DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi openssl ufw crda"
 
 # install these packages on the host now. they're needed for the install process
 pacman -Syu --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
@@ -381,13 +381,50 @@ pacman -Syyuu --noconfirm
 if test "${ENABLE_AUR}" = "true"
 then
   # needed to build aur packages and for aurutils
-  pacman -Syu --needed --noconfirm base-devel diffstat expac git jq pacutils parallel wget devtools
+  pacman -Syu --needed --noconfirm base-devel diffstat expac git jq pacutils parallel wget devtools po4a
   sed -i "s,^PKGEXT=.*,PKGEXT='.pkg.tar.zst',g" /etc/makepkg.conf
   MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
   groupadd aur
   install -d "\${MAKEPKG_BACKUP}" -g aur -m=775
 
-  # TODO: build and install fakeroot-tcp here for arm
+  # fakeroot needs to use tcp IPC here because the non-tcp IPC isn't supported by qemu
+  # so now we need to bootstrap fakeroot-tcp so that making packages with makepkg works
+  if pacman -Q | grep raspberry > /dev/null 2>/dev/null
+  then
+    # bootstrap fakeroot-tcp
+    su -c '(git clone https://aur.archlinux.org/fakeroot-tcp.git /var/tmp/fakeroot-tcp && cd /var/tmp/fakeroot-tcp && makepkg --skippgpcheck --nobuild && cd src && cd */ && ./bootstrap ; ./configure --prefix=/usr --libdir=/usr/lib/libfakeroot --disable-static --with-ipc=tcp ; make )' -s /bin/bash nobody
+    pushd /var/tmp/fakeroot-tcp/src
+    cd */
+    make DESTDIR="/" install
+    popd
+    mkdir -p /etc/ld.so.conf.d
+    echo '/usr/lib/libfakeroot' > /etc/ld.so.conf.d/fakeroot.conf
+    libtool --finish /usr/lib/libfakeroot
+    pushd /
+    sbin/ldconfig -r .
+    popd
+    
+    # now build the fakeroot-tcp package using our bootstrapped fakeroot-tcp build
+    su -c '(git clone https://aur.archlinux.org/fakeroot-tcp.git /var/tmp/fakeroot-tcp2 && cd /var/tmp/fakeroot-tcp2 ; makepkg --skippgpcheck )' -s /bin/bash nobody
+
+    # remove the bootstrapped fakeroot-tcp
+    pushd /var/tmp/fakeroot-tcp/src
+    cd */
+    make DESTDIR="/" uninstall
+    popd
+    rm -rf /etc/ld.so.conf.d/fakeroot.conf
+
+    # reinstall the bad fakeroot because we just butchered it (avoids install errors later)
+    #pacman -Syu --noconfirm fakeroot || true
+
+    # install the replacement fakeroot-tcp package
+    pushd /var/tmp/fakeroot-tcp2
+    yes | LC_ALL=en_US.UTF-8 pacman -U *.pkg.tar.zst || true
+    mv *.pkg.tar.zst "\${MAKEPKG_BACKUP}/."
+    popd
+    rm -rf /var/tmp/fakeroot-tcp
+    rm -rf /var/tmp/fakeroot-tcp2
+  fi
 
   # build aurutils
   # TODO: test without skipping pgp check
@@ -456,7 +493,7 @@ END
   sed -i 's|^session   required  pam_unix.so.*|session   optional  pam_systemd_home.so\nsession   required  pam_unix.so|g' /etc/pam.d/system-auth
 
   # users in the wheel group have sudo powers
-  sed -i 's/# %wheel ALL=(ALL)/%wheel ALL=(ALL)/g' /etc/sudoers
+  sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
 fi
 
 # if cpupower is installed, enable the service
@@ -501,7 +538,7 @@ END
 fi
 
 # setup for encfs
-if test -z "$LUKS_UUID"
+if test -z "${LUKS_UUID}"
 then
   echo "No encryption"
 else
@@ -595,17 +632,17 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
     sed -i 's,use_lvmetad = 1,use_lvmetad = 0,g' /etc/lvm/lvm.conf
   fi
 
-  #if [ "$UEFI_COMPAT_STUB" = true ] ; then
+  #if [ "${UEFI_COMPAT_STUB}" = true ] ; then
   #  # for grub UEFI (stanalone version)
   #  mkdir -p /boot/EFI/grub-standalone
   #  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
   #fi
   if efivar --list > /dev/null 2>/dev/null  # is this machine UEFI?
   then
-    if test "$UEFI_BOOTLOADER" = "true"
+    if test "${UEFI_BOOTLOADER}" = "true"
     then
       echo "EFI BOOT detected doing EFI grub install..."
-      if test "$PORTABLE" = "true"
+      if test "${PORTABLE}" = "true"
       then
         # this puts our entry point at [EFI_PART]/EFI/BOOT/BOOTX64.EFI
         echo "Doing portable UEFI setup"
@@ -625,7 +662,7 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   # make sure never to put a legacy bootloader into a preformatted disk
   if test "${TO_EXISTING}" = "false"
   then
-    if test "$LEGACY_BOOTLOADER" = "true"
+    if test "${LEGACY_BOOTLOADER}" = "true"
     then
       # this is for legacy boot:
       grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
@@ -636,7 +673,7 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
 
   # for LUKS
-  if test -z "$LUKS_UUID"
+  if test -z "${LUKS_UUID}"
   then
     echo "No encryption"
   else
@@ -669,7 +706,7 @@ fi # end grub section
 # if we're on a pi, add some stuff I like to config.txt
 if pacman -Q | grep raspberry > /dev/null 2>/dev/null
 then
-  touch /boot/config.txt
+  :
   #echo "gpu_mem=64" >> /boot/config.txt
   #echo "arm_64bit=1" >> /boot/config.txt
   #echo "initramfs initramfs-linux.img followkernel" >> /boot/config.txt
@@ -727,6 +764,10 @@ then
 
   echo '{"secret":{"password":"'${ADMIN_USER_PASSWORD}'"},"privileged":{"hashedPassword":["'\$(openssl passwd -6 "${ADMIN_USER_PASSWORD}")'"]}}' | homectl --identity=- \
   create ${ADMIN_USER_NAME} \${GRPS} --storage=\${STORAGE}
+
+  echo "AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u" >> /etc/ssh/sshd_config
+  echo "AuthorizedKeysCommandUser root" >> /etc/ssh/sshd_config
+  systemctl restart sshd.service
 fi
 
 echo "Reinstall all native packages"
