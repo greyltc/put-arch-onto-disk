@@ -85,12 +85,12 @@ fi
 
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
 then
-  if pacman -Q qemu-user-static > /dev/null 2>/dev/null && pacman -Q binfmt-qemu-static > /dev/null 2>/dev/null && pacman -Q fakeroot-tcp > /dev/null 2>/dev/null
+  if pacman -Q qemu-user-static > /dev/null 2>/dev/null && pacman -Q binfmt-qemu-static > /dev/null 2>/dev/null 
   then
     ARCH_SPECIFIC_PKGS=""
   else
-    echo "Please install qemu-user-static, binfmt-qemu-static and fakeroot-tcp from the AUR"
-    echo "so that we can chroot into the ARM install and not run into strage build issues with fakeroot when we call it there"
+    echo "Please install qemu-user-static and binfmt-qemu-static from the AUR"
+    echo "so that we can chroot into the ARM install"
     exit 1
   fi
 else
@@ -439,20 +439,27 @@ then
 
   if test -n "${AUR_PACKAGE_LIST}"
   then # this seems to be broken (tested with rpi, yay doesn't work here)
-    #su -c "(EDITOR=vi VISUAL=vi yay -Syyu --needed --noconfirm ${AUR_PACKAGE_LIST})" -s /bin/bash ${ADMIN_USER_NAME}
     install -d /var/tmp/aurbuilding -o nobody
     pushd /var/tmp/aurbuilding
-    aur depends -a "${AUR_PACKAGE_LIST}" | while read -r pkg; do
-      pacman -Syu --needed --noconfirm  \${pkg} || true # install all the non-aur deps
+    IFS=' ' # space is set as delimiter
+    read -ra LIST <<< "${AUR_PACKAGE_LIST}" # str is read into an array as tokens separated by IFS
+    for item in "\${LIST[@]}"
+    do
+      aur depends -a "\${item}" | while read -r pkg; do
+        pacman -Syu --needed --noconfirm  \${pkg} || true # install all the non-aur deps
+      done
     done
-    aur depends "${AUR_PACKAGE_LIST}" | while read -r pkg; do
-      su -c "(aur fetch \${pkg})" -s /bin/bash nobody
-      cd \${pkg}
-      # TODO: test without skipping pgp check
-      su -c "(XDG_CACHE_HOME=/tmp XDG_CONFIG_HOME=/tmp makepkg --skippgpcheck)" -s /bin/bash nobody
-      pacman --needed --noconfirm -U *.pkg.tar.zst
-      mv *.pkg.tar.zst "\${MAKEPKG_BACKUP}/."
-      cd ..
+    for item in "\${LIST[@]}"
+    do
+      aur depends "\${item}" | while read -r pkg; do
+        su -c "(aur fetch \${pkg})" -s /bin/bash nobody
+        cd \${pkg}
+        # TODO: test without skipping pgp check
+        su -c "(XDG_CACHE_HOME=/tmp XDG_CONFIG_HOME=/tmp makepkg --skippgpcheck)" -s /bin/bash nobody
+        pacman --needed --noconfirm -U *.pkg.tar.zst
+        mv *.pkg.tar.zst "\${MAKEPKG_BACKUP}/."
+        cd ..
+      done
     done
     popd
     rm -rf /var/tmp/aurbuilding
