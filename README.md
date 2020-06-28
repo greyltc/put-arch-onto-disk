@@ -96,12 +96,7 @@ TARGET=/dev/sdX TIME_ZONE="Europe/London" THIS_HOSTNAME="epozz" ROOT_FS_TYPE=btr
 ---
 Put arch onto a SD card which can boot a raspberry pi 4:
 ```
-TARGET=/dev/sdX ENABLE_AUR="false" TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi4 firmware-raspberrypi raspberrypi-bootloader raspberrypi-bootloader-x" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
-```
----
-Put arch onto a SD card for a 64 bit raspberry pi:
-```
-TARGET=/dev/sdX TARGET_ARCH=aarch64 THIS_HOSTNAME="pi" PACKAGE_LIST="linux-aarch64 uboot-raspberrypi firmware-raspberrypi raspberrypi-bootloader raspberrypi-bootloader-x" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
+TARGET=/dev/mmcblkX TARGET_ARCH=aarch64 THIS_HOSTNAME="pi" AUR_PACKAGE_LIST="yay raspberrypi-bootloader-git rpi-eeprom-git uboot-raspberrypi4-rc" PACKAGE_LIST="linux-aarch64 firmware-raspberrypi" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
 ```
 ---
 Put arch onto a SD card which can boot a raspberry pi:
