@@ -95,11 +95,11 @@ then
   fi
 else
   # alarm does not like/need these
-  ARCH_SPECIFIC_PKGS="linux grub efibootmgr reflector os-prober linux-firmware amd-ucode intel-ucode"
+  ARCH_SPECIFIC_PKGS="linux grub efibootmgr reflector os-prober amd-ucode intel-ucode"
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi openssl ufw crda"
+DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi openssl ufw crda linux-firmware"
 
 # install these packages on the host now. they're needed for the install process
 pacman -Syu --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
