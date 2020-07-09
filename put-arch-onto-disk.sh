@@ -99,12 +99,12 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi openssl ufw crda linux-firmware"
+DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi openssl ufw crda linux-firmware wireguard-tools"
 
 # if this is a pi then let's make sure we have the packages listed here
 if contains "${PACKAGE_LIST}" "raspberry"
 then
-  PACKAGE_LIST="${PACKAGE_LIST} iw wireless-regdb wireless_tools wpa_supplicant"
+  PACKAGE_LIST="${PACKAGE_LIST} iw wireless-regdb wireless_tools wpa_supplicant wireguard-dkms"
 fi
 
 # install these packages on the host now. they're needed for the install process
