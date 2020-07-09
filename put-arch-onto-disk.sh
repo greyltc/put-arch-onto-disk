@@ -101,6 +101,12 @@ fi
 # here are a baseline set of packages for the new install
 DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi openssl ufw crda linux-firmware"
 
+# if this is a pi then let's make sure we have the packages listed here
+if contains "${PACKAGE_LIST}" "raspberry"
+then
+  PACKAGE_LIST="${PACKAGE_LIST} iw wireless-regdb wireless_tools wpa_supplicant"
+fi
+
 # install these packages on the host now. they're needed for the install process
 pacman -Syu --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
 
@@ -714,8 +720,11 @@ fi # end grub section
 if pacman -Q | grep raspberry > /dev/null 2>/dev/null
 then
   :
-  #echo "gpu_mem=64" >> /boot/config.txt
-  #echo "arm_64bit=1" >> /boot/config.txt
+  #echo "gpu_mem=128" >> /boot/config.txt
+  if contains "${TARGET_ARCH}" "aarch64"
+  then
+    echo "arm_64bit=1" >> /boot/config.txt
+  fi
   #echo "initramfs initramfs-linux.img followkernel" >> /boot/config.txt
   #echo "lcd_rotate=2" >> /boot/config.txt
   #echo "dtparam=audio=on" >> /boot/config.txt
@@ -723,6 +732,10 @@ then
   #echo "dtparam=i2c_arm=on" >> /boot/config.txt
   #echo "dtoverlay=vc4-fkms-v3d" >> /boot/config.txt
   #echo "dtoverlay=rpi-backlight" >> /boot/config.txt
+  if pacman -Q | grep raspberrypi-bootloader-x > /dev/null 2>/dev/null
+  then
+    echo "start_x=1" >> /boot/config.txt
+  fi
 fi
 EOF
 
