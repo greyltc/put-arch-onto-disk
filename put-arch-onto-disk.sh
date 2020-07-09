@@ -739,8 +739,6 @@ then
   fi
   
   echo "bcm2835-v4l2" > /etc/modules-load.d/rpi-camera.conf
-  # res for the HQ camera, untested if this breaks the normal camera or not
-  echo "options bcm2835-v4l2 max_video_width=4056 max_video_height=3040" > /etc/modprobe.d/rpi-camera.conf
 fi
 EOF
 
