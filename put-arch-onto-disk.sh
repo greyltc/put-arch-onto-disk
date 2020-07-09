@@ -720,7 +720,7 @@ fi # end grub section
 if pacman -Q | grep raspberry > /dev/null 2>/dev/null
 then
 
-  sed -i '|^gpu_mem=64.*|gpu_mem=128|g' /boot/config.txt
+  sed -i 's|^gpu_mem=64.*|gpu_mem=128|g' /boot/config.txt
 
   if contains "${TARGET_ARCH}" "aarch64"
   then
