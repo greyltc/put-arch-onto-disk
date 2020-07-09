@@ -102,13 +102,13 @@ TARGET=/dev/sdX TARGET_ARCH=aarch64 THIS_HOSTNAME="pi" AUR_PACKAGE_LIST="yay ras
 Put arch onto a SD card which can boot a raspberry pi4:  
 ENABLE_AUR must be false with armv7h due to a lack of emulation support in qemu (`git clone` segfaults). Just aurify the system manually after install.
 ```
-TARGET=/dev/sdX ENABLE_AUR="false" TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi4 raspberrypi-firmware raspberrypi-bootloader raspberrypi-bootloader-x" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
+TARGET=/dev/sdX ENABLE_AUR="false" TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi4 raspberrypi-firmware raspberrypi-bootloader raspberrypi-bootloader-x firmware-raspberrypi" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
 ```
 ---
 Put arch onto a SD card which can boot a raspberry pi (everything except 4):  
 ENABLE_AUR must be false with armv7h due to a lack of emulation support in qemu (`git clone` segfaults). Just aurify the system manually after install.
 ```
-TARGET=/dev/sdX ENABLE_AUR="false" TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi raspberrypi-firmware raspberrypi-bootloader raspberrypi-bootloader-x" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
+TARGET=/dev/sdX ENABLE_AUR="false" TARGET_ARCH=armv7h THIS_HOSTNAME="pi" PACKAGE_LIST="linux-raspberrypi raspberrypi-firmware raspberrypi-bootloader raspberrypi-bootloader-x firmware-raspberrypi" S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
 ```
 ---
 Permanent install onto internal drive:
