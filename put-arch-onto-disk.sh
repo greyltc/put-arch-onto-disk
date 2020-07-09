@@ -722,7 +722,7 @@ then
 
   sed -i 's|^gpu_mem=64.*|gpu_mem=128|g' /boot/config.txt
 
-  if contains "${TARGET_ARCH}" "aarch64"
+  if test "${TARGET_ARCH}" = "aarch64"
   then
     echo "arm_64bit=1" >> /boot/config.txt
   fi
