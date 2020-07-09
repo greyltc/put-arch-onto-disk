@@ -716,11 +716,12 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
   fi
 fi # end grub section
 
-# if we're on a pi, add some stuff I like to config.txt
+# if we're on a pi, add some stuff ( mostly to config.txt)
 if pacman -Q | grep raspberry > /dev/null 2>/dev/null
 then
-  :
-  #echo "gpu_mem=128" >> /boot/config.txt
+
+  sed -i '|^gpu_mem=64.*|gpu_mem=128|g' /boot/config.txt
+
   if contains "${TARGET_ARCH}" "aarch64"
   then
     echo "arm_64bit=1" >> /boot/config.txt
@@ -732,10 +733,14 @@ then
   #echo "dtparam=i2c_arm=on" >> /boot/config.txt
   #echo "dtoverlay=vc4-fkms-v3d" >> /boot/config.txt
   #echo "dtoverlay=rpi-backlight" >> /boot/config.txt
-  if pacman -Q | grep raspberrypi-bootloader-x > /dev/null 2>/dev/null
+  if pacman -Q | grep raspberrypi-bootloader > /dev/null 2>/dev/null
   then
     echo "start_x=1" >> /boot/config.txt
   fi
+  
+  echo "bcm2835-v4l2" > /etc/modules-load.d/rpi-camera.conf
+  # res for the HQ camera, untested if this breaks the normal camera or not
+  echo "options bcm2835-v4l2 max_video_width=4056 max_video_height=3040" > /etc/modprobe.d/rpi-camera.conf
 fi
 EOF
 
