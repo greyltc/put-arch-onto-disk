@@ -659,11 +659,11 @@ if pacman -Q grub > /dev/null 2>/dev/null; then
       then
         # this puts our entry point at [EFI_PART]/EFI/BOOT/BOOTX64.EFI
         echo "Doing portable UEFI setup"
-        grub-install --no-nvram --removable --target=x86_64-efi --efi-directory=/boot
+        grub-install --no-nvram --removable --target=x86_64-efi --efi-directory=/boot --bootloader-id="GRUB_ARCH_REMOVABLE"
       else # non-portable
         # this puts our entry point at [EFI_PART]/EFI/ArchGRUB/grubx64.efi
         echo "Doing fixed disk UEFI setup"
-        grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=ArchGRUB
+        grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id="GRUB_ARCH_FIXED"
       fi # portable
     else # if UEFI grub install
       echo "Not doing EFI bootloader install. Set LEGACY_BOOTLOADER=true to install grub"
