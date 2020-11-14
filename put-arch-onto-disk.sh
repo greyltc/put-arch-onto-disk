@@ -207,7 +207,7 @@ then
 else
   if test -f "${LUKS_KEYFILE}"
   then
-    echo "LUKS encryption with keyfile: $(readlink -f "${LUKS_KEYFILE}")"
+    echo "LUKS encryption with keyfile: $(readlink -f \"${LUKS_KEYFILE}\")"
     cryptsetup -q luksFormat ${ROOT_DEVICE} "${LUKS_KEYFILE}"
     LUKS_UUID=$(cryptsetup luksUUID ${ROOT_DEVICE})
     cryptsetup -q --key-file ${LUKS_KEYFILE} open ${ROOT_DEVICE} luks-${LUKS_UUID}
@@ -387,7 +387,7 @@ pacman -Syyuu --noconfirm
 if test "${ENABLE_AUR}" = "true"
 then
   # needed to build aur packages and for aurutils
-  pacman -Syu --needed --noconfirm base-devel diffstat expac git jq pacutils parallel wget devtools po4a
+  pacman -Syu --needed --noconfirm base-devel diffstat expac git jq pacutils parallel wget devtools po4a signify
   sed -i "s,^PKGEXT=.*,PKGEXT='.pkg.tar.zst',g" /etc/makepkg.conf
   MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
   groupadd aur
