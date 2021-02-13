@@ -28,34 +28,39 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 # set variable defaults. if any of these are defined elsewhere,
 # those values will be used instead of those listed here
 : ${TARGET_ARCH:=x86_64}
-: ${ROOT_FS_TYPE:=f2fs}
+: ${ROOT_FS_TYPE:=btrfs}
 : ${MAKE_SWAP_PARTITION:=false}
 : ${SWAP_SIZE_IS_RAM_SIZE:=false}
 : ${SWAP_SIZE:=100MiB}
 : ${TARGET:=./bootable_arch.img}
- #set true when the target will be a removable drive, false when the install is only for the machine runnning this script
+
+# these only matter for GRUB installs: set true when the target will be a removable drive, false when the install is only for the machine runnning this script
 : ${PORTABLE:=true}
+: ${LEGACY_BOOTLOADER:=false}
+: ${UEFI_BOOTLOADER:=true}
+: ${UEFI_COMPAT_STUB:=false}
+
 : ${IMG_SIZE:=2GiB}
 : ${TIME_ZONE:=Europe/London}
+
 # possible keymap options can be seen by `localectl list-keymaps`
 : ${KEYMAP:=uk}
 : ${LOCALE:=en_US.UTF-8}
 : ${CHARSET:=UTF-8}
-: ${LEGACY_BOOTLOADER:=false}
-: ${UEFI_BOOTLOADER:=true}
-: ${UEFI_COMPAT_STUB:=false}
 : ${ROOT_PASSWORD:=""}
 : ${MAKE_ADMIN_USER:=true}
 : ${ADMIN_USER_NAME:=admin}
 : ${ADMIN_USER_PASSWORD:=admin}
 : ${THIS_HOSTNAME:=archthing}
 : ${PACKAGE_LIST:=""}
-: ${ENABLE_AUR:=true}
-: ${AUR_PACKAGE_LIST:="yay"}
+: ${AUR_HELPER:=paru}
+: ${AUR_PACKAGE_LIST:=""}
 : ${AUTOLOGIN_ADMIN:=false}
 : ${FIRST_BOOT_SCRIPT:=""}
 : ${USE_TESTING:=false}
 : ${LUKS_KEYFILE:=""}
+
+# for installing into preexisting multi boot setups:
 : ${PREEXISTING_BOOT_PARTITION_NUM:=""} # this will not be formatted
 : ${PREEXISTING_ROOT_PARTITION_NUM:=""} # this WILL be formatted
 # any pre-existing swap partition will just be used via systemd magic
@@ -123,16 +128,16 @@ then
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   IMG_NAME=""
 else
-  IMG_NAME=$TARGET
+  IMG_NAME="${TARGET}"
   rm -f "${IMG_NAME}"
   su -c "fallocate -l $IMG_SIZE ${IMG_NAME}" $SUDO_USER
   TARGET_DEV=$(losetup --find)
   losetup -P ${TARGET_DEV} "${IMG_NAME}"
 fi
 
-if test ! -b "${TARGET}"
+if test ! -b "${TARGET_DEV}"
 then
-  echo "ERROR: Install target ${TARGET} is not a block device."
+  echo "ERROR: Install target device ${TARGET_DEV} is not a block device."
   exit 1
 fi
 
@@ -229,7 +234,8 @@ else
 fi
 mkfs.${ROOT_FS_TYPE} ${ENCR} -${ELL} ${ROOT_FS_TYPE}Root ${ROOT_DEVICE}
 
-sgdisk -p "${TARGET_DEV}"  # just prints the current partition table
+echo "Current partition table:"
+sgdisk -p "${TARGET_DEV}"  # print the current partition table
 
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
@@ -353,7 +359,8 @@ echo "keyserver-options auto-key-retrieve" >> /etc/skel/.gnupg/gpg.conf
 # change password for root
 if test -z "$ROOT_PASSWORD"
 then
-  echo "No password for root"
+  echo "password locked for root user"
+  passwd -l root
 else
   echo "root:${ROOT_PASSWORD}"|chpasswd
 fi
@@ -384,130 +391,101 @@ sed -i 's/#Color/Color/g' /etc/pacman.conf
 # do an update
 pacman -Syyuu --noconfirm
 
-if test "${ENABLE_AUR}" = "true"
-then
-  # needed to build aur packages and for aurutils
-  pacman -Syu --needed --noconfirm base-devel diffstat expac git jq pacutils parallel wget devtools po4a signify
-  sed -i "s,^PKGEXT=.*,PKGEXT='.pkg.tar.zst',g" /etc/makepkg.conf
-  MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
-  groupadd aur
-  install -d "\${MAKEPKG_BACKUP}" -g aur -m=775
-
-  # fakeroot needs to use tcp IPC here because the non-tcp IPC isn't supported by qemu
-  # so now we need to bootstrap fakeroot-tcp so that making packages with makepkg works
-  if pacman -Q | grep raspberry > /dev/null 2>/dev/null
-  then
-    # bootstrap fakeroot-tcp
-    su -c '(git clone https://aur.archlinux.org/fakeroot-tcp.git /var/tmp/fakeroot-tcp && cd /var/tmp/fakeroot-tcp && makepkg --skippgpcheck --nobuild && cd src && cd */ && ./bootstrap ; ./configure --prefix=/usr --libdir=/usr/lib/libfakeroot --disable-static --with-ipc=tcp ; make )' -s /bin/bash nobody
-    pushd /var/tmp/fakeroot-tcp/src
-    cd */
-    make DESTDIR="/" install
-    popd
-    mkdir -p /etc/ld.so.conf.d
-    echo '/usr/lib/libfakeroot' > /etc/ld.so.conf.d/fakeroot.conf
-    libtool --finish /usr/lib/libfakeroot
-    pushd /
-    sbin/ldconfig -r .
-    popd
-    
-    # now build the fakeroot-tcp package using our bootstrapped fakeroot-tcp build
-    su -c '(git clone https://aur.archlinux.org/fakeroot-tcp.git /var/tmp/fakeroot-tcp2 && cd /var/tmp/fakeroot-tcp2 ; makepkg --skippgpcheck )' -s /bin/bash nobody
-
-    # remove the bootstrapped fakeroot-tcp
-    pushd /var/tmp/fakeroot-tcp/src
-    cd */
-    make DESTDIR="/" uninstall
-    popd
-    rm -rf /etc/ld.so.conf.d/fakeroot.conf
-
-    # reinstall the bad fakeroot because we just butchered it (avoids install errors later)
-    #pacman -Syu --noconfirm fakeroot || true
-
-    # install the replacement fakeroot-tcp package
-    pushd /var/tmp/fakeroot-tcp2
-    yes | LC_ALL=en_US.UTF-8 pacman -U *.pkg.tar.zst || true
-    mv *.pkg.tar.zst "\${MAKEPKG_BACKUP}/."
-    popd
-    rm -rf /var/tmp/fakeroot-tcp
-    rm -rf /var/tmp/fakeroot-tcp2
-  fi
-
-  # build aurutils
-  # TODO: test without skipping pgp check
-  su -c "(git clone https://aur.archlinux.org/aurutils.git /var/tmp/aurutils && cd /var/tmp/aurutils && makepkg --skippgpcheck)" -s /bin/bash nobody
-
-  # install aurutils
-  pushd /var/tmp/aurutils
-  pacman -U --noconfirm *.pkg.tar.zst
-  mv *.pkg.tar.zst "\${MAKEPKG_BACKUP}/."
-  popd
-  rm -rf /var/tmp/aurutils
-
-  if test -n "${AUR_PACKAGE_LIST}"
-  then # this seems to be broken (tested with rpi, yay doesn't work here)
-    install -d /var/tmp/aurbuilding -o nobody
-    pushd /var/tmp/aurbuilding
-    IFS=' ' # space is set as delimiter
-    read -ra LIST <<< "${AUR_PACKAGE_LIST}" # str is read into an array as tokens separated by IFS
-    for item in "\${LIST[@]}"
-    do
-      aur depends -a "\${item}" | while read -r pkg; do
-        pacman -Syu --needed --noconfirm  \${pkg} || true # install all the non-aur deps
-      done
-    done
-    for item in "\${LIST[@]}"
-    do
-      aur depends "\${item}" | while read -r pkg; do
-        su -c "(aur fetch \${pkg})" -s /bin/bash nobody
-        cd \${pkg}
-        # TODO: test without skipping pgp check
-        su -c "(XDG_CACHE_HOME=/tmp XDG_CONFIG_HOME=/tmp makepkg --skippgpcheck)" -s /bin/bash nobody
-        pacman --needed --noconfirm -U *.pkg.tar.zst
-        mv *.pkg.tar.zst "\${MAKEPKG_BACKUP}/."
-        cd ..
-      done
-    done
-    popd
-    rm -rf /var/tmp/aurbuilding
-  fi
-
-  chgrp -R aur \${MAKEPKG_BACKUP}
-  # backup future makepkg built packages
-  sed -i "s,^#PKGDEST=.*,PKGDEST=\${MAKEPKG_BACKUP},g" /etc/makepkg.conf
-fi
-
 # setup admin user
 if test "${MAKE_ADMIN_USER}" = "true"
 then
   systemctl enable systemd-homed
+  systemctl start systemd-homed
 
   pacman -S --needed --noconfirm sudo
 
-  # fix up PAM for systemd-homed
-  cat > /etc/pam.d/nss-auth <<END
-#%PAM-1.0
-
-auth     sufficient pam_unix.so try_first_pass nullok
-auth     sufficient pam_systemd_home.so
-auth     required   pam_deny.so
-
-account  sufficient pam_unix.so
-account  sufficient pam_systemd_home.so
-account  required   pam_deny.so
-
-password sufficient pam_unix.so try_first_pass nullok sha512 shadow
-password sufficient pam_systemd_home.so
-password required   pam_deny.so
-END
-
-  sed -i 's|^auth      required  pam_unix.so.*|auth      substack  nss-auth|g' /etc/pam.d/system-auth
-  sed -i 's|^account   required  pam_unix.so.*|account   substack  nss-auth|g' /etc/pam.d/system-auth
-  sed -i 's|^password  required  pam_unix.so.*|password  substack  nss-auth|g' /etc/pam.d/system-auth
-  sed -i 's|^session   required  pam_unix.so.*|session   optional  pam_systemd_home.so\nsession   required  pam_unix.so|g' /etc/pam.d/system-auth
-
   # users in the wheel group have sudo powers
   sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
-fi
+
+  STORAGE="directory"
+  if test "${ROOT_FS_TYPE}" = "btrfs"
+  then
+    STORAGE="subvolume"
+  elif test "${ROOT_FS_TYPE}" = "f2fs"
+  then
+    STORAGE="fscrypt"
+  fi
+
+  GRPS=""
+  if test ! -z "${AUR_HELPER}"
+  then
+    GRPS="aur,"
+  fi
+  GRPS="\${GRPS}adm,uucp,wheel"
+
+  echo '{"secret":{"password":"'${ADMIN_USER_PASSWORD}'"},"privileged":{"hashedPassword":["'\$(openssl passwd -6 "${ADMIN_USER_PASSWORD}")'"]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE}
+
+  echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config
+  echo "AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u" >> /etc/ssh/sshd_config
+  echo "AuthorizedKeysCommandUser root" >> /etc/ssh/sshd_config
+  systemctl restart sshd.service
+
+  if test ! -z "${AUR_HELPER}"
+  then
+    # needed to build aur packages and for aurutils
+    pacman -Syu --needed --noconfirm base-devel
+    sed "s,^PKGEXT=.*,PKGEXT='.pkg.tar.zst',g" -i /etc/makepkg.conf
+    MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
+    groupadd aur
+    install -d "\${MAKEPKG_BACKUP}" -g aur -m=775
+
+    # fakeroot needs to use tcp IPC here because the non-tcp IPC isn't supported by qemu
+    # so now we need to bootstrap fakeroot-tcp so that making packages with makepkg works
+    if pacman -Q | grep raspberry > /dev/null 2>/dev/null
+    then
+      # bootstrap fakeroot-tcp
+      su -c '(git clone https://aur.archlinux.org/fakeroot-tcp.git /var/tmp/fakeroot-tcp && cd /var/tmp/fakeroot-tcp && makepkg --skippgpcheck --nobuild && cd src && cd */ && ./bootstrap ; ./configure --prefix=/usr --libdir=/usr/lib/libfakeroot --disable-static --with-ipc=tcp ; make )' -s /bin/bash nobody
+      pushd /var/tmp/fakeroot-tcp/src
+      cd */
+      make DESTDIR="/" install
+      popd
+      mkdir -p /etc/ld.so.conf.d
+      echo '/usr/lib/libfakeroot' > /etc/ld.so.conf.d/fakeroot.conf
+      libtool --finish /usr/lib/libfakeroot
+      pushd /
+      sbin/ldconfig -r .
+      popd
+    
+      # now build the fakeroot-tcp package using our bootstrapped fakeroot-tcp build
+      su -c '(git clone https://aur.archlinux.org/fakeroot-tcp.git /var/tmp/fakeroot-tcp2 && cd /var/tmp/fakeroot-tcp2 ; makepkg --skippgpcheck )' -s /bin/bash nobody
+
+      # remove the bootstrapped fakeroot-tcp
+      pushd /var/tmp/fakeroot-tcp/src
+      cd */
+      make DESTDIR="/" uninstall
+      popd
+      rm -rf /etc/ld.so.conf.d/fakeroot.conf
+
+      # reinstall the bad fakeroot because we just butchered it (avoids install errors later)
+      #pacman -Syu --noconfirm fakeroot || true
+
+      # install the replacement fakeroot-tcp package
+      pushd /var/tmp/fakeroot-tcp2
+      yes | LC_ALL=en_US.UTF-8 pacman -U *.pkg.tar.zst || true
+      mv *.pkg.tar.zst "\${MAKEPKG_BACKUP}/."
+      popd
+      rm -rf /var/tmp/fakeroot-tcp
+      rm -rf /var/tmp/fakeroot-tcp2
+    fi
+    # get the helper
+    cd /tmp
+    su -c "(curl -s -L https://aur.archlinux.org/cgit/aur.git/snapshot/${AUR_HELPER}.tar.gz | bsdtar -xvf -)" -s /bin/bash nobody
+    su -c "(cd /tmp/${AUR_HELPER}; )" -s /bin/bash nobody
+    # TODO: test without skipping pgp check
+  
+    #su -c "(git clone https://aur.archlinux.org/aurutils.git /var/tmp/aurutils && cd /var/tmp/aurutils && makepkg --skippgpcheck)" -s /bin/bash nobody
+
+    chgrp -R aur \${MAKEPKG_BACKUP}
+    # backup future makepkg built packages
+    sed -i "s,^#PKGDEST=.*,PKGDEST=\${MAKEPKG_BACKUP},g" /etc/makepkg.conf
+  fi  # add AUR
+
+fi # add admin
 
 # if cpupower is installed, enable the service
 if pacman -Q cpupower > /dev/null 2>/dev/null; then
@@ -767,54 +745,26 @@ fi
 
 timedatectl set-ntp true
 
-# setup admin user
-if test "${MAKE_ADMIN_USER}" = "true"
-then
-  STORAGE="directory"
-  if test "${ROOT_FS_TYPE}" = "btrfs"
-  then
-    STORAGE="subvolume"
-  elif test "${ROOT_FS_TYPE}" = "f2fs"
-  then
-    STORAGE="fscrypt"
-  fi
-
-  GRPS="-G wheel"
-  if test "${ENABLE_AUR}" = "true"
-  then
-    GRPS="\${GRPS} -G aur"
-  fi
-
-  echo '{"secret":{"password":"'${ADMIN_USER_PASSWORD}'"},"privileged":{"hashedPassword":["'\$(openssl passwd -6 "${ADMIN_USER_PASSWORD}")'"]}}' | homectl --identity=- \
-  create ${ADMIN_USER_NAME} \${GRPS} --storage=\${STORAGE}
-
-  echo "AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u" >> /etc/ssh/sshd_config
-  echo "AuthorizedKeysCommandUser root" >> /etc/ssh/sshd_config
-  systemctl restart sshd.service
-fi
-
 echo "Reinstall all native packages"
 pacman -Qqn | pacman -S --noconfirm -
 
 # make sure everything is up to date
 pacman -Syyuu --needed --noconfirm || true # requires internet
 
-if test "${ENABLE_AUR}" = "true"
+if test ! -z "${AUR_HELPER}"
 then
   echo "Reinstall all foreign packages"
   pushd /var/cache/makepkg/pkg
-  pacman --noconfirm -U *.pkg.tar.zst
+  pacman --noconfirm -U *
   popd
 fi
-
-
 
 echo "First boot script finished"
 systemd-notify --ready
 END
 chmod +x "${TMP_ROOT}/usr/sbin/nativeSetupTasks.sh"
 
-# run the setup script in th new install's 
+# run the setup script in the new install's root
 chmod +x /tmp/chroot.sh
 mv /tmp/chroot.sh "${TMP_ROOT}/root/chroot.sh"
 set +o errexit
