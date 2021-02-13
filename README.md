@@ -15,39 +15,35 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
  - Easily set many installtion parameters programatically for an one-shot, no-further-setup-required Arch install:
 
 ### Variables
-Variable Name|Description|Default Value
----|---|---
-`TARGET_ARCH`|target architecture|`x86_64`
-`ROOT_FS_TYPE`|root file system type|`f2fs`
-`MAKE_SWAP_PARTITION`|create swap partition|`false`
-`SWAP_SIZE_IS_RAM_SIZE`|use amount of installed ram as swap size|`false`
-`SWAP_SIZE`|swap partition size (if `SWAP_SIZE_IS_RAM_SIZE`=`false`)|`100MiB`
-`TARGET`|installation target. if this is a block deivce, you'll get a direct install onto that media (repartitioning it and filling it entirely), if it's a file you'll get a dd-able disk image of size `IMG_SIZE`|`./bootable_arch.img`
-`IMG_SIZE`|disk image size|`2GiB`
-`TIME_ZONE`|installed system's timezone|`Europe/London`
-`LOCALE`|installed system's locale|`en_US.UTF-8`
-`CHARSET`|installed system's character set|`UTF-8`
-`PORTABLE`|true if you want this media to run on multiple computers|`true`
-`KEYMAP`|keyboard layout|`uk`
-`ROOT_PASSWORD`|password for root user|
-`MAKE_ADMIN_USER`|create a user with sudo powers (and install sudo)|`true`
-`ADMIN_USER_NAME`|user name for admin user (requires `MAKE_ADMIN_USER`=`true`)|`admin`
-`ADMIN_USER_PASSWORD`|password for admin user (requires `MAKE_ADMIN_USER`=`true`)|`admin`
-`THIS_HOSTNAME`|target system's hostname|`archthing`
-`PACKAGE_LIST`|list of additional official packages to install|
-`ENABLE_AUR`|install `yay` an [AUR helper](https://wiki.archlinux.org/index.php/AUR_helpers) (requires `MAKE_ADMIN_USER`=`true`)|`true`
-`AUR_PACKAGE_LIST`|list of packages to install from the AUR (requires `ENABLE_AUR`=`true`)|
-`AUTOLOGIN_ADMIN`|autologin admin user through display manager login page (works for gdm and lxdm)|`false`
-`FIRST_BOOT_SCRIPT`|path to a (local) script you wish to run on first boot of the media|
-`USE_TESTING`|enables the testing repo|`false`
-`LUKS_KEYFILE`|[keyfile](https://wiki.archlinux.org/index.php/Dm-crypt/Device_encryption#Keyfiles) used for LUKS encryption|
+Look in the script for variables you can set and their defaults.
 
 ### Requirements and notes
 1. This script must be run from a x86_64 Arch Linux environment
 1. You must have internet access when running this script (it needs to download the Arch packages).
 1. It's been tested mostly for making x86_64 installs. i686 installs *might* work by changing 'TARGET_ARCH'. See examples below for installs to ARM targets (this makes use of [Arch Linux ARM](http://archlinuxarm.org/) repos). 
 1. Understand that the script provided here comes with no guarentees that it won't destroy your computer and everything attached to it :-), although I believe it's safe (unless you're careless). There are no warnings or "Are you sure you want to..." messages. It will happily obliterate all your cat pictures, your homework, your bitcoin wallet, its self, your family photos and even your nealry competed PhD dissertation if you ask it to, so be careful.
+1. The first boot of the installed system does some setup tasks automatically. You should have internet for that.
 
+### Recipes
+Here are some fun combos of environment variables to use when running the script:
+```
+# bare bones, mainline kernel aarch64 raspberry pi 3 or 4 system, where "/dev/mmcblkX" is the name of your SD card's device
+TARGET_ARCH=aarch64 \
+ROOT_FS_TYPE=f2fs \
+TARGET=/dev/mmcblkX \
+ROOT_PASSWORD="root" \
+MAKE_ADMIN_USER="false" \
+PACKAGE_LIST="linux-aarch64 linux-aarch64-headers firmware-raspberrypi raspberrypi-bootloader raspberrypi-bootloader-x raspberrypi-firmware uboot-raspberrypi" \
+
+# bare bones, aarch64 kernel from raspberrypi.org's tree, where "/dev/mmcblkX" is the name of your SD card's device
+TARGET_ARCH=aarch64 \
+ROOT_FS_TYPE=f2fs \
+TARGET=/dev/mmcblkX \
+ROOT_PASSWORD="root" \
+MAKE_ADMIN_USER="false" \
+PACKAGE_LIST="	linux-raspberrypi4 linux-raspberrypi4-headers firmware-raspberrypi raspberrypi-bootloader raspberrypi-bootloader-x raspberrypi-firmware" \
+
+```
 ### Usage
 
 You can run the script like this:
