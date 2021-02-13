@@ -27,7 +27,8 @@ Look in the script for variables you can set and their defaults.
 ### Recipes
 Here are some fun combos of environment variables to use when running the script:
 ```
-# bare bones, mainline kernel aarch64 raspberry pi 3 or 4 system, where "/dev/mmcblkX" is the name of your SD card's device
+# bare bones, mainline kernel aarch64 raspberry pi 3 or 4 system
+# where "/dev/mmcblkX" is the name of your SD card's device
 TARGET_ARCH=aarch64 \
 ROOT_FS_TYPE=f2fs \
 TARGET=/dev/mmcblkX \
@@ -35,13 +36,14 @@ ROOT_PASSWORD="root" \
 MAKE_ADMIN_USER="false" \
 PACKAGE_LIST="linux-aarch64 linux-aarch64-headers firmware-raspberrypi raspberrypi-bootloader raspberrypi-bootloader-x raspberrypi-firmware uboot-raspberrypi" \
 
-# bare bones, aarch64 kernel from raspberrypi.org's tree, where "/dev/mmcblkX" is the name of your SD card's device
+# bare bones, aarch64 kernel from raspberrypi.org's tree
+# where "/dev/mmcblkX" is the name of your SD card's device
 TARGET_ARCH=aarch64 \
 ROOT_FS_TYPE=f2fs \
 TARGET=/dev/mmcblkX \
 ROOT_PASSWORD="root" \
 MAKE_ADMIN_USER="false" \
-PACKAGE_LIST="	linux-raspberrypi4 linux-raspberrypi4-headers firmware-raspberrypi raspberrypi-bootloader raspberrypi-bootloader-x raspberrypi-firmware" \
+PACKAGE_LIST="linux-raspberrypi4 linux-raspberrypi4-headers firmware-raspberrypi raspberrypi-bootloader raspberrypi-bootloader-x raspberrypi-firmware" \
 
 ```
 ### Usage
