@@ -28,6 +28,8 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 # set variable defaults. if any of these are defined elsewhere,
 # those values will be used instead of those listed here
 : ${TARGET_ARCH:=x86_64}
+: ${PACKAGE_LIST:=""}
+
 : ${ROOT_FS_TYPE:=btrfs}
 : ${MAKE_SWAP_PARTITION:=false}
 : ${SWAP_SIZE_IS_RAM_SIZE:=false}
@@ -48,15 +50,18 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${LOCALE:=en_US.UTF-8}
 : ${CHARSET:=UTF-8}
 : ${ROOT_PASSWORD:=""}
-: ${MAKE_ADMIN_USER:=true}
+: ${THIS_HOSTNAME:=archthing}
+
+# empty user name string for no admin user
 : ${ADMIN_USER_NAME:=admin}
 : ${ADMIN_USER_PASSWORD:=admin}
-: ${THIS_HOSTNAME:=archthing}
-: ${PACKAGE_LIST:=""}
-: ${AUR_HELPER:=paru}
-: ${AUR_PACKAGE_LIST:=""}
 : ${AUTOLOGIN_ADMIN:=false}
-: ${FIRST_BOOT_SCRIPT:=""}
+
+# empty helper string for no aur support
+#: ${AUR_HELPER:=paru}
+: ${AUR_HELPER:=""}
+: ${AUR_PACKAGE_LIST:=""}
+
 : ${USE_TESTING:=false}
 : ${LUKS_KEYFILE:=""}
 
@@ -302,28 +307,60 @@ pacstrap -C /tmp/pacman.conf -M -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIS
 
 genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
 sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
-if test -f "${FIRST_BOOT_SCRIPT}" 
-then
-  cp "$FIRST_BOOT_SCRIPT" ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
-  chmod +x ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
-fi
+#if test -f "${FIRST_BOOT_SCRIPT}" 
+#then
+#  cp "$FIRST_BOOT_SCRIPT" ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
+#  chmod +x ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
+#fi
 
 # make the reflector service
-cat > ${TMP_ROOT}/etc/systemd/system/reflector.service <<EOF
+#cat > ${TMP_ROOT}/etc/systemd/system/reflector.service <<EOF
+#[Unit]
+#Description=Pacman mirrorlist update
+#Wants=network-online.target
+#After=network-online.target
+#
+#[Service]
+#Type=oneshot
+#ExecStart=/usr/bin/reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
+#
+#[Install]
+#RequiredBy=multi-user.target
+#EOF
+
+cat > "${TMP_ROOT}/root/setup.sh" <<EOF
+#!/usr/bin/env bash
+set -o pipefail
+set -o errexit
+set -o nounset
+set -o verbose
+set -o xtrace
+
+touch /poop
+ping -c google.com
+echo "goodbye!"
+halt
+#poweroff
+EOF
+chmod +x "${TMP_ROOT}/root/setup.sh"
+
+cat > "${TMP_ROOT}"/etc/systemd/system/container-boot-setup.service <<END
 [Unit]
-Description=Pacman mirrorlist update
-Wants=network-online.target
-After=network-online.target
+Description=System setup tasks to be run in a container
+ConditionPathExists=/root/setup.sh
+Before=multi-user.target
 
 [Service]
-Type=oneshot
-ExecStart=/usr/bin/reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
+Type=notify
+TimeoutSec=0
+ExecStart=/root/setup.sh
+ExecStopPost=/usr/bin/systemctl disable container-boot-setup.service
 
 [Install]
-RequiredBy=multi-user.target
-EOF
+WantedBy=multi-user.target
+END
 
-cat > /tmp/chroot.sh <<EOF
+cat > "${TMP_ROOT}/root/setup2.sh" <<EOF
 #!/usr/bin/env bash
 set -o pipefail
 set -o errexit
@@ -337,8 +374,8 @@ echo ${THIS_HOSTNAME} > /etc/hostname
 # set timezone
 ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
 
-# generate adjtime
-hwclock --systohc
+# generate adjtime (this is probably forbidden)
+hwclock --systohc || :
 
 # do locale things
 sed -i "s,^#${LOCALE} ${CHARSET},${LOCALE} ${CHARSET},g" /etc/locale.gen
@@ -392,15 +429,15 @@ sed -i 's/#Color/Color/g' /etc/pacman.conf
 pacman -Syyuu --noconfirm
 
 # setup admin user
-if test "${MAKE_ADMIN_USER}" = "true"
+if test ! -z "${ADMIN_USER_NAME}"
 then
   systemctl enable systemd-homed
   systemctl start systemd-homed
 
   pacman -S --needed --noconfirm sudo
 
-  # users in the wheel group have sudo powers
-  sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
+  # just for now, users in the wheel group have passwordless sudo powers
+  sed -i 's/^# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
 
   STORAGE="directory"
   if test "${ROOT_FS_TYPE}" = "btrfs"
@@ -418,12 +455,11 @@ then
   fi
   GRPS="\${GRPS}adm,uucp,wheel"
 
-  echo '{"secret":{"password":"'${ADMIN_USER_PASSWORD}'"},"privileged":{"hashedPassword":["'\$(openssl passwd -6 "${ADMIN_USER_PASSWORD}")'"]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE}
-
   echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config
   echo "AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u" >> /etc/ssh/sshd_config
   echo "AuthorizedKeysCommandUser root" >> /etc/ssh/sshd_config
-  systemctl restart sshd.service
+
+  echo '{"secret":{"password":"'${ADMIN_USER_PASSWORD}'"},"privileged":{"hashedPassword":["'\$(openssl passwd -6 "${ADMIN_USER_PASSWORD}")'"]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE}
 
   if test ! -z "${AUR_HELPER}"
   then
@@ -484,6 +520,12 @@ then
     # backup future makepkg built packages
     sed -i "s,^#PKGDEST=.*,PKGDEST=\${MAKEPKG_BACKUP},g" /etc/makepkg.conf
   fi  # add AUR
+
+  # take away passwordless sudo powers for wheel group
+  sed -i 's/^%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
+
+  # users in the wheel group have password triggered sudo powers
+  sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
 
 fi # add admin
 
@@ -550,7 +592,7 @@ fi
 if pacman -Q gdm > /dev/null 2>/dev/null; then
   systemctl enable gdm
   #TODO: set keyboard layout for gnome
-  if [ "$MAKE_ADMIN_USER" = true ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
+  if [ ! -z "$ADMIN_USER_NAME" ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
     echo "# Enable automatic login for user" >> /etc/gdm/custom.conf
     echo "[daemon]" >> /etc/gdm/custom.conf
     echo "AutomaticLogin=$ADMIN_USER_NAME" >> /etc/gdm/custom.conf
@@ -562,32 +604,32 @@ fi
 if pacman -Q lxdm > /dev/null 2>/dev/null; then
   systemctl enable lxdm
   #TODO: set keyboard layout
-  if [ "$MAKE_ADMIN_USER" = true ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
+  if [ ! -z "$ADMIN_USER_NAME" ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
     echo "# Enable automatic login for user" >> /etc/lxdm/lxdm.conf
     echo "autologin=$ADMIN_USER_NAME" >> /etc/lxdm/lxdm.conf
   fi
 fi
 
-if test -f /usr/sbin/runOnFirstBoot.sh
-then
-  cat > /etc/systemd/system/firstBootScript.service <<END
-[Unit]
-Description=Runs a user defined script on first boot
-ConditionPathExists=/usr/sbin/runOnFirstBoot.sh
-
-[Service]
-Type=forking
-ExecStart=/usr/sbin/runOnFirstBoot.sh
-ExecStopPost=/usr/bin/systemctl disable firstBootScript.service
-TimeoutSec=0
-RemainAfterExit=yes
-SysVStartPriority=99
-
-[Install]
-WantedBy=multi-user.target
-END
-  systemctl enable firstBootScript.service
-fi
+#if test -f /usr/sbin/runOnFirstBoot.sh
+#then
+#  cat > /etc/systemd/system/firstBootScript.service <<END
+#[Unit]
+#Description=Runs a user defined script on first boot
+#ConditionPathExists=/usr/sbin/runOnFirstBoot.sh
+#
+#[Service]
+#Type=forking
+#ExecStart=/usr/sbin/runOnFirstBoot.sh
+#ExecStopPost=/usr/bin/systemctl disable firstBootScript.service
+#TimeoutSec=0
+#RemainAfterExit=yes
+#SysVStartPriority=99
+#
+#[Install]
+#WantedBy=multi-user.target
+#END
+#  systemctl enable firstBootScript.service
+#fi
 
 cat > /etc/systemd/system/nativeSetupTasks.service <<END
 [Unit]
@@ -765,11 +807,19 @@ END
 chmod +x "${TMP_ROOT}/usr/sbin/nativeSetupTasks.sh"
 
 # run the setup script in the new install's root
-chmod +x /tmp/chroot.sh
-mv /tmp/chroot.sh "${TMP_ROOT}/root/chroot.sh"
+#chmod +x /tmp/chroot.sh
+#mv /tmp/chroot.sh "${TMP_ROOT}/root/chroot.sh"
 set +o errexit
-arch-chroot "${TMP_ROOT}" /root/chroot.sh; CHROOT_RESULT=$? || true
+#systemd-nspawn -D "${TMP_ROOT}" /usr/bin/bash /root/setup.sh; CHROOT_RESULT=$? || true
+#arch-chroot "${TMP_ROOT}" /usr/bin/bash /root/chroot.sh; CHROOT_RESULT=$? || true
 set -o errexit
+
+#ln -s "${TMP_ROOT}" /var/lib/machines/newsys
+#exit 43
+
+systemd-nspawn --directory "${TMP_ROOT}" /usr/bin/bash -c '/usr/bin/echo "root:root"|/usr/bin/chpasswd'
+systemd-nspawn --directory "${TMP_ROOT}" /usr/bin/systemctl enable container-boot-setup.service
+systemd-nspawn --network-veth --boot --directory "${TMP_ROOT}"; CHROOT_RESULT=$? || true
 
 if test "${CHROOT_RESULT}" -eq 0
 then
@@ -785,8 +835,12 @@ then
     echo "Linking resolv.conf"
     rm "${TMP_ROOT}/link_resolv_conf"
     #mv "/etc/resolv.conf" "/etc/resolv.conf.bak"
-    ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    ln -sf /run/systemd/resolve/stub-resolv.conf "${TMP_ROOT}/etc/resolv.conf"
   fi
+
+  # don't need the emulator binaries any more
+  rm -rf "${TMP_ROOT}/usr/bin/qemu-arm-static"
+  rm -rf "${TMP_ROOT}/usr/bin/qemu-aarch64-static"
   
   # you might want to know what the install's fstab looks like
   echo "fstab is:"
@@ -797,6 +851,7 @@ fi
 umount "${TMP_ROOT}/boot" || true
 if test "${ROOT_FS_TYPE}" = "btrfs"
 then
+  for n in "${TMP_ROOT}"/home/* ; do umount $n || true; done
   umount "${TMP_ROOT}/home" || true
 fi
 umount "${TMP_ROOT}" || true
