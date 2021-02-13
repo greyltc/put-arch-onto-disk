@@ -1,6 +1,6 @@
 # put-arch-onto-disk
 
-This repo contains a script which creates a ready-to-use Arch Linux installation, tailored the way I like it. It can be used to install to a USB thumb drive, or to a permanently installed SSD or HDD or whatever or even make a .img file which can later be dd'd to some media.
+This repo contains a script which creates a ready-to-use Arch Linux installation, tailored the way I like it. It can be used to install to a USB thumb drive, or to a permanently installed SSD or HDD or whatever or even make a .img file which can later be dd'd to some media. It reads a bunch of environment variables to decide how to build the system.
 
 ### Features
  - Installations are bootable on both BIOS and UEFI systems
