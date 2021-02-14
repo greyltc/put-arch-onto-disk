@@ -42,7 +42,7 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${UEFI_BOOTLOADER:=true}
 : ${UEFI_COMPAT_STUB:=false}
 
-: ${IMG_SIZE:=2GiB}
+: ${IMG_SIZE:=4GiB}
 : ${TIME_ZONE:=Europe/London}
 
 # possible keymap options can be seen by `localectl list-keymaps`
@@ -97,7 +97,7 @@ if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
 then
   if pacman -Q qemu-user-static > /dev/null 2>/dev/null && pacman -Q binfmt-qemu-static > /dev/null 2>/dev/null 
   then
-    ARCH_SPECIFIC_PKGS=""
+    ARCH_SPECIFIC_PKGS="archlinuxarm-keyring"
   else
     echo "Please install qemu-user-static and binfmt-qemu-static from the AUR"
     echo "so that we can chroot into the ARM install"
@@ -114,11 +114,11 @@ DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosf
 # if this is a pi then let's make sure we have the packages listed here
 if contains "${PACKAGE_LIST}" "raspberry"
 then
-  PACKAGE_LIST="${PACKAGE_LIST} iw wireless-regdb wireless_tools wpa_supplicant wireguard-dkms"
+  PACKAGE_LIST="${PACKAGE_LIST} iw wireless-regdb wireless_tools wpa_supplicant"
 fi
 
 # install these packages on the host now. they're needed for the install process
-pacman -Syu --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
+pacman -S --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
 
 # flush writes to disks and re-probe partitions
 sync
@@ -132,10 +132,10 @@ then
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   IMG_NAME=""
-else
+else  # installing to image file
   IMG_NAME="${TARGET}"
   rm -f "${IMG_NAME}"
-  su -c "fallocate -l $IMG_SIZE ${IMG_NAME}" $SUDO_USER
+  fallocate -l $IMG_SIZE "${IMG_NAME}"
   TARGET_DEV=$(losetup --find)
   losetup -P ${TARGET_DEV} "${IMG_NAME}"
 fi
@@ -303,10 +303,10 @@ EOF
   echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /tmp/mirrorlist
 fi
 
-pacstrap -C /tmp/pacman.conf -M -G ${TMP_ROOT} ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
+pacstrap -C /tmp/pacman.conf -M -G "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
 
-genfstab -U ${TMP_ROOT} >> ${TMP_ROOT}/etc/fstab
-sed -i '/swap/d' ${TMP_ROOT}/etc/fstab
+genfstab -U "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
+sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
 #if test -f "${FIRST_BOOT_SCRIPT}" 
 #then
 #  cp "$FIRST_BOOT_SCRIPT" ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
@@ -336,37 +336,18 @@ set -o nounset
 set -o verbose
 set -o xtrace
 
-touch /poop
-ping -c google.com
-echo "goodbye!"
-halt
-#poweroff
-EOF
-chmod +x "${TMP_ROOT}/root/setup.sh"
+# ONLY FOR TESTING:
+rm /usr/share/factory/etc/securetty
+rm /etc/securetty
 
-cat > "${TMP_ROOT}"/etc/systemd/system/container-boot-setup.service <<END
-[Unit]
-Description=System setup tasks to be run in a container
-ConditionPathExists=/root/setup.sh
-Before=multi-user.target
-
-[Service]
-Type=notify
-TimeoutSec=0
-ExecStart=/root/setup.sh
-ExecStopPost=/usr/bin/systemctl disable container-boot-setup.service
-
-[Install]
-WantedBy=multi-user.target
-END
-
-cat > "${TMP_ROOT}/root/setup2.sh" <<EOF
-#!/usr/bin/env bash
-set -o pipefail
-set -o errexit
-set -o nounset
-set -o verbose
-set -o xtrace
+# change password for root
+if test -z "$ROOT_PASSWORD"
+then
+  echo "password locked for root user"
+  passwd -l root
+else
+  echo "root:${ROOT_PASSWORD}"|chpasswd
+fi
 
 # set hostname
 echo ${THIS_HOSTNAME} > /etc/hostname
@@ -380,30 +361,67 @@ hwclock --systohc || :
 # do locale things
 sed -i "s,^#${LOCALE} ${CHARSET},${LOCALE} ${CHARSET},g" /etc/locale.gen
 locale-gen
-localectl set-locale LANG=${LOCALE}
+echo "LANG=${LOCALE}" > /etc/locale.conf
 unset LANG
 set +o nounset
 source /etc/profile.d/locale.sh
 set -o nounset
-localectl set-keymap ${KEYMAP}
-localectl status
+echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
 
 # setup gnupg
-mkdir -p /etc/skel/.gnupg
-echo "keyserver hkps://hkps.pool.sks-keyservers.net:443" >> /etc/skel/.gnupg/gpg.conf
-echo "keyserver-options auto-key-retrieve" >> /etc/skel/.gnupg/gpg.conf
-
-# change password for root
-if test -z "$ROOT_PASSWORD"
-then
-  echo "password locked for root user"
-  passwd -l root
-else
-  echo "root:${ROOT_PASSWORD}"|chpasswd
-fi
+install -m700 -d /etc/skel/.gnupg
+echo "keyserver hkps://hkps.pool.sks-keyservers.net:443" > /tmp/gpg.conf
+echo "keyserver-options auto-key-retrieve" >> /tmp/gpg.conf
+install -m600 -Dt /etc/skel/.gnupg/ -m644 /tmp/gpg.conf
+rm /tmp/gpg.conf
 
 # copy over the skel files for the root user
-cp -r \$(find /etc/skel -name ".*") /root
+find /etc/skel -exec cp -a {} /root \;
+
+echo "ENTROPY I HAVE="
+cat /proc/sys/kernel/random/entropy_avail
+
+pacman-key --init
+if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
+  pacman-key --populate archlinuxarm
+else
+  pacman-key --populate archlinux
+  reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
+fi
+
+# make pacman color
+sed -i 's/#Color/Color/g' /etc/pacman.conf
+
+# do an update
+pacman -Syyuu --noconfirm
+
+touch /var/tmp/setup_complete
+halt  # exit the namespace
+EOF
+
+cat > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service <<END
+[Unit]
+Description=Initial system setup tasks to be run in a container
+ConditionPathExists=/root/setup.sh
+
+[Service]
+Type=idle
+TimeoutStopSec=5sec
+ExecStart=/usr/bin/bash /root/setup.sh
+ExecStop=/usr/bin/echo "container-boot-setup.service is exiting now"
+END
+ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
+
+cat > "${TMP_ROOT}/root/setup2.sh" <<EOF
+#!/usr/bin/env bash
+set -o pipefail
+set -o errexit
+set -o nounset
+set -o verbose
+set -o xtrace
+
+
+
 
 # update pacman keys
 haveged -w 1024
@@ -421,12 +439,6 @@ else
   reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
 fi
 pkill gpg-agent || true
-
-# make pacman color
-sed -i 's/#Color/Color/g' /etc/pacman.conf
-
-# do an update
-pacman -Syyuu --noconfirm
 
 # setup admin user
 if test ! -z "${ADMIN_USER_NAME}"
@@ -817,15 +829,23 @@ set -o errexit
 #ln -s "${TMP_ROOT}" /var/lib/machines/newsys
 #exit 43
 
-systemd-nspawn --directory "${TMP_ROOT}" /usr/bin/bash -c '/usr/bin/echo "root:root"|/usr/bin/chpasswd'
-systemd-nspawn --directory "${TMP_ROOT}" /usr/bin/systemctl enable container-boot-setup.service
-systemd-nspawn --network-veth --boot --directory "${TMP_ROOT}"; CHROOT_RESULT=$? || true
+#systemd-nspawn --directory "${TMP_ROOT}" /usr/bin/bash -c '/usr/bin/echo "root:root"|/usr/bin/chpasswd'
+#systemd-nspawn --directory "${TMP_ROOT}" /usr/bin/systemctl enable container-boot-setup.service
+systemd-nspawn --boot --directory "${TMP_ROOT}" || true
 
-if test "${CHROOT_RESULT}" -eq 0
+if test -f "${TMP_ROOT}/var/tmp/setup_complete"
 then
-  # remove the setup script from the install
-  rm -rf "${TMP_ROOT}/root/chroot.sh" || true
-  
+  rm -rf "${TMP_ROOT}/var/tmp/setup_complete"
+  export SETUP_WORKED=true
+  # remove setup files
+  rm -f "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
+  rm -f "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service
+  rm -f "${TMP_ROOT}/root/setup.sh"
+
+  # don't need the emulator binaries any more
+  rm -f "${TMP_ROOT}/usr/bin/qemu-arm-static"
+  rm -f "${TMP_ROOT}/usr/bin/qemu-aarch64-static"
+
   # copy *this* script into the install for installs later
   cp "$THIS" "${TMP_ROOT}/usr/sbin/mkarch.sh"
   
@@ -837,24 +857,26 @@ then
     #mv "/etc/resolv.conf" "/etc/resolv.conf.bak"
     ln -sf /run/systemd/resolve/stub-resolv.conf "${TMP_ROOT}/etc/resolv.conf"
   fi
-
-  # don't need the emulator binaries any more
-  rm -rf "${TMP_ROOT}/usr/bin/qemu-arm-static"
-  rm -rf "${TMP_ROOT}/usr/bin/qemu-aarch64-static"
   
   # you might want to know what the install's fstab looks like
   echo "fstab is:"
   cat "${TMP_ROOT}/etc/fstab"
+else
+  echo "Internal setup failure!"
 fi
 
 # unmount and clean up everything
 umount "${TMP_ROOT}/boot" || true
+umount -d "${TMP_ROOT}/boot" || true
 if test "${ROOT_FS_TYPE}" = "btrfs"
 then
   for n in "${TMP_ROOT}"/home/* ; do umount $n || true; done
+  for n in "${TMP_ROOT}"/home/* ; do umount -d $n || true; done
   umount "${TMP_ROOT}/home" || true
+  umount -d "${TMP_ROOT}/home" || true
 fi
 umount "${TMP_ROOT}" || true
+umount -d "${TMP_ROOT}" || true
 cryptsetup close /dev/mapper/${LUKS_UUID} || true
 losetup -D || true
 sync
@@ -862,14 +884,15 @@ if pacman -Q lvm2 > /dev/null 2>/dev/null
 then
   pvscan --cache -aay
 fi
+rm -r "${TMP_ROOT}" || true
 
-if test "${CHROOT_RESULT}" -eq 0
-then
+if [ -z ${SETUP_WORKED+x} ]
+then 
+  echo "There was some failure while setting up the operating system."
+else 
   echo "Image sucessfully created"
   if eject ${TARGET_DEV}
   then
     echo "It's now safe to remove $TARGET_DEV"
   fi
-else
-  echo "There was some failure while setting up the operating system."
 fi
