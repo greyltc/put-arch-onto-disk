@@ -109,7 +109,7 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower ntp vi openssl ufw crda linux-firmware wireguard-tools"
+DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools"
 
 # if this is a pi then let's make sure we have the packages listed here
 if contains "${PACKAGE_LIST}" "raspberry"
@@ -337,8 +337,8 @@ set -o verbose
 set -o xtrace
 
 # ONLY FOR TESTING:
-rm /usr/share/factory/etc/securetty
-rm /etc/securetty
+#rm /usr/share/factory/etc/securetty
+#rm /etc/securetty
 
 # change password for root
 if test -z "$ROOT_PASSWORD"
@@ -349,6 +349,9 @@ else
   echo "root:${ROOT_PASSWORD}"|chpasswd
 fi
 
+# enable magic sysrq
+echo "kernel.sysrq = 1" > /etc/sysctl.d/99-sysctl.conf
+
 # set hostname
 echo ${THIS_HOSTNAME} > /etc/hostname
 
@@ -357,6 +360,7 @@ ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
 
 # generate adjtime (this is probably forbidden)
 hwclock --systohc || :
+timedatectl set-ntp true
 
 # do locale things
 sed -i "s,^#${LOCALE} ${CHARSET},${LOCALE} ${CHARSET},g" /etc/locale.gen
@@ -392,53 +396,42 @@ fi
 # make pacman color
 sed -i 's/#Color/Color/g' /etc/pacman.conf
 
-# do an update
-pacman -Syyuu --noconfirm
-
-touch /var/tmp/setup_complete
-halt  # exit the namespace
-EOF
-
-cat > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service <<END
-[Unit]
-Description=Initial system setup tasks to be run in a container
-ConditionPathExists=/root/setup.sh
-
-[Service]
-Type=idle
-TimeoutStopSec=5sec
-ExecStart=/usr/bin/bash /root/setup.sh
-ExecStop=/usr/bin/echo "container-boot-setup.service is exiting now"
-END
-ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
-
-cat > "${TMP_ROOT}/root/setup2.sh" <<EOF
-#!/usr/bin/env bash
-set -o pipefail
-set -o errexit
-set -o nounset
-set -o verbose
-set -o xtrace
-
-
-
-
-# update pacman keys
-haveged -w 1024
-pacman-key --init
-pkill haveged || true
-pacman -Rs --noconfirm haveged
-echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-echo "nameserver 1.0.0.1" >> /etc/resolv.conf
-if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
-  pacman -S --noconfirm --needed archlinuxarm-keyring
-  pacman-key --init
-  pacman-key --populate archlinuxarm
-else
-  pacman-key --populate archlinux
-  reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
+# if cpupower is installed, enable the service
+if pacman -Q cpupower > /dev/null 2>/dev/null; then
+  systemctl enable cpupower.service
 fi
-pkill gpg-agent || true
+
+# if openssh is installed, enable the service
+if pacman -Q openssh > /dev/null 2>/dev/null; then
+  systemctl enable sshd.service
+fi
+
+# if networkmanager is installed, enable it, otherwise let systemd things manage the network
+if pacman -Q networkmanager > /dev/null 2>/dev/null; then
+  echo "Enabling NetworkManager service"
+  systemctl enable NetworkManager.service
+else
+  echo "Setting up systemd-networkd service"
+
+  cat > /etc/systemd/network/DHCPany.network << END
+[Match]
+Name=*
+
+[Network]
+DHCP=yes
+
+[DHCP]
+ClientIdentifier=mac
+END
+
+  #sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
+
+  #ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf  # breaks network inside container
+  touch /link_resolv_conf #leave a marker so we can complete this setup later
+
+  systemctl enable systemd-networkd
+  systemctl enable systemd-resolved
+fi
 
 # setup admin user
 if test ! -z "${ADMIN_USER_NAME}"
@@ -446,10 +439,7 @@ then
   systemctl enable systemd-homed
   systemctl start systemd-homed
 
-  pacman -S --needed --noconfirm sudo
-
-  # just for now, users in the wheel group have passwordless sudo powers
-  sed -i 's/^# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
+  pacman -S --needed --noconfirm sudo jq
 
   STORAGE="directory"
   if test "${ROOT_FS_TYPE}" = "btrfs"
@@ -463,6 +453,10 @@ then
   GRPS=""
   if test ! -z "${AUR_HELPER}"
   then
+    pacman -S --needed --noconfirm base-devel
+    groupadd aur
+    MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
+    install -d "\${MAKEPKG_BACKUP}" -g aur -m=775
     GRPS="aur,"
   fi
   GRPS="\${GRPS}adm,uucp,wheel"
@@ -471,17 +465,13 @@ then
   echo "AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u" >> /etc/ssh/sshd_config
   echo "AuthorizedKeysCommandUser root" >> /etc/ssh/sshd_config
 
+  # make the user with homectl
   echo '{"secret":{"password":"'${ADMIN_USER_PASSWORD}'"},"privileged":{"hashedPassword":["'\$(openssl passwd -6 "${ADMIN_USER_PASSWORD}")'"]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE}
 
   if test ! -z "${AUR_HELPER}"
   then
-    # needed to build aur packages and for aurutils
-    pacman -Syu --needed --noconfirm base-devel
-    sed "s,^PKGEXT=.*,PKGEXT='.pkg.tar.zst',g" -i /etc/makepkg.conf
-    MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
-    groupadd aur
-    install -d "\${MAKEPKG_BACKUP}" -g aur -m=775
-
+    # just for now, users in the wheel group have passwordless sudo powers
+    sed -i 's/^# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
     # fakeroot needs to use tcp IPC here because the non-tcp IPC isn't supported by qemu
     # so now we need to bootstrap fakeroot-tcp so that making packages with makepkg works
     if pacman -Q | grep raspberry > /dev/null 2>/dev/null
@@ -531,74 +521,48 @@ then
     chgrp -R aur \${MAKEPKG_BACKUP}
     # backup future makepkg built packages
     sed -i "s,^#PKGDEST=.*,PKGDEST=\${MAKEPKG_BACKUP},g" /etc/makepkg.conf
-  fi  # add AUR
 
-  # take away passwordless sudo powers for wheel group
-  sed -i 's/^%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
+    # take away passwordless sudo powers for wheel group
+    sed -i 's/^%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
+  fi  # add AUR
 
   # users in the wheel group have password triggered sudo powers
   sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
 
 fi # add admin
 
-# if cpupower is installed, enable the service
-if pacman -Q cpupower > /dev/null 2>/dev/null; then
-  systemctl enable cpupower.service
-  if pacman -Q | grep raspberry > /dev/null 2>/dev/null ; then
-    # set the ondemand governor for arm
-    sed -i "s/#governor='ondemand'/governor='ondemand'/g" /etc/default/cpupower
-  fi
-fi
-
-# if ntp is installed, enable the service
-if pacman -Q ntp > /dev/null 2>/dev/null; then
-  systemctl enable ntpd.service
-fi
-
-# if openssh is installed, enable the service
-if pacman -Q openssh > /dev/null 2>/dev/null; then
-  systemctl enable sshd.service
-fi
-
-# if networkmanager is installed, enable it, otherwise let systemd things manage the network
-if pacman -Q networkmanager > /dev/null 2>/dev/null; then
-  echo "Enabling NetworkManager service"
-  systemctl enable NetworkManager.service
-else
-  echo "Enabling systemd-networkd service"
-  systemctl enable systemd-networkd
-  systemctl enable systemd-resolved
-  sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
-  touch /link_resolv_conf #leave a marker so we can complete this setup later
-  cat > /etc/systemd/network/DHCPany.network << END
-[Match]
-Name=*
-
-[Network]
-DHCP=yes
-
-[DHCP]
-ClientIdentifier=mac
-END
-fi
-
-# setup for encfs
-if test -z "${LUKS_UUID}"
+# must do this last because it breaks networking
+if test -f /link_resolv_conf
 then
-  echo "No encryption"
-else
-  sed -i 's/MODULES=(/MODULES=(nls_cp437 /g' /etc/mkinitcpio.conf
-  sed -i 's/block filesystems/block encrypt filesystems/g' /etc/mkinitcpio.conf
+  echo "Linking resolv.conf"
+  rm /link_resolv_conf
+  ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 fi
 
-# add some modules to initcpio (needed for f2fs and usb)
-sed -i 's/MODULES=(/MODULES=(usbcore ehci_hcd uhci_hcd crc32_generic libcrc32c crc32c_generic crc32 f2fs /g' /etc/mkinitcpio.conf
+touch /var/tmp/setup_complete
+halt  # exit the namespace
+EOF
 
-# if bcache is installed, make sure its module is loaded super early in case / is bcache
-if pacman -Q bcache-tools > /dev/null 2>/dev/null; then
-  sed -i 's/MODULES=("/MODULES=(bcache /g' /etc/mkinitcpio.conf
-  sed -i 's/HOOKS=(base udev autodetect modconf block/HOOKS=(base udev autodetect modconf block bcache/g' /etc/mkinitcpio.conf
-fi
+cat > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service <<END
+[Unit]
+Description=Initial system setup tasks to be run in a container
+ConditionPathExists=/root/setup.sh
+
+[Service]
+Type=idle
+TimeoutStopSec=5sec
+ExecStart=/usr/bin/bash /root/setup.sh
+ExecStop=/usr/bin/echo "container-boot-setup.service is exiting now"
+END
+ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
+
+cat > "${TMP_ROOT}/root/setup2.sh" <<EOF
+#!/usr/bin/env bash
+set -o pipefail
+set -o errexit
+set -o nounset
+set -o verbose
+set -o xtrace
 
 # if gdm was installed, let's do a few things
 if pacman -Q gdm > /dev/null 2>/dev/null; then
@@ -797,8 +761,6 @@ else
   hwclock --systohc # probably the arm thing doesn't have a rtc
 fi
 
-timedatectl set-ntp true
-
 echo "Reinstall all native packages"
 pacman -Qqn | pacman -S --noconfirm -
 
@@ -848,15 +810,6 @@ then
 
   # copy *this* script into the install for installs later
   cp "$THIS" "${TMP_ROOT}/usr/sbin/mkarch.sh"
-  
-  # we can't do this from inside the chroot
-  if test -a "${TMP_ROOT}/link_resolv_conf"
-  then
-    echo "Linking resolv.conf"
-    rm "${TMP_ROOT}/link_resolv_conf"
-    #mv "/etc/resolv.conf" "/etc/resolv.conf.bak"
-    ln -sf /run/systemd/resolve/stub-resolv.conf "${TMP_ROOT}/etc/resolv.conf"
-  fi
   
   # you might want to know what the install's fstab looks like
   echo "fstab is:"
