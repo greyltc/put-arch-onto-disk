@@ -34,7 +34,10 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${MAKE_SWAP_PARTITION:=false}
 : ${SWAP_SIZE_IS_RAM_SIZE:=false}
 : ${SWAP_SIZE:=100MiB}
+
+# if this is not a block device to install into, then it's an image file that will be created
 : ${TARGET:=./bootable_arch.img}
+: ${IMG_SIZE:=4GiB}
 
 # these only matter for GRUB installs: set true when the target will be a removable drive, false when the install is only for the machine runnning this script
 : ${PORTABLE:=true}
@@ -42,7 +45,6 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${UEFI_BOOTLOADER:=true}
 : ${UEFI_COMPAT_STUB:=false}
 
-: ${IMG_SIZE:=4GiB}
 : ${TIME_ZONE:=Europe/London}
 
 # possible keymap options can be seen by `localectl list-keymaps`
@@ -53,8 +55,9 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${THIS_HOSTNAME:=archthing}
 
 # empty user name string for no admin user
-: ${ADMIN_USER_NAME:=admin}
+: ${ADMIN_USER_NAME:=""}
 : ${ADMIN_USER_PASSWORD:=admin}
+: ${ADMIN_SSH_AUTH_KEY:=""}  # a public key that can be used to ssh into the admin account
 : ${AUTOLOGIN_ADMIN:=false}
 
 # empty helper string for no aur support
@@ -69,6 +72,15 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${PREEXISTING_BOOT_PARTITION_NUM:=""} # this will not be formatted
 : ${PREEXISTING_ROOT_PARTITION_NUM:=""} # this WILL be formatted
 # any pre-existing swap partition will just be used via systemd magic
+
+: ${CUSTOM_MIRROR_URL:=""}
+# useful with pacoloco on the host with config:
+##repos:
+##  archlinux:
+##    url: http://mirrors.kernel.org/archlinux
+##  alarm:
+##    url: http://mirror.archlinuxarm.org
+# and CUSTOM_MIRROR_URL='http://[ip]:9129/repo/alarm/$arch/$repo' for alarm
 
 contains() {
   string="$1"
@@ -100,6 +112,7 @@ then
     ARCH_SPECIFIC_PKGS="archlinuxarm-keyring"
   else
     echo "Please install qemu-user-static and binfmt-qemu-static from the AUR"
+    echo "and then restart systemd-binfmt.service"
     echo "so that we can chroot into the ARM install"
     exit 1
   fi
@@ -133,7 +146,7 @@ then
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   IMG_NAME=""
 else  # installing to image file
-  IMG_NAME="${TARGET}"
+  IMG_NAME="${TARGET}.raw"
   rm -f "${IMG_NAME}"
   fallocate -l $IMG_SIZE "${IMG_NAME}"
   TARGET_DEV=$(losetup --find)
@@ -189,11 +202,11 @@ else # non-preexisting
     sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
   fi
   #sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-  sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8300 -c ${NEXT_PARTITION}:"Linux ${ROOT_FS_TYPE} data parition" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+  sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8304 -c ${NEXT_PARTITION}:"Linux ${ROOT_FS_TYPE} data parition" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 
   # make hybrid/protective MBR
-  #sgdisk -h "1 2" "${TARGET_DEV}"
-  echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"
+  #sgdisk -h "1 2" "${TARGET_DEV}"  # this breaks rpi3
+  echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"  # needed for rpi3
 
   # do we need to p? (depends on what the media is we're installing to)
   if test -b "${TARGET_DEV}p1"; then PEE=p; else PEE=""; fi
@@ -248,6 +261,7 @@ mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
 if test "${ROOT_FS_TYPE}" = "btrfs"
 then
   btrfs subvolume create ${TMP_ROOT}/root
+  btrfs subvolume set-default ${TMP_ROOT}/root
   #btrfs subvolume create ${TMP_ROOT}/home
   umount ${TMP_ROOT}
   mount ${ROOT_DEVICE} -o subvol=root,compress=zstd ${TMP_ROOT}
@@ -256,12 +270,15 @@ then
 fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
-cp /etc/pacman.d/mirrorlist /tmp/mirrorlist
+install -m644 -Dt /tmp /etc/pacman.d/mirrorlist
 cat <<EOF > /tmp/pacman.conf
 [options]
 HoldPkg     = pacman glibc
 Architecture = ${TARGET_ARCH}
 CheckSpace
+Color
+SigLevel = Required DatabaseOptional TrustedOnly
+LocalFileSigLevel = Optional
 SigLevel = Never
 EOF
 
@@ -297,13 +314,22 @@ Include = /tmp/mirrorlist
 [aur]
 Include = /tmp/mirrorlist
 EOF
-  mkdir -p ${TMP_ROOT}/usr/bin
-  cp /usr/bin/qemu-arm-static ${TMP_ROOT}/usr/bin
-  cp /usr/bin/qemu-aarch64-static ${TMP_ROOT}/usr/bin
-  echo 'Server = http://mirror.archlinuxarm.org/$arch/$repo' > /tmp/mirrorlist
+  sed '1s;^;Server = http://mirror.archlinuxarm.org/$arch/$repo\n;' -i /tmp/mirrorlist
+fi
+
+if test ! -z "${CUSTOM_MIRROR_URL}"
+then
+  sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /tmp/mirrorlist
 fi
 
 pacstrap -C /tmp/pacman.conf -M -G "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
+
+if test ! -z "${ADMIN_SSH_AUTH_KEY}"
+then
+  echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
+fi
+# copy in ssh auth pubkey (if any)
+#cp "${ADMIN_SSH_AUTH_KEY_FILE}" "${TMP_ROOT}"/var/tmp/auth_pub.key || true
 
 genfstab -U "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
 sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
@@ -335,6 +361,7 @@ set -o errexit
 set -o nounset
 set -o verbose
 set -o xtrace
+touch /var/tmp/setup_failed
 
 # ONLY FOR TESTING:
 #rm /usr/share/factory/etc/securetty
@@ -365,22 +392,24 @@ timedatectl set-ntp true
 # do locale things
 sed -i "s,^#${LOCALE} ${CHARSET},${LOCALE} ${CHARSET},g" /etc/locale.gen
 locale-gen
-echo "LANG=${LOCALE}" > /etc/locale.conf
+#echo "LANG=${LOCALE}" > /etc/locale.conf
+localectl set-locale LANG=${LOCALE}
 unset LANG
 set +o nounset
 source /etc/profile.d/locale.sh
 set -o nounset
-echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
+#echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
+localectl set-keymap --no-convert ${KEYMAP}
 
 # setup gnupg
 install -m700 -d /etc/skel/.gnupg
 echo "keyserver hkps://hkps.pool.sks-keyservers.net:443" > /tmp/gpg.conf
 echo "keyserver-options auto-key-retrieve" >> /tmp/gpg.conf
-install -m600 -Dt /etc/skel/.gnupg/ -m644 /tmp/gpg.conf
+install -m600 -Dt /etc/skel/.gnupg/ /tmp/gpg.conf
 rm /tmp/gpg.conf
 
 # copy over the skel files for the root user
-find /etc/skel -exec cp -a {} /root \;
+find /etc/skel -maxdepth 1 -mindepth 1 -exec cp -a {} /root \;
 
 echo "ENTROPY I HAVE="
 cat /proc/sys/kernel/random/entropy_avail
@@ -388,9 +417,13 @@ cat /proc/sys/kernel/random/entropy_avail
 pacman-key --init
 if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
   pacman-key --populate archlinuxarm
+  echo 'Server = http://mirror.archlinuxarm.org/\$arch/\$repo' > /etc/pacman.d/mirrorlist
 else
   pacman-key --populate archlinux
   reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
+  
+  # boot with systemd-boot
+  bootctl --no-variables --graceful install
 fi
 
 # make pacman color
@@ -433,21 +466,24 @@ END
   systemctl enable systemd-resolved
 fi
 
-# setup admin user
+# setup admin user TODO: chunk this into its own script that can be run natively and manually if need be
 if test ! -z "${ADMIN_USER_NAME}"
 then
+  pacman -S --needed --noconfirm sudo jq
+  # users in the wheel group have password triggered sudo powers
+  sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
+
   systemctl enable systemd-homed
   systemctl start systemd-homed
 
-  pacman -S --needed --noconfirm sudo jq
-
-  STORAGE="directory"
+  STORAGE=directory
   if test "${ROOT_FS_TYPE}" = "btrfs"
   then
-    STORAGE="subvolume"
+    STORAGE=subvolume
   elif test "${ROOT_FS_TYPE}" = "f2fs"
   then
-    STORAGE="fscrypt"
+    # STORAGE=fscrypt # this is broken today with "Failed to install master key in keyring: Operation not permitted"
+    STORAGE=directory
   fi
 
   GRPS=""
@@ -465,8 +501,19 @@ then
   echo "AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u" >> /etc/ssh/sshd_config
   echo "AuthorizedKeysCommandUser root" >> /etc/ssh/sshd_config
 
+  if test -f /var/tmp/auth_pub.key
+  then
+    ADD_KEY_CMD="--ssh-authorized-keys=\$(cat /var/tmp/auth_pub.key)"
+    rm -f /var/tmp/auth_pub.key
+  else
+    echo "No user key supplied for ssh, generating one for you"
+    mkdir /root/admin_sshkeys
+    ssh-keygen -q -t rsa -N '' -f /root/admin_sshkeys/id_rsa
+    ADD_KEY_CMD="--ssh-authorized-keys=\$(cat /root/admin_sshkeys/id_rsa.pub)"
+  fi
+
   # make the user with homectl
-  echo '{"secret":{"password":"'${ADMIN_USER_PASSWORD}'"},"privileged":{"hashedPassword":["'\$(openssl passwd -6 "${ADMIN_USER_PASSWORD}")'"]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE}
+  jq -n --arg pw ${ADMIN_USER_PASSWORD} --arg pwhash "\$(openssl passwd -6 ${ADMIN_USER_PASSWORD})" '{secret:{password:[\$pw]},privileged:{hashedPassword:[\$pwhash]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE} "\${ADD_KEY_CMD}"
 
   if test ! -z "${AUR_HELPER}"
   then
@@ -526,9 +573,6 @@ then
     sed -i 's/^%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
   fi  # add AUR
 
-  # users in the wheel group have password triggered sudo powers
-  sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
-
 fi # add admin
 
 # must do this last because it breaks networking
@@ -539,8 +583,13 @@ then
   ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 fi
 
-touch /var/tmp/setup_complete
-halt  # exit the namespace
+# undo changes to service files
+sed 's,#PrivateNetwork=yes,PrivateNetwork=yes,g' -i /usr/lib/systemd/system/systemd-localed.service
+sed 's,#SystemCallArchitectures=native,SystemCallArchitectures=native,g' -i /usr/lib/systemd/system/systemd-homed.service
+
+rm -f /var/tmp/setup_failed
+touch /var/tmp/setup_succeeded
+exit 0
 EOF
 
 cat > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service <<END
@@ -550,9 +599,10 @@ ConditionPathExists=/root/setup.sh
 
 [Service]
 Type=idle
-TimeoutStopSec=5sec
+TimeoutStopSec=10sec
 ExecStart=/usr/bin/bash /root/setup.sh
-ExecStop=/usr/bin/echo "container-boot-setup.service is exiting now"
+#ExecStopPost=/usr/bin/sh -c 'rm -f /root/setup.sh; systemctl disable container-boot-setup; rm -f /usr/lib/systemd/system/container-boot-setup.service; halt'
+ExecStopPost=/usr/bin/sh -c 'systemctl disable container-boot-setup; rm -f /usr/lib/systemd/system/container-boot-setup.service; halt'
 END
 ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
 
@@ -783,17 +833,41 @@ chmod +x "${TMP_ROOT}/usr/sbin/nativeSetupTasks.sh"
 # run the setup script in the new install's root
 #chmod +x /tmp/chroot.sh
 #mv /tmp/chroot.sh "${TMP_ROOT}/root/chroot.sh"
-set +o errexit
+#set +o errexit
 #systemd-nspawn -D "${TMP_ROOT}" /usr/bin/bash /root/setup.sh; CHROOT_RESULT=$? || true
 #arch-chroot "${TMP_ROOT}" /usr/bin/bash /root/chroot.sh; CHROOT_RESULT=$? || true
-set -o errexit
+#set -o errexit
 
 #ln -s "${TMP_ROOT}" /var/lib/machines/newsys
 #exit 43
 
 #systemd-nspawn --directory "${TMP_ROOT}" /usr/bin/bash -c '/usr/bin/echo "root:root"|/usr/bin/chpasswd'
+
+
+#sed 's,#LogLevel=info,LogLevel=debug,g' -i "${TMP_ROOT}"/etc/systemd/system.conf
+# these changes are needed to services to get them to work in the container
+
+#sed 's,DeviceAllow=/dev/loop-control rw,#DeviceAllow=/dev/loop-control rw,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service 
+#sed 's,DeviceAllow=/dev/mapper/control rw,#DeviceAllow=/dev/mapper/control rw,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service 
+#sed 's,RestrictNamespaces=mnt,#RestrictNamespaces=mnt,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service 
+#sed 's,NoNewPrivileges=yes,#NoNewPrivileges=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service 
+#sed 's,SystemCallArchitectures=native,#SystemCallArchitectures=native,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
+#sed 's,CapabilityBoundingSet=CAP_SYS_ADMIN CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_SETGID CAP_SETUID CAP_SYS_RESOURCE,#CapabilityBoundingSet=CAP_SYS_ADMIN CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_SETGID CAP_SETUID CAP_SYS_RESOURCE,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
+#sed 's,IPAddressDeny=any,#IPAddressDeny=any,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
+#sed 's,LimitNOFILE=524288,#LimitNOFILE=524288,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
+#sed 's,RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_ALG,#RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_ALG,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
+#sed 's,RestrictRealtime=yes,#RestrictRealtime=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
+#sed 's,LockPersonality=yes,#LockPersonality=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
+#sed 's,MemoryDenyWriteExecute=yes,#MemoryDenyWriteExecute=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
+#sed 's,SystemCallFilter=@system-service @mount,#SystemCallFilter=@system-service @mount,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
+#sed 's,SystemCallErrorNumber=EPERM,#SystemCallErrorNumber=EPERM,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
+#sed 's,DeviceAllow=block-* rw,#DeviceAllow=block-* rw,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
+sed 's,PrivateNetwork=yes,#PrivateNetwork=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-localed.service
+
+#${SPAWN_LAUNCHER} --directory "${TMP_ROOT}" /usr/bin/systemctl enable systemd-localed
+#${SPAWN_LAUNCHER} --directory "${TMP_ROOT}" /usr/bin/systemctl enable systemd-homed
 #systemd-nspawn --directory "${TMP_ROOT}" /usr/bin/systemctl enable container-boot-setup.service
-systemd-nspawn --boot --directory "${TMP_ROOT}" || true
+#systemd-nspawn --boot --directory "${TMP_ROOT}" || true
 
 if test -f "${TMP_ROOT}/var/tmp/setup_complete"
 then
@@ -839,13 +913,21 @@ then
 fi
 rm -r "${TMP_ROOT}" || true
 
-if [ -z ${SETUP_WORKED+x} ]
-then 
-  echo "There was some failure while setting up the operating system."
-else 
-  echo "Image sucessfully created"
-  if eject ${TARGET_DEV}
-  then
-    echo "It's now safe to remove $TARGET_DEV"
-  fi
+# boot into newly created system to perform setup tasks
+if test -z "${IMG_NAME}"
+then
+  SPAWN_TARGET=${TARGET_DEV}
+else
+  SPAWN_TARGET="${IMG_NAME}"
 fi
+systemd-nspawn --boot --image "${SPAWN_TARGET}"
+
+#eject ${TARGET_DEV} || true
+
+if test ! -z "${ADMIN_SSH_AUTH_KEY}"
+then
+  echo "If you need to ssh into the system, you can find the keypair you must use in /root/admin_sshkeys"
+fi
+
+echo "Done! You could now explore the new system with"
+echo "systemd-nspawn --network-macvlan=eno1 --network-veth --boot --image \"${SPAWN_TARGET}\""
