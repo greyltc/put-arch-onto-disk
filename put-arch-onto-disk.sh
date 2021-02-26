@@ -328,31 +328,11 @@ if test ! -z "${ADMIN_SSH_AUTH_KEY}"
 then
   echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
 fi
-# copy in ssh auth pubkey (if any)
-#cp "${ADMIN_SSH_AUTH_KEY_FILE}" "${TMP_ROOT}"/var/tmp/auth_pub.key || true
+
 
 genfstab -U "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
 sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
-#if test -f "${FIRST_BOOT_SCRIPT}" 
-#then
-#  cp "$FIRST_BOOT_SCRIPT" ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
-#  chmod +x ${TMP_ROOT}/usr/sbin/runOnFirstBoot.sh
-#fi
 
-# make the reflector service
-#cat > ${TMP_ROOT}/etc/systemd/system/reflector.service <<EOF
-#[Unit]
-#Description=Pacman mirrorlist update
-#Wants=network-online.target
-#After=network-online.target
-#
-#[Service]
-#Type=oneshot
-#ExecStart=/usr/bin/reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
-#
-#[Install]
-#RequiredBy=multi-user.target
-#EOF
 
 cat > "${TMP_ROOT}/root/setup.sh" <<EOF
 #!/usr/bin/env bash
@@ -361,7 +341,8 @@ set -o errexit
 set -o nounset
 set -o verbose
 set -o xtrace
-touch /var/tmp/setup_failed
+touch /var/tmp/phase_one_setup_failed
+touch /var/tmp/phase_two_setup_incomplete
 
 # ONLY FOR TESTING:
 #rm /usr/share/factory/etc/securetty
@@ -410,9 +391,6 @@ rm /tmp/gpg.conf
 
 # copy over the skel files for the root user
 find /etc/skel -maxdepth 1 -mindepth 1 -exec cp -a {} /root \;
-
-echo "ENTROPY I HAVE="
-cat /proc/sys/kernel/random/entropy_avail
 
 pacman-key --init
 if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
@@ -466,114 +444,43 @@ END
   systemctl enable systemd-resolved
 fi
 
-# setup admin user TODO: chunk this into its own script that can be run natively and manually if need be
-if test ! -z "${ADMIN_USER_NAME}"
+# if gdm was installed, let's do a few things
+if pacman -Q gdm > /dev/null 2>/dev/null; then
+  systemctl enable gdm
+  #TODO: set keyboard layout for gnome
+  if [ ! -z "${ADMIN_USER_NAME}" ] && [ "${AUTOLOGIN_ADMIN}" = true ] ; then
+    echo "# Enable automatic login for user" >> /etc/gdm/custom.conf
+    echo "[daemon]" >> /etc/gdm/custom.conf
+    echo "AutomaticLogin=$ADMIN_USER_NAME" >> /etc/gdm/custom.conf
+    echo "AutomaticLoginEnable=True" >> /etc/gdm/custom.conf
+  fi
+fi
+
+# if lxdm was installed, let's do a few things
+if pacman -Q lxdm > /dev/null 2>/dev/null; then
+  systemctl enable lxdm
+  #TODO: set keyboard layout
+  if [ ! -z "${ADMIN_USER_NAME}" ] && [ "${AUTOLOGIN_ADMIN}" = true ] ; then
+    echo "# Enable automatic login for user" >> /etc/lxdm/lxdm.conf
+    echo "autologin=${ADMIN_USER_NAME}" >> /etc/lxdm/lxdm.conf
+  fi
+fi
+
+# attempt phase two setup (expected to fail in alarm because https://github.com/systemd/systemd/issues/18643)
+if test -f /root/phase_two.sh
 then
-  pacman -S --needed --noconfirm sudo jq
-  # users in the wheel group have password triggered sudo powers
-  sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
-
-  systemctl enable systemd-homed
-  systemctl start systemd-homed
-
-  STORAGE=directory
-  if test "${ROOT_FS_TYPE}" = "btrfs"
+  echo "Attempting phase two setup"
+  bash /root/phase_two.sh; PHASE2_RESULT=$? || true
+  if test "\${PHASE2_RESULT}" -eq 0
   then
-    STORAGE=subvolume
-  elif test "${ROOT_FS_TYPE}" = "f2fs"
-  then
-    # STORAGE=fscrypt # this is broken today with "Failed to install master key in keyring: Operation not permitted"
-    STORAGE=directory
-  fi
-
-  GRPS=""
-  if test ! -z "${AUR_HELPER}"
-  then
-    pacman -S --needed --noconfirm base-devel
-    groupadd aur
-    MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
-    install -d "\${MAKEPKG_BACKUP}" -g aur -m=775
-    GRPS="aur,"
-  fi
-  GRPS="\${GRPS}adm,uucp,wheel"
-
-  echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config
-  echo "AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u" >> /etc/ssh/sshd_config
-  echo "AuthorizedKeysCommandUser root" >> /etc/ssh/sshd_config
-
-  if test -f /var/tmp/auth_pub.key
-  then
-    ADD_KEY_CMD="--ssh-authorized-keys=\$(cat /var/tmp/auth_pub.key)"
-    rm -f /var/tmp/auth_pub.key
+    echo "Phase two setup complete!"
+    rm -f /var/tmp/phase_two_setup_incomplete
+    rm -f /root/phase_two.sh
   else
-    echo "No user key supplied for ssh, generating one for you"
-    mkdir /root/admin_sshkeys
-    ssh-keygen -q -t rsa -N '' -f /root/admin_sshkeys/id_rsa
-    ADD_KEY_CMD="--ssh-authorized-keys=\$(cat /root/admin_sshkeys/id_rsa.pub)"
+    echo "Phase two setup failed"
+    echo "Boot into the system and manually run `bash /root/phase_two.sh`"
   fi
-
-  # make the user with homectl
-  jq -n --arg pw ${ADMIN_USER_PASSWORD} --arg pwhash "\$(openssl passwd -6 ${ADMIN_USER_PASSWORD})" '{secret:{password:[\$pw]},privileged:{hashedPassword:[\$pwhash]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE} "\${ADD_KEY_CMD}"
-
-  if test ! -z "${AUR_HELPER}"
-  then
-    # just for now, users in the wheel group have passwordless sudo powers
-    sed -i 's/^# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
-    # fakeroot needs to use tcp IPC here because the non-tcp IPC isn't supported by qemu
-    # so now we need to bootstrap fakeroot-tcp so that making packages with makepkg works
-    if pacman -Q | grep raspberry > /dev/null 2>/dev/null
-    then
-      # bootstrap fakeroot-tcp
-      su -c '(git clone https://aur.archlinux.org/fakeroot-tcp.git /var/tmp/fakeroot-tcp && cd /var/tmp/fakeroot-tcp && makepkg --skippgpcheck --nobuild && cd src && cd */ && ./bootstrap ; ./configure --prefix=/usr --libdir=/usr/lib/libfakeroot --disable-static --with-ipc=tcp ; make )' -s /bin/bash nobody
-      pushd /var/tmp/fakeroot-tcp/src
-      cd */
-      make DESTDIR="/" install
-      popd
-      mkdir -p /etc/ld.so.conf.d
-      echo '/usr/lib/libfakeroot' > /etc/ld.so.conf.d/fakeroot.conf
-      libtool --finish /usr/lib/libfakeroot
-      pushd /
-      sbin/ldconfig -r .
-      popd
-    
-      # now build the fakeroot-tcp package using our bootstrapped fakeroot-tcp build
-      su -c '(git clone https://aur.archlinux.org/fakeroot-tcp.git /var/tmp/fakeroot-tcp2 && cd /var/tmp/fakeroot-tcp2 ; makepkg --skippgpcheck )' -s /bin/bash nobody
-
-      # remove the bootstrapped fakeroot-tcp
-      pushd /var/tmp/fakeroot-tcp/src
-      cd */
-      make DESTDIR="/" uninstall
-      popd
-      rm -rf /etc/ld.so.conf.d/fakeroot.conf
-
-      # reinstall the bad fakeroot because we just butchered it (avoids install errors later)
-      #pacman -Syu --noconfirm fakeroot || true
-
-      # install the replacement fakeroot-tcp package
-      pushd /var/tmp/fakeroot-tcp2
-      yes | LC_ALL=en_US.UTF-8 pacman -U *.pkg.tar.zst || true
-      mv *.pkg.tar.zst "\${MAKEPKG_BACKUP}/."
-      popd
-      rm -rf /var/tmp/fakeroot-tcp
-      rm -rf /var/tmp/fakeroot-tcp2
-    fi
-    # get the helper
-    cd /tmp
-    su -c "(curl -s -L https://aur.archlinux.org/cgit/aur.git/snapshot/${AUR_HELPER}.tar.gz | bsdtar -xvf -)" -s /bin/bash nobody
-    su -c "(cd /tmp/${AUR_HELPER}; )" -s /bin/bash nobody
-    # TODO: test without skipping pgp check
-  
-    #su -c "(git clone https://aur.archlinux.org/aurutils.git /var/tmp/aurutils && cd /var/tmp/aurutils && makepkg --skippgpcheck)" -s /bin/bash nobody
-
-    chgrp -R aur \${MAKEPKG_BACKUP}
-    # backup future makepkg built packages
-    sed -i "s,^#PKGDEST=.*,PKGDEST=\${MAKEPKG_BACKUP},g" /etc/makepkg.conf
-
-    # take away passwordless sudo powers for wheel group
-    sed -i 's/^%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
-  fi  # add AUR
-
-fi # add admin
+fi
 
 # must do this last because it breaks networking
 if test -f /link_resolv_conf
@@ -585,10 +492,8 @@ fi
 
 # undo changes to service files
 sed 's,#PrivateNetwork=yes,PrivateNetwork=yes,g' -i /usr/lib/systemd/system/systemd-localed.service
-sed 's,#SystemCallArchitectures=native,SystemCallArchitectures=native,g' -i /usr/lib/systemd/system/systemd-homed.service
 
-rm -f /var/tmp/setup_failed
-touch /var/tmp/setup_succeeded
+rm -f /var/tmp/phase_one_setup_failed
 exit 0
 EOF
 
@@ -606,7 +511,7 @@ ExecStopPost=/usr/bin/sh -c 'systemctl disable container-boot-setup; rm -f /usr/
 END
 ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
 
-cat > "${TMP_ROOT}/root/setup2.sh" <<EOF
+cat > "${TMP_ROOT}/root/phase_two.sh" <<EOF
 #!/usr/bin/env bash
 set -o pipefail
 set -o errexit
@@ -614,283 +519,139 @@ set -o nounset
 set -o verbose
 set -o xtrace
 
-# if gdm was installed, let's do a few things
-if pacman -Q gdm > /dev/null 2>/dev/null; then
-  systemctl enable gdm
-  #TODO: set keyboard layout for gnome
-  if [ ! -z "$ADMIN_USER_NAME" ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
-    echo "# Enable automatic login for user" >> /etc/gdm/custom.conf
-    echo "[daemon]" >> /etc/gdm/custom.conf
-    echo "AutomaticLogin=$ADMIN_USER_NAME" >> /etc/gdm/custom.conf
-    echo "AutomaticLoginEnable=True" >> /etc/gdm/custom.conf
-  fi
-fi
+# setup admin user
+if test ! -z "${ADMIN_USER_NAME}"
+then
+  pacman -S --needed --noconfirm sudo jq
+  # users in the wheel group have password triggered sudo powers
+  sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
 
-# if lxdm was installed, let's do a few things
-if pacman -Q lxdm > /dev/null 2>/dev/null; then
-  systemctl enable lxdm
-  #TODO: set keyboard layout
-  if [ ! -z "$ADMIN_USER_NAME" ] && [ "$AUTOLOGIN_ADMIN" = true ] ; then
-    echo "# Enable automatic login for user" >> /etc/lxdm/lxdm.conf
-    echo "autologin=$ADMIN_USER_NAME" >> /etc/lxdm/lxdm.conf
-  fi
-fi
+  systemctl enable systemd-homed
+  systemctl start systemd-homed
 
-#if test -f /usr/sbin/runOnFirstBoot.sh
-#then
-#  cat > /etc/systemd/system/firstBootScript.service <<END
-#[Unit]
-#Description=Runs a user defined script on first boot
-#ConditionPathExists=/usr/sbin/runOnFirstBoot.sh
-#
-#[Service]
-#Type=forking
-#ExecStart=/usr/sbin/runOnFirstBoot.sh
-#ExecStopPost=/usr/bin/systemctl disable firstBootScript.service
-#TimeoutSec=0
-#RemainAfterExit=yes
-#SysVStartPriority=99
-#
-#[Install]
-#WantedBy=multi-user.target
-#END
-#  systemctl enable firstBootScript.service
-#fi
-
-cat > /etc/systemd/system/nativeSetupTasks.service <<END
-[Unit]
-Description=Some system setup tasks to be run once at first boot
-ConditionPathExists=/usr/sbin/nativeSetupTasks.sh
-Before=multi-user.target
-
-[Service]
-Type=notify
-TimeoutSec=0
-ExecStart=/usr/sbin/nativeSetupTasks.sh
-ExecStopPost=/usr/bin/systemctl disable nativeSetupTasks.service
-
-[Install]
-WantedBy=multi-user.target
-END
-systemctl enable nativeSetupTasks.service
-
-# enable magic sysrq
-cat > /etc/sysctl.d/99-sysctl.conf <<END
-kernel.sysrq = 1
-END
-
-# run mkinitcpio
-# ignore exit code here because of https://bugs.archlinux.org/task/65725
-mkinitcpio -P || true
-
-# setup & install grub bootloader (if it's been installed)
-if pacman -Q grub > /dev/null 2>/dev/null; then
-  # disable lvm here because it doesn't do well inside of chroot
-  if test -f "/etc/lvm/lvm.conf"
+  STORAGE=directory
+  if test "${ROOT_FS_TYPE}" = "btrfs"
   then
-    sed -i 's,use_lvmetad = 1,use_lvmetad = 0,g' /etc/lvm/lvm.conf
+    STORAGE=subvolume
+  elif test "${ROOT_FS_TYPE}" = "f2fs"
+  then
+    # STORAGE=fscrypt #TODO: this is broken today with "Failed to install master key in keyring: Operation not permitted"
+    STORAGE=directory
   fi
 
-  #if [ "${UEFI_COMPAT_STUB}" = true ] ; then
-  #  # for grub UEFI (stanalone version)
-  #  mkdir -p /boot/EFI/grub-standalone
-  #  grub-mkstandalone -d /usr/lib/grub/x86_64-efi/ -O x86_64-efi --modules="part_gpt part_msdos" --fonts="unicode" --locales="en@quot" --themes="" -o "/boot/EFI/grub-standalone/grubx64.efi" "/boot/grub/grub.cfg=/boot/grub/grub.cfg" -v
-  #fi
-  if efivar --list > /dev/null 2>/dev/null  # is this machine UEFI?
+  GRPS=""
+  if test ! -z "${AUR_HELPER}"
   then
-    if test "${UEFI_BOOTLOADER}" = "true"
-    then
-      echo "EFI BOOT detected doing EFI grub install..."
-      if test "${PORTABLE}" = "true"
-      then
-        # this puts our entry point at [EFI_PART]/EFI/BOOT/BOOTX64.EFI
-        echo "Doing portable UEFI setup"
-        grub-install --no-nvram --removable --target=x86_64-efi --efi-directory=/boot --bootloader-id="GRUB_ARCH_REMOVABLE"
-      else # non-portable
-        # this puts our entry point at [EFI_PART]/EFI/ArchGRUB/grubx64.efi
-        echo "Doing fixed disk UEFI setup"
-        grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id="GRUB_ARCH_FIXED"
-      fi # portable
-    else # if UEFI grub install
-      echo "Not doing EFI bootloader install. Set LEGACY_BOOTLOADER=true to install grub"
-    fi # end UEFI grub install
+    pacman -S --needed --noconfirm base-devel
+    groupadd aur
+    MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
+    install -d "\${MAKEPKG_BACKUP}" -g aur -m=775
+    GRPS="aur,"
+  fi
+  GRPS="\${GRPS}adm,uucp,wheel"
+
+  grep -qxF 'AuthenticationMethods publickey,password' /etc/ssh/sshd_config || echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config
+  grep -qxF 'AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u' /etc/ssh/sshd_config || echo "AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u" >> /etc/ssh/sshd_config
+  grep -qxF 'AuthorizedKeysCommandUser root' /etc/ssh/sshd_config || echo "AuthorizedKeysCommandUser root" >> /etc/ssh/sshd_config
+
+  if test -f /var/tmp/auth_pub.key
+  then
+    ADD_KEY_CMD="--ssh-authorized-keys=\$(cat /var/tmp/auth_pub.key)"
   else
-    echo "This machine does not support UEFI"
-  fi
-  
-  # make sure never to put a legacy bootloader into a preformatted disk
-  if test "${TO_EXISTING}" = "false"
-  then
-    if test "${LEGACY_BOOTLOADER}" = "true"
+    echo "No user key supplied for ssh, generating one for you"
+    mkdir -p /root/admin_sshkeys
+    if test ! -f /root/admin_sshkeys/id_rsa.pub
     then
-      # this is for legacy boot:
-      grub-install --modules="part_gpt part_msdos" --target=i386-pc --recheck --debug ${TARGET_DEV}
+      ssh-keygen -q -t rsa -N '' -f /root/admin_sshkeys/id_rsa
+    fi
+    ADD_KEY_CMD="--ssh-authorized-keys=\$(cat /root/admin_sshkeys/id_rsa.pub)"
+  fi
+
+  if ! userdbctl user ${ADMIN_USER_NAME} > /dev/null 2>/dev/null
+  then
+    # make the user with homectl
+    jq -n --arg pw "${ADMIN_USER_PASSWORD}" --arg pwhash "\$(openssl passwd -6 ${ADMIN_USER_PASSWORD})" '{secret:{password:[\$pw]},privileged:{hashedPassword:[\$pwhash]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE} "\${ADD_KEY_CMD}"
+    rm -f /var/tmp/auth_pub.key
+
+    if test -f /root/admin_sshkeys/id_rsa.pub
+    then
+      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}
+      install -d /home/${ADMIN_USER_NAME}/.ssh -o ${ADMIN_USER_NAME} -g ${ADMIN_USER_NAME} -m=700
+      cp -a /root/admin_sshkeys/* /home/${ADMIN_USER_NAME}/.ssh
+      chown ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
+      chgrp ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
+      homectl deactivate ${ADMIN_USER_NAME}
     fi
   fi
-  
-  # don't boot quietly
-  sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/GRUB_CMDLINE_LINUX_DEFAULT="rootwait/g' /etc/default/grub
 
-  # for LUKS
-  if test -z "${LUKS_UUID}"
+  if test ! -z "${AUR_HELPER}"
   then
-    echo "No encryption"
-  else
-    sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT="rootwait,GRUB_CMDLINE_LINUX_DEFAULT="rootwait cryptdevice=UUID=${LUKS_UUID}:luks-${LUKS_UUID},g' /etc/default/grub
-  fi
-  
-  # use systemd if we have it
-  if pacman -Q systemd > /dev/null 2>/dev/null
-  then
-    sed -i 's,GRUB_CMDLINE_LINUX_DEFAULT=",GRUB_CMDLINE_LINUX_DEFAULT="init=/usr/lib/systemd/systemd ,g' /etc/default/grub
-  fi
- 
-  # generate the grub configuration file
-  sync
-  partprobe
-  if pacman -Q lvm2 > /dev/null 2>/dev/null
-  then
-    pvscan --cache -aay
-  fi
-  grub-mkconfig -o /boot/grub/grub.cfg
-  #cat /boot/grub/grub.cfg
-  
- # re-enable lvm
- if test -f "/etc/lvm/lvm.conf"
- then
-    sed -i 's,use_lvmetad = 0,use_lvmetad = 1,g' /etc/lvm/lvm.conf
-  fi
-fi # end grub section
+    if ! pacman -Q ${AUR_HELPER} > /dev/null 2>/dev/null; then
+      # just for now, admin user is passwordless for pacman
+      echo "${ADMIN_USER_NAME} ALL=(ALL) NOPASSWD: /usr/bin/pacman" > "/etc/sudoers.d/allow_${ADMIN_USER_NAME}_to_pacman"
+      # let root cd with sudo
+      echo "root ALL=(ALL) CWD=* ALL" > /etc/sudoers.d/permissive_root_Chdir_Spec
 
-# if we're on a pi, add some stuff ( mostly to config.txt)
-if pacman -Q | grep raspberry > /dev/null 2>/dev/null
-then
+      # activate admin home
+      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}
 
-  sed -i 's|^gpu_mem=64.*|gpu_mem=128|g' /boot/config.txt
+      # get helper pkgbuild
+      sudo -u "${ADMIN_USER_NAME}" -D~ bash -c "curl -s -L https://aur.archlinux.org/cgit/aur.git/snapshot/${AUR_HELPER}.tar.gz | bsdtar -xvf -"
 
-  if test "${TARGET_ARCH}" = "aarch64"
-  then
-    echo "arm_64bit=1" >> /boot/config.txt
-  fi
-  #echo "initramfs initramfs-linux.img followkernel" >> /boot/config.txt
-  #echo "lcd_rotate=2" >> /boot/config.txt
-  #echo "dtparam=audio=on" >> /boot/config.txt
-  #echo "dtparam=device_tree_param=spi=on" >> /boot/config.txt
-  #echo "dtparam=i2c_arm=on" >> /boot/config.txt
-  #echo "dtoverlay=vc4-fkms-v3d" >> /boot/config.txt
-  #echo "dtoverlay=rpi-backlight" >> /boot/config.txt
-  if pacman -Q | grep raspberrypi-bootloader > /dev/null 2>/dev/null
-  then
-    echo "start_x=1" >> /boot/config.txt
-  fi
-  
-  echo "bcm2835-v4l2" > /etc/modules-load.d/rpi-camera.conf
-fi
+      # make and install helper
+      sudo -u "${ADMIN_USER_NAME}" -D~//${AUR_HELPER} bash -c "makepkg -si --noprogressbar --noconfirm --needed"
+
+      # clean up
+      sudo -u "${ADMIN_USER_NAME}" -D~ rm -rf ${AUR_HELPER}
+      sudo -u "${ADMIN_USER_NAME}" -D~ rm -rf .cache/go-build
+      sudo -u "${ADMIN_USER_NAME}" -D~ rm -rf .cargo
+      pacman -Qtdq | pacman -Rns - --noconfirm
+
+      homectl deactivate ${ADMIN_USER_NAME}
+    fi  #get helper
+    
+    # backup future makepkg built packages
+    sed -i "s,^#PKGDEST=.*,PKGDEST=\${MAKEPKG_BACKUP},g" /etc/makepkg.conf
+
+    if test ! -z "${AUR_PACKAGE_LIST}"
+    then
+      # activate admin home
+      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}
+      sudo -u "${ADMIN_USER_NAME}" -D~ bash -c "paru -Syu ${AUR_PACKAGE_LIST}"
+      homectl deactivate ${ADMIN_USER_NAME}
+    fi
+    # take away passwordless sudo for pacman for admin
+    sed -i 's/^%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
+  fi  # add AUR
+fi # add admin
 EOF
 
-cat > "${TMP_ROOT}/usr/sbin/nativeSetupTasks.sh" <<END
-#!/usr/bin/env bash
-set -o pipefail
-set -o errexit
-set -o nounset
-echo "Running first boot script."
-
-# don't know why setting locale in the chroot doesn't work so we'll do it here again
-localectl set-locale LANG=${LOCALE}
-unset LANG
-set +o nounset
-source /etc/profile.d/locale.sh
-set -o nounset
-localectl set-keymap ${KEYMAP} 
-localectl status
-
-if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
-  echo "Doing arm only setup things"
-else
-  echo "Doing non-arm only setup things"
-  hwclock --systohc # probably the arm thing doesn't have a rtc
-fi
-
-echo "Reinstall all native packages"
-pacman -Qqn | pacman -S --noconfirm -
-
-# make sure everything is up to date
-pacman -Syyuu --needed --noconfirm || true # requires internet
-
-if test ! -z "${AUR_HELPER}"
+if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
 then
-  echo "Reinstall all foreign packages"
-  pushd /var/cache/makepkg/pkg
-  pacman --noconfirm -U *
-  popd
-fi
+  :
+else
+  # let pacman update the bootloader
+  mkdir -p "${TMP_ROOT}"/etc/pacman.d/hooks
+  cat > "${TMP_ROOT}/etc/pacman.d/hooks/100-systemd-boot.hook" <<END
+[Trigger]
+Type = Package
+Operation = Upgrade
+Target = systemd
 
-echo "First boot script finished"
-systemd-notify --ready
+[Action]
+Description = Updating systemd-boot
+When = PostTransaction
+Exec = /usr/bin/bootctl update
 END
-chmod +x "${TMP_ROOT}/usr/sbin/nativeSetupTasks.sh"
-
-# run the setup script in the new install's root
-#chmod +x /tmp/chroot.sh
-#mv /tmp/chroot.sh "${TMP_ROOT}/root/chroot.sh"
-#set +o errexit
-#systemd-nspawn -D "${TMP_ROOT}" /usr/bin/bash /root/setup.sh; CHROOT_RESULT=$? || true
-#arch-chroot "${TMP_ROOT}" /usr/bin/bash /root/chroot.sh; CHROOT_RESULT=$? || true
-#set -o errexit
-
-#ln -s "${TMP_ROOT}" /var/lib/machines/newsys
-#exit 43
-
-#systemd-nspawn --directory "${TMP_ROOT}" /usr/bin/bash -c '/usr/bin/echo "root:root"|/usr/bin/chpasswd'
-
-
-#sed 's,#LogLevel=info,LogLevel=debug,g' -i "${TMP_ROOT}"/etc/systemd/system.conf
-# these changes are needed to services to get them to work in the container
-
-#sed 's,DeviceAllow=/dev/loop-control rw,#DeviceAllow=/dev/loop-control rw,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service 
-#sed 's,DeviceAllow=/dev/mapper/control rw,#DeviceAllow=/dev/mapper/control rw,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service 
-#sed 's,RestrictNamespaces=mnt,#RestrictNamespaces=mnt,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service 
-#sed 's,NoNewPrivileges=yes,#NoNewPrivileges=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service 
-#sed 's,SystemCallArchitectures=native,#SystemCallArchitectures=native,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
-#sed 's,CapabilityBoundingSet=CAP_SYS_ADMIN CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_SETGID CAP_SETUID CAP_SYS_RESOURCE,#CapabilityBoundingSet=CAP_SYS_ADMIN CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER CAP_FSETID CAP_SETGID CAP_SETUID CAP_SYS_RESOURCE,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
-#sed 's,IPAddressDeny=any,#IPAddressDeny=any,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
-#sed 's,LimitNOFILE=524288,#LimitNOFILE=524288,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
-#sed 's,RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_ALG,#RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_ALG,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
-#sed 's,RestrictRealtime=yes,#RestrictRealtime=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
-#sed 's,LockPersonality=yes,#LockPersonality=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
-#sed 's,MemoryDenyWriteExecute=yes,#MemoryDenyWriteExecute=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
-#sed 's,SystemCallFilter=@system-service @mount,#SystemCallFilter=@system-service @mount,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
-#sed 's,SystemCallErrorNumber=EPERM,#SystemCallErrorNumber=EPERM,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
-#sed 's,DeviceAllow=block-* rw,#DeviceAllow=block-* rw,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-homed.service
-sed 's,PrivateNetwork=yes,#PrivateNetwork=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-localed.service
-
-#${SPAWN_LAUNCHER} --directory "${TMP_ROOT}" /usr/bin/systemctl enable systemd-localed
-#${SPAWN_LAUNCHER} --directory "${TMP_ROOT}" /usr/bin/systemctl enable systemd-homed
-#systemd-nspawn --directory "${TMP_ROOT}" /usr/bin/systemctl enable container-boot-setup.service
-#systemd-nspawn --boot --directory "${TMP_ROOT}" || true
-
-if test -f "${TMP_ROOT}/var/tmp/setup_complete"
-then
-  rm -rf "${TMP_ROOT}/var/tmp/setup_complete"
-  export SETUP_WORKED=true
-  # remove setup files
-  rm -f "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
-  rm -f "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service
-  rm -f "${TMP_ROOT}/root/setup.sh"
-
-  # don't need the emulator binaries any more
-  rm -f "${TMP_ROOT}/usr/bin/qemu-arm-static"
-  rm -f "${TMP_ROOT}/usr/bin/qemu-aarch64-static"
-
-  # copy *this* script into the install for installs later
-  cp "$THIS" "${TMP_ROOT}/usr/sbin/mkarch.sh"
-  
-  # you might want to know what the install's fstab looks like
-  echo "fstab is:"
-  cat "${TMP_ROOT}/etc/fstab"
-else
-  echo "Internal setup failure!"
+mkdir -p "${TMP_ROOT}"/boot/loader/entries
+cp /usr/share/systemd/bootctl/arch.conf "${TMP_ROOT}"/boot/loader/entries
+sed "s,root=PARTUUID=XXXX,root=PARTUUID=$(blkid -s PARTUUID -o value ${ROOT_DEVICE})," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
+sed "s,rootfstype=XXXX,rootfstype=${ROOT_FS_TYPE}," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
+sed "s,initrd,initrd  /intel-ucode.img\ninitrd  /amd-ucode.img\ninitrd," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
 fi
+
+# this lets localctl work in the container...
+sed 's,PrivateNetwork=yes,#PrivateNetwork=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-localed.service
 
 # unmount and clean up everything
 umount "${TMP_ROOT}/boot" || true
