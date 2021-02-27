@@ -355,6 +355,7 @@ then
   passwd -l root
 else
   echo "root:${ROOT_PASSWORD}"|chpasswd
+  sed 's,^#PermitRootLogin prohibit-password,PermitRootLogin yes,g' -i /etc/ssh/sshd_config
 fi
 
 # enable magic sysrq
@@ -470,15 +471,16 @@ fi
 if test -f /root/phase_two.sh
 then
   echo "Attempting phase two setup"
-  bash /root/phase_two.sh; PHASE2_RESULT=$? || true
-  if test "\${PHASE2_RESULT}" -eq 0
+  set +o errexit
+  bash /root/phase_two.sh
+  set -o errexit
+  if test -f /var/tmp/phase_two_setup_incomplete
   then
-    echo "Phase two setup complete!"
-    rm -f /var/tmp/phase_two_setup_incomplete
-    rm -f /root/phase_two.sh
-  else
     echo "Phase two setup failed"
-    echo "Boot into the system and manually run `bash /root/phase_two.sh`"
+    echo "Boot into the system natively and run `bash /root/phase_two.sh`"
+  else
+    echo "Phase two setup complete!"
+    rm -f /root/phase_two.sh
   fi
 fi
 
@@ -506,8 +508,7 @@ ConditionPathExists=/root/setup.sh
 Type=idle
 TimeoutStopSec=10sec
 ExecStart=/usr/bin/bash /root/setup.sh
-#ExecStopPost=/usr/bin/sh -c 'rm -f /root/setup.sh; systemctl disable container-boot-setup; rm -f /usr/lib/systemd/system/container-boot-setup.service; halt'
-ExecStopPost=/usr/bin/sh -c 'systemctl disable container-boot-setup; rm -f /usr/lib/systemd/system/container-boot-setup.service; halt'
+ExecStopPost=/usr/bin/sh -c 'rm -f /root/setup.sh; systemctl disable container-boot-setup; rm -f /usr/lib/systemd/system/container-boot-setup.service; halt'
 END
 ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
 
@@ -543,16 +544,12 @@ then
   if test ! -z "${AUR_HELPER}"
   then
     pacman -S --needed --noconfirm base-devel
-    groupadd aur
+    groupadd aur || true
     MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
     install -d "\${MAKEPKG_BACKUP}" -g aur -m=775
     GRPS="aur,"
   fi
   GRPS="\${GRPS}adm,uucp,wheel"
-
-  grep -qxF 'AuthenticationMethods publickey,password' /etc/ssh/sshd_config || echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config
-  grep -qxF 'AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u' /etc/ssh/sshd_config || echo "AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u" >> /etc/ssh/sshd_config
-  grep -qxF 'AuthorizedKeysCommandUser root' /etc/ssh/sshd_config || echo "AuthorizedKeysCommandUser root" >> /etc/ssh/sshd_config
 
   if test -f /var/tmp/auth_pub.key
   then
@@ -572,6 +569,11 @@ then
     # make the user with homectl
     jq -n --arg pw "${ADMIN_USER_PASSWORD}" --arg pwhash "\$(openssl passwd -6 ${ADMIN_USER_PASSWORD})" '{secret:{password:[\$pw]},privileged:{hashedPassword:[\$pwhash]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE} "\${ADD_KEY_CMD}"
     rm -f /var/tmp/auth_pub.key
+
+    sed "s,^#AuthorizedKeysCommand none,AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u,g" -i /etc/ssh/sshd_config
+    sed "s,^#AuthorizedKeysCommandUser nobody,AuthorizedKeysCommandUser root,g" -i /etc/ssh/sshd_config
+    grep -qxF 'AuthenticationMethods publickey,password' /etc/ssh/sshd_config || echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config
+    sed 's,^PermitRootLogin yes,#PermitRootLogin prohibit-password,g' -i /etc/ssh/sshd_config
 
     if test -f /root/admin_sshkeys/id_rsa.pub
     then
@@ -617,13 +619,14 @@ then
     then
       # activate admin home
       PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}
-      sudo -u "${ADMIN_USER_NAME}" -D~ bash -c "paru -Syu ${AUR_PACKAGE_LIST}"
+      sudo -u "${ADMIN_USER_NAME}" -D~ bash -c "${AUR_HELPER} -Syu --needed --noconfirm --noprogressbar ${AUR_PACKAGE_LIST}"
       homectl deactivate ${ADMIN_USER_NAME}
     fi
     # take away passwordless sudo for pacman for admin
     sed -i 's/^%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
   fi  # add AUR
 fi # add admin
+rm -f /var/tmp/phase_two_setup_incomplete
 EOF
 
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
