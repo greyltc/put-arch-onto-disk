@@ -55,14 +55,13 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 : ${THIS_HOSTNAME:=archthing}
 
 # empty user name string for no admin user
-: ${ADMIN_USER_NAME:=""}
+: ${ADMIN_USER_NAME:="admin"}
 : ${ADMIN_USER_PASSWORD:=admin}
 : ${ADMIN_SSH_AUTH_KEY:=""}  # a public key that can be used to ssh into the admin account
 : ${AUTOLOGIN_ADMIN:=false}
 
 # empty helper string for no aur support
-#: ${AUR_HELPER:=paru}
-: ${AUR_HELPER:=""}
+: ${AUR_HELPER:=paru}
 : ${AUR_PACKAGE_LIST:=""}
 
 : ${USE_TESTING:=false}
@@ -598,15 +597,15 @@ then
       PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}
 
       # get helper pkgbuild
-      sudo -u "${ADMIN_USER_NAME}" -D~ bash -c "curl -s -L https://aur.archlinux.org/cgit/aur.git/snapshot/${AUR_HELPER}.tar.gz | bsdtar -xvf -"
+      sudo -u ${ADMIN_USER_NAME} -D~ bash -c "curl -s -L https://aur.archlinux.org/cgit/aur.git/snapshot/${AUR_HELPER}.tar.gz | bsdtar -xvf -"
 
       # make and install helper
-      sudo -u "${ADMIN_USER_NAME}" -D~//${AUR_HELPER} bash -c "makepkg -si --noprogressbar --noconfirm --needed"
+      sudo -u ${ADMIN_USER_NAME} -D~/${AUR_HELPER} bash -c "makepkg -si --noprogressbar --noconfirm --needed"
 
       # clean up
-      sudo -u "${ADMIN_USER_NAME}" -D~ rm -rf ${AUR_HELPER}
-      sudo -u "${ADMIN_USER_NAME}" -D~ rm -rf .cache/go-build
-      sudo -u "${ADMIN_USER_NAME}" -D~ rm -rf .cargo
+      sudo -u ${ADMIN_USER_NAME} -D~ bash -c "rm -rf ${AUR_HELPER}"
+      sudo -u ${ADMIN_USER_NAME} -D~ bash -c "rm -rf .cache/go-build"
+      sudo -u ${ADMIN_USER_NAME} -D~ bash -c "rm -rf .cargo"
       pacman -Qtdq | pacman -Rns - --noconfirm
 
       homectl deactivate ${ADMIN_USER_NAME}
@@ -619,11 +618,11 @@ then
     then
       # activate admin home
       PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}
-      sudo -u "${ADMIN_USER_NAME}" -D~ bash -c "${AUR_HELPER} -Syu --needed --noconfirm --noprogressbar ${AUR_PACKAGE_LIST}"
+      sudo -u ${ADMIN_USER_NAME} -D~ bash -c "${AUR_HELPER//-bin} -Syu --removemake yes --needed --noconfirm --noprogressbar ${AUR_PACKAGE_LIST}"
       homectl deactivate ${ADMIN_USER_NAME}
     fi
     # take away passwordless sudo for pacman for admin
-    sed -i 's/^%wheel ALL=(ALL) NOPASSWD: ALL/# %wheel ALL=(ALL) NOPASSWD: ALL/g' /etc/sudoers
+    rm -rf /etc/sudoers.d/allow_${ADMIN_USER_NAME}_to_pacman
   fi  # add AUR
 fi # add admin
 rm -f /var/tmp/phase_two_setup_incomplete
