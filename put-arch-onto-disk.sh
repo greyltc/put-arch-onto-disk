@@ -524,7 +524,7 @@ if test ! -z "${ADMIN_USER_NAME}"
 then
   pacman -S --needed --noconfirm sudo jq
   # users in the wheel group have password triggered sudo powers
-  sed -i 's/^# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/g' /etc/sudoers
+  echo '%wheel ALL=(ALL) ALL' > /etc/sudoers.d/01_wheel_can_sudo
 
   systemctl enable systemd-homed
   systemctl start systemd-homed
