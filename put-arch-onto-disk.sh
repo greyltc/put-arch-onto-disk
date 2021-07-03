@@ -433,6 +433,12 @@ DHCP=yes
 
 [DHCP]
 ClientIdentifier=mac
+
+[DHCPv4]
+UseDomains=true
+
+[IPv6AcceptRA]
+UseDomains=yes
 END
 
   #sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
