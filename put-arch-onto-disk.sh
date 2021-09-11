@@ -25,54 +25,48 @@ fi
 # store off the absolute path to *this* script
 THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 
-# set variable defaults. if any of these are defined elsewhere,
-# those values will be used instead of those listed here
-: ${TARGET_ARCH:=x86_64}
-: ${PACKAGE_LIST:=""}
+# define defaults for variables. defaults get overriden by previous definitions
 
-: ${ROOT_FS_TYPE:=btrfs}
-: ${MAKE_SWAP_PARTITION:=false}
-: ${SWAP_SIZE_IS_RAM_SIZE:=false}
-: ${SWAP_SIZE:=100MiB}
+: ${TARGET_ARCH='x86_64'}
+: ${PACKAGE_LIST=''}
 
-# if this is not a block device to install into, then it's an image file that will be created
-: ${TARGET:=./bootable_arch.img}
-: ${IMG_SIZE:=4GiB}
+# file system options
+: ${ROOT_FS_TYPE='btrfs'}
+: ${SWAP_SIZE_IS_RAM_SIZE='false'}
+: ${SWAP_SIZE=''}  # empty for no swap partition, otherwise like '100MiB'
 
-# these only matter for GRUB installs: set true when the target will be a removable drive, false when the install is only for the machine runnning this script
-: ${PORTABLE:=true}
-: ${LEGACY_BOOTLOADER:=false}
-: ${UEFI_BOOTLOADER:=true}
-: ${UEFI_COMPAT_STUB:=false}
+# target options
+: ${TARGET='./bootable_arch.img'}  # if this is not a block device, then it's an image file that will be created
+: ${IMG_SIZE='4GiB'}
 
-: ${TIME_ZONE:=Europe/London}
+# misc options
+: ${KEYMAP='uk'}  # print options here with `localectl list-keymaps`
+: ${TIME_ZONE='Europe/London'}
+: ${LOCALE='en_US.UTF-8'}
+: ${CHARSET='UTF-8'}
+: ${ROOT_PASSWORD=''}  # zero length root password string locks out root password
+: ${THIS_HOSTNAME='archthing'}
 
-# possible keymap options can be seen by `localectl list-keymaps`
-: ${KEYMAP:=uk}
-: ${LOCALE:=en_US.UTF-8}
-: ${CHARSET:=UTF-8}
-: ${ROOT_PASSWORD:=""}
-: ${THIS_HOSTNAME:=archthing}
+# admin user options
+: ${ADMIN_USER_NAME='admin'}  # zero length string for no admin user
+: ${ADMIN_USER_PASSWORD='admin'}
+: ${ADMIN_HOMED='false'}  # 'true' if the user should be a systemd-homed user
+: ${ADMIN_SSH_AUTH_KEY=''}  # a public key that can be used to ssh into the admin account
+: ${AUTOLOGIN_ADMIN='false'}
 
-# empty user name string for no admin user
-: ${ADMIN_USER_NAME:="admin"}
-: ${ADMIN_USER_PASSWORD:=admin}
-: ${ADMIN_SSH_AUTH_KEY:=""}  # a public key that can be used to ssh into the admin account
-: ${AUTOLOGIN_ADMIN:=false}
+# AUR options
+: ${AUR_HELPER='paru'}  # use empty string for no aur support
+: ${AUR_PACKAGE_LIST=''}
 
-# empty helper string for no aur support
-: ${AUR_HELPER:=paru}
-: ${AUR_PACKAGE_LIST:=""}
-
-: ${USE_TESTING:=false}
-: ${LUKS_KEYFILE:=""}
+: ${USE_TESTING='false'}
+: ${LUKS_KEYFILE=''}
 
 # for installing into preexisting multi boot setups:
-: ${PREEXISTING_BOOT_PARTITION_NUM:=""} # this will not be formatted
-: ${PREEXISTING_ROOT_PARTITION_NUM:=""} # this WILL be formatted
+: ${PREEXISTING_BOOT_PARTITION_NUM=''} # this will not be formatted
+: ${PREEXISTING_ROOT_PARTITION_NUM=''} # this WILL be formatted
 # any pre-existing swap partition will just be used via systemd magic
 
-: ${CUSTOM_MIRROR_URL:=""}
+: ${CUSTOM_MIRROR_URL=''}
 # useful with pacoloco on the host with config:
 ##repos:
 ##  archlinux:
@@ -80,6 +74,8 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 ##  alarm:
 ##    url: http://mirror.archlinuxarm.org
 # and CUSTOM_MIRROR_URL='http://[ip]:9129/repo/alarm/$arch/$repo' for alarm
+
+## END VARIABLE DEFINITION SECTION ##
 
 contains() {
   string="$1"
@@ -110,7 +106,7 @@ then
   then
     ARCH_SPECIFIC_PKGS="archlinuxarm-keyring"
   else
-    echo "Please install qemu-user-static and binfmt-qemu-static from the AUR"
+    echo "Please install qemu-user-static (or the -bin version of that) and binfmt-qemu-static from the AUR"
     echo "and then restart systemd-binfmt.service"
     echo "so that we can chroot into the ARM install"
     exit 1
@@ -192,12 +188,14 @@ else # non-preexisting
   fi
   BOOT_P_SIZE_MB=300
   sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
-  if test "${MAKE_SWAP_PARTITION}" = "true"
+  if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"
   then
-    if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"
-    then
-      SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
-    fi
+    SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
+  fi
+  if test -z "${SWAP_SIZE}"
+  then
+    echo "No swap partition"
+  else
     sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
   fi
   #sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
@@ -205,14 +203,14 @@ else # non-preexisting
 
   # make hybrid/protective MBR
   #sgdisk -h "1 2" "${TARGET_DEV}"  # this breaks rpi3
-  echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"  # needed for rpi3
+  echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"  # that's needed for rpi3
 
   # do we need to p? (depends on what the media is we're installing to)
   if test -b "${TARGET_DEV}p1"; then PEE=p; else PEE=""; fi
 
   wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
   mkfs.fat -F32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-  if test "${MAKE_SWAP_PARTITION}" = "true"
+  if test ! -z "${SWAP_SIZE}"
   then
     wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
     mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
@@ -321,17 +319,15 @@ then
   sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /tmp/mirrorlist
 fi
 
-pacstrap -C /tmp/pacman.conf -M -G "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
+pacstrap -G -C /tmp/pacman.conf -M -G "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
 
 if test ! -z "${ADMIN_SSH_AUTH_KEY}"
 then
   echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
 fi
 
-
 genfstab -U "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
 sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
-
 
 cat > "${TMP_ROOT}/root/setup.sh" <<EOF
 #!/usr/bin/env bash
@@ -351,7 +347,7 @@ touch /var/tmp/phase_two_setup_incomplete
 if test -z "$ROOT_PASSWORD"
 then
   echo "password locked for root user"
-  passwd -l root
+  passwd --lock root
 else
   echo "root:${ROOT_PASSWORD}"|chpasswd
   sed 's,^#PermitRootLogin prohibit-password,PermitRootLogin yes,g' -i /etc/ssh/sshd_config
@@ -500,6 +496,17 @@ fi
 # undo changes to service files
 sed 's,#PrivateNetwork=yes,PrivateNetwork=yes,g' -i /usr/lib/systemd/system/systemd-localed.service
 
+# take care of some rpi fan stuff if needed
+if test -f /boot/config.txt
+then
+  echo "" >> /boot/config.txt
+  echo "# PoE Hat Fan Speeds" >> /boot/config.txt
+  echo "dtparam=poe_fan_temp0=50000" >> /boot/config.txt
+  echo "dtparam=poe_fan_temp1=60000" >> /boot/config.txt
+  echo "dtparam=poe_fan_temp2=70000" >> /boot/config.txt
+  echo "dtparam=poe_fan_temp3=80000" >> /boot/config.txt
+fi
+
 rm -f /var/tmp/phase_one_setup_failed
 exit 0
 EOF
@@ -528,24 +535,12 @@ set -o xtrace
 # setup admin user
 if test ! -z "${ADMIN_USER_NAME}"
 then
-  pacman -S --needed --noconfirm sudo jq
+  pacman -S --needed --noconfirm sudo
   # users in the wheel group have password triggered sudo powers
   echo '%wheel ALL=(ALL) ALL' > /etc/sudoers.d/01_wheel_can_sudo
 
-  systemctl enable systemd-homed
-  systemctl start systemd-homed
+  sed 's,^PermitRootLogin yes,#PermitRootLogin prohibit-password,g' -i /etc/ssh/sshd_config
 
-  STORAGE=directory
-  if test "${ROOT_FS_TYPE}" = "btrfs"
-  then
-    STORAGE=subvolume
-  elif test "${ROOT_FS_TYPE}" = "f2fs"
-  then
-    # STORAGE=fscrypt #TODO: this is broken today with "Failed to install master key in keyring: Operation not permitted"
-    STORAGE=directory
-  fi
-
-  GRPS=""
   if test ! -z "${AUR_HELPER}"
   then
     pacman -S --needed --noconfirm base-devel
@@ -553,6 +548,8 @@ then
     MAKEPKG_BACKUP="/var/cache/makepkg/pkg"
     install -d "\${MAKEPKG_BACKUP}" -g aur -m=775
     GRPS="aur,"
+  else
+    GRPS=""
   fi
   GRPS="\${GRPS}adm,uucp,wheel"
 
@@ -569,27 +566,52 @@ then
     ADD_KEY_CMD="--ssh-authorized-keys=\$(cat /root/admin_sshkeys/id_rsa.pub)"
   fi
 
-  if ! userdbctl user ${ADMIN_USER_NAME} > /dev/null 2>/dev/null
+  if test "${ADMIN_HOMED}" = "true"
   then
-    # make the user with homectl
-    jq -n --arg pw "${ADMIN_USER_PASSWORD}" --arg pwhash "\$(openssl passwd -6 ${ADMIN_USER_PASSWORD})" '{secret:{password:[\$pw]},privileged:{hashedPassword:[\$pwhash]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE} "\${ADD_KEY_CMD}"
-    rm -f /var/tmp/auth_pub.key
+    echo "Creating systemd-homed user"
+    systemctl enable systemd-homed
+    systemctl start systemd-homed
 
-    sed "s,^#AuthorizedKeysCommand none,AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u,g" -i /etc/ssh/sshd_config
-    sed "s,^#AuthorizedKeysCommandUser nobody,AuthorizedKeysCommandUser root,g" -i /etc/ssh/sshd_config
-    grep -qxF 'AuthenticationMethods publickey,password' /etc/ssh/sshd_config || echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config
-    sed 's,^PermitRootLogin yes,#PermitRootLogin prohibit-password,g' -i /etc/ssh/sshd_config
-
-    if test -f /root/admin_sshkeys/id_rsa.pub
+    STORAGE=directory
+    if test "${ROOT_FS_TYPE}" = "btrfs"
     then
-      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}
-      install -d /home/${ADMIN_USER_NAME}/.ssh -o ${ADMIN_USER_NAME} -g ${ADMIN_USER_NAME} -m=700
-      cp -a /root/admin_sshkeys/* /home/${ADMIN_USER_NAME}/.ssh
-      chown ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
-      chgrp ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
-      homectl deactivate ${ADMIN_USER_NAME}
+      STORAGE=subvolume
+    elif test "${ROOT_FS_TYPE}" = "f2fs"
+    then
+      #TODO: fscrypt is broken today with "Failed to install master key in keyring: Operation not permitted"
+      STORAGE=fscrypt
+      #STORAGE=directory
     fi
-  fi
+
+    if ! userdbctl user ${ADMIN_USER_NAME} > /dev/null 2>/dev/null
+    then
+      pacman -S --needed --noconfirm jq
+      # make the user with homectl
+      jq -n --arg pw "${ADMIN_USER_PASSWORD}" --arg pwhash "\$(openssl passwd -6 ${ADMIN_USER_PASSWORD})" '{secret:{password:[\$pw]},privileged:{hashedPassword:[\$pwhash]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE} "\${ADD_KEY_CMD}"
+      sed "s,^#AuthorizedKeysCommand none,AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u,g" -i /etc/ssh/sshd_config
+      sed "s,^#AuthorizedKeysCommandUser nobody,AuthorizedKeysCommandUser root,g" -i /etc/ssh/sshd_config
+      if test -f /var/tmp/auth_pub.key
+      then
+        grep -qxF 'AuthenticationMethods publickey,password' /etc/ssh/sshd_config || echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config
+      fi
+    fi  # user doesn't exist
+  else  # non-homed user
+    echo "Creating user"
+    useradd -m ${ADMIN_USER_NAME} --groups "\${GRPS}"
+    echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
+  fi  # user creation method
+
+  rm -f /var/tmp/auth_pub.key
+
+  if test -f /root/admin_sshkeys/id_rsa.pub
+  then
+    PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}  || true
+    install -d /home/${ADMIN_USER_NAME}/.ssh -o ${ADMIN_USER_NAME} -g ${ADMIN_USER_NAME} -m=700
+    cp -a /root/admin_sshkeys/* /home/${ADMIN_USER_NAME}/.ssh
+    chown ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
+    chgrp ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
+    homectl deactivate ${ADMIN_USER_NAME}  || true
+  fi  # copy in ssh keys
 
   if test ! -z "${AUR_HELPER}"
   then
@@ -599,22 +621,20 @@ then
       # let root cd with sudo
       echo "root ALL=(ALL) CWD=* ALL" > /etc/sudoers.d/permissive_root_Chdir_Spec
 
-      # activate admin home
-      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}
-
       # get helper pkgbuild
+      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}  || true
       sudo -u ${ADMIN_USER_NAME} -D~ bash -c "curl -s -L https://aur.archlinux.org/cgit/aur.git/snapshot/${AUR_HELPER}.tar.gz | bsdtar -xvf -"
 
       # make and install helper
+      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}  || true
       sudo -u ${ADMIN_USER_NAME} -D~/${AUR_HELPER} bash -c "makepkg -si --noprogressbar --noconfirm --needed"
 
       # clean up
-      sudo -u ${ADMIN_USER_NAME} -D~ bash -c "rm -rf ${AUR_HELPER}"
-      sudo -u ${ADMIN_USER_NAME} -D~ bash -c "rm -rf .cache/go-build"
-      sudo -u ${ADMIN_USER_NAME} -D~ bash -c "rm -rf .cargo"
+      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}  || true
+      sudo -u ${ADMIN_USER_NAME} -D~ bash -c "rm -rf ${AUR_HELPER} .cache/go-build .cargo"
       pacman -Qtdq | pacman -Rns - --noconfirm
 
-      homectl deactivate ${ADMIN_USER_NAME}
+      homectl deactivate ${ADMIN_USER_NAME} || true
     fi  #get helper
     
     # backup future makepkg built packages
@@ -622,10 +642,9 @@ then
 
     if test ! -z "${AUR_PACKAGE_LIST}"
     then
-      # activate admin home
-      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}
+      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}  || true
       sudo -u ${ADMIN_USER_NAME} -D~ bash -c "${AUR_HELPER//-bin} -Syu --removemake yes --needed --noconfirm --noprogressbar ${AUR_PACKAGE_LIST}"
-      homectl deactivate ${ADMIN_USER_NAME}
+      homectl deactivate ${ADMIN_USER_NAME} || true
     fi
     # take away passwordless sudo for pacman for admin
     rm -rf /etc/sudoers.d/allow_${ADMIN_USER_NAME}_to_pacman
@@ -651,11 +670,11 @@ Description = Updating systemd-boot
 When = PostTransaction
 Exec = /usr/bin/bootctl update
 END
-mkdir -p "${TMP_ROOT}"/boot/loader/entries
-cp /usr/share/systemd/bootctl/arch.conf "${TMP_ROOT}"/boot/loader/entries
-sed "s,root=PARTUUID=XXXX,root=PARTUUID=$(blkid -s PARTUUID -o value ${ROOT_DEVICE})," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
-sed "s,rootfstype=XXXX,rootfstype=${ROOT_FS_TYPE}," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
-sed "s,initrd,initrd  /intel-ucode.img\ninitrd  /amd-ucode.img\ninitrd," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
+  mkdir -p "${TMP_ROOT}"/boot/loader/entries
+  cp /usr/share/systemd/bootctl/arch.conf "${TMP_ROOT}"/boot/loader/entries
+  sed "s,root=PARTUUID=XXXX,root=PARTUUID=$(blkid -s PARTUUID -o value ${ROOT_DEVICE})," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
+  sed "s,rootfstype=XXXX,rootfstype=${ROOT_FS_TYPE}," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
+  sed "s,initrd,initrd  /intel-ucode.img\ninitrd  /amd-ucode.img\ninitrd," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
 fi
 
 # this lets localctl work in the container...
@@ -682,6 +701,15 @@ then
 fi
 rm -r "${TMP_ROOT}" || true
 
+set +o xtrace
+set +o verbose
+echo $'We\'ll now boot into the partially set up system.'
+echo 'A one time systemd service will be run to complete the install/setup'
+echo 'This could take a while (like if paru needs to be compiled)'
+echo $'Nothing much will appear to be taking place but the container will exit once it\'s complete'
+set -o xtrace
+set -o verbose
+
 # boot into newly created system to perform setup tasks
 if test -z "${IMG_NAME}"
 then
@@ -691,12 +719,23 @@ else
 fi
 systemd-nspawn --boot --image "${SPAWN_TARGET}"
 
-#eject ${TARGET_DEV} || true
-
 if test ! -z "${ADMIN_SSH_AUTH_KEY}"
 then
-  echo "If you need to ssh into the system, you can find the keypair you must use in /root/admin_sshkeys"
+  set +o xtrace
+  set +o verbose
+  echo 'If you need to ssh into the system, you can find the keypair you must use in /root/admin_sshkeys'
 fi
 
-echo "Done! You could now explore the new system with"
-echo "systemd-nspawn --network-macvlan=eno1 --network-veth --boot --image \"${SPAWN_TARGET}\""
+set +o xtrace
+set +o verbose
+echo 'Done! You could explore by booting into the new system with'
+echo 'systemd-nspawn --network-macvlan=eno1 --network-veth --boot --image '"${SPAWN_TARGET}"
+echo 'You might want to inspect the journal to see how the setup went'
+echo 'The presence/absence of the files'
+echo '/var/tmp/phase_two_setup_incomplete'
+echo '/var/tmp/phase_one_setup_failed'
+echo '/var/tmp/phase_two_setup_incomplete'
+echo '/root/setup.sh'
+echo '/root/phase_two.sh'
+echo 'might also give you hints about how things went.'
+echo 'Leaving out "--boot" from the above command will drop you directly into a root shell.'
