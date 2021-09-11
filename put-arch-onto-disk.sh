@@ -14,7 +14,7 @@ shopt -s extglob
 # that you may not want (eg. the network comes up and sshd runs) so don't use this blindly
 
 # example usage:
-# TARGET=/dev/sdX PORTABLE=true sudo ./put-arch-onto-disk.sh |& tee archInstall.log
+# TARGET=/dev/sdX sudo ./put-arch-onto-disk.sh |& tee archInstall.log
 
 if test $EUID -ne 0
 then
@@ -426,12 +426,11 @@ Name=*
 
 [Network]
 DHCP=yes
-
-[DHCP]
-ClientIdentifier=mac
+IPv6AcceptRA=yes
 
 [DHCPv4]
 UseDomains=true
+ClientIdentifier=mac
 
 [IPv6AcceptRA]
 UseDomains=yes
