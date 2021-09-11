@@ -429,7 +429,7 @@ DHCP=yes
 IPv6AcceptRA=yes
 
 [DHCPv4]
-UseDomains=true
+UseDomains=yes
 ClientIdentifier=mac
 
 [IPv6AcceptRA]
