@@ -16,15 +16,6 @@ shopt -s extglob
 # example usage:
 # TARGET=/dev/sdX sudo ./put-arch-onto-disk.sh |& tee archInstall.log
 
-if test $EUID -ne 0
-then
-  echo "Please run with root permissions"
-  exit 1
-fi
-
-# store off the absolute path to *this* script
-THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
-
 # define defaults for variables. defaults get overriden by previous definitions
 
 : ${TARGET_ARCH='x86_64'}
@@ -76,6 +67,15 @@ THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 # and CUSTOM_MIRROR_URL='http://[ip]:9129/repo/alarm/$arch/$repo' for alarm
 
 ## END VARIABLE DEFINITION SECTION ##
+
+if test $EUID -ne 0
+then
+  echo "Please run with root permissions"
+  exit 1
+fi
+
+# store off the absolute path to *this* script
+THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 
 contains() {
   string="$1"
