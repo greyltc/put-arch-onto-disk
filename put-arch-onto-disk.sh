@@ -37,6 +37,7 @@ shopt -s extglob
 : ${CHARSET='UTF-8'}
 : ${ROOT_PASSWORD=''}  # zero length root password string locks out root password
 : ${THIS_HOSTNAME='archthing'}
+: ${PORTABLE='true'}  # set false if you want the bootloader install to mod *this machine's* EFI vars
 
 # admin user options
 : ${ADMIN_USER_NAME='admin'}  # zero length string for no admin user
@@ -397,7 +398,11 @@ else
   reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
   
   # boot with systemd-boot
-  bootctl --no-variables --graceful install
+  if test "${PORTABLE}" = "true"; then
+    bootctl --no-variables --graceful install
+  else
+    bootctl --graceful install
+  fi
 fi
 
 # make pacman color
