@@ -398,10 +398,10 @@ else
   reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
   
   # boot with systemd-boot
-  if test "${PORTABLE}" = "true"; then
-    bootctl --no-variables --graceful install
-  else
+  if test "${PORTABLE}" = "false"; then
     bootctl --graceful install
+  else
+    bootctl --no-variables --graceful install
   fi
 fi
 
