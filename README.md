@@ -54,11 +54,19 @@ AUR_HELPER="" \
 PACKAGE_LIST="linux-aarch64 linux-aarch64-headers firmware-raspberrypi raspberrypi-bootloader raspberrypi-bootloader-x raspberrypi-firmware uboot-raspberrypi rpi-eeprom" \
 
 # kernel for rpi4 from raspberrypi.org's tree
-TARGET=/dev/mmcblk0 \
+TARGET=/dev/mmcblkX \
 TARGET_ARCH=aarch64 \
 ROOT_FS_TYPE=f2fs \
 AUR_HELPER="" \
 PACKAGE_LIST="linux-raspberrypi4 linux-raspberrypi4-headers firmware-raspberrypi raspberrypi-bootloader raspberrypi-bootloader-x raspberrypi-firmware rpi-eeprom" \
+```
+### Bootable Flash Drive
+```
+# where "/dev/sdX" is your flash drive
+
+TARGET=/dev/sdx \
+ROOT_FS_TYPE=f2fs \
+PACKAGE_LIST="vim" \
 ```
 
 ### Old Recipes (for refrence only, might use out of date syntax)
