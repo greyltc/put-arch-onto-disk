@@ -118,7 +118,7 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools"
+DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools"
 
 # if this is a pi then let's make sure we have the packages listed here
 if contains "${PACKAGE_LIST}" "raspberry"
@@ -379,12 +379,15 @@ set -o nounset
 #echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
 localectl set-keymap --no-convert ${KEYMAP}
 
-# setup gnupg
+# setup GnuPG
 install -m700 -d /etc/skel/.gnupg
 echo "keyserver hkps://hkps.pool.sks-keyservers.net:443" > /tmp/gpg.conf
 echo "keyserver-options auto-key-retrieve" >> /tmp/gpg.conf
+echo "hkp-cacert /usr/share/gnupg/sks-keyservers.netCA.pem" > /tmp/dirmngr.conf
 install -m600 -Dt /etc/skel/.gnupg/ /tmp/gpg.conf
+install -m600 -Dt /etc/skel/.gnupg/ /tmp/dirmngr.conf
 rm /tmp/gpg.conf
+rm /tmp/dirmngr.conf
 
 # copy over the skel files for the root user
 find /etc/skel -maxdepth 1 -mindepth 1 -exec cp -a {} /root \;
