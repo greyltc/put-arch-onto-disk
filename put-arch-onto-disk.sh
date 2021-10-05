@@ -184,11 +184,11 @@ else # non-preexisting
     echo "No bios grub for arm"
     BOOT_P_TYPE=0700
   else
-    sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:"Legacy BIOS GRUB partition" "${TARGET_DEV}"; ((NEXT_PARTITION++))
+    sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:"Legacy BIOS GRUB partition GPT" "${TARGET_DEV}"; ((NEXT_PARTITION++))
     BOOT_P_TYPE=ef00
   fi
   BOOT_P_SIZE_MB=300
-  sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+  sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition GPT" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
   if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"
   then
     SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
@@ -197,10 +197,10 @@ else # non-preexisting
   then
     echo "No swap partition"
   else
-    sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+    sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:"Swap GPT" "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
   fi
-  #sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-  sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8304 -c ${NEXT_PARTITION}:"Arch Linux root" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+  #sgdisk -N 0 -t 0:8300 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
+  sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8304 -c ${NEXT_PARTITION}:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 
   # make hybrid/protective MBR
   #sgdisk -h "1 2" "${TARGET_DEV}"  # this breaks rpi3
@@ -210,11 +210,11 @@ else # non-preexisting
   if test -b "${TARGET_DEV}p1"; then PEE=p; else PEE=""; fi
 
   wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-  mkfs.fat -F32 -n BOOT ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+  mkfs.fat -F32 -n "BOOTF32" ${TARGET_DEV}${PEE}${BOOT_PARTITION}
   if test ! -z "${SWAP_SIZE}"
   then
     wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
-    mkswap -L swap ${TARGET_DEV}${PEE}${SWAP_PARTITION}
+    mkswap -L "SWAP" ${TARGET_DEV}${PEE}${SWAP_PARTITION}
   fi
 fi
 
@@ -248,7 +248,7 @@ else
   ELL=L
   ENCR=""
 fi
-mkfs.${ROOT_FS_TYPE} ${ENCR} -${ELL} ${ROOT_FS_TYPE}Root ${ROOT_DEVICE}
+mkfs.${ROOT_FS_TYPE} ${ENCR} -${ELL} "ROOT${ROOT_FS_TYPE^^}" ${ROOT_DEVICE}
 
 echo "Current partition table:"
 sgdisk -p "${TARGET_DEV}"  # print the current partition table
@@ -694,7 +694,7 @@ linux   /vmlinuz-linux
 initrd  /amd-ucode.img
 initrd  /intel-ucode.img
 initrd  /initramfs-linux.img
-options root="PARTLABEL=Arch Linux root" rootfstype=${ROOT_FS_TYPE} rw
+options root="PARTLABEL=Arch Linux root GPT" rootfstype=${ROOT_FS_TYPE} rw
 END
 
   cat >"${TMP_ROOT}"/boot/loader/entries/arch.conf <<END
@@ -703,7 +703,7 @@ linux   /vmlinuz-linux
 initrd  /amd-ucode.img
 initrd  /intel-ucode.img
 initrd  /initramfs-linux-fallback.img
-options root="PARTLABEL=Arch Linux root" rootfstype=${ROOT_FS_TYPE} rw
+options root="PARTLABEL=Arch Linux root GPT" rootfstype=${ROOT_FS_TYPE} rw
 END
 fi
 
