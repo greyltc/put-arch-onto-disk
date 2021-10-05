@@ -665,7 +665,7 @@ fi # add admin
 rm -f /var/tmp/phase_two_setup_incomplete
 EOF
 
-if cmp --silent -- "${TMP_ROOT}"/boot/EFI/boot/bootx64.efi "${TMP_ROOT}"/usr/lib/systemd/boot/efi/systemd-bootx64.efi; then
+if cmp --silent -- "${TMP_ROOT}"/boot/EFI/BOOT/BOOTX64.EFI "${TMP_ROOT}"/usr/lib/systemd/boot/efi/systemd-bootx64.efi; then
   # let pacman update the bootloader
   mkdir -p "${TMP_ROOT}"/etc/pacman.d/hooks
   cat > "${TMP_ROOT}"/etc/pacman.d/hooks/100-systemd-boot.hook <<END
@@ -759,7 +759,7 @@ fi
 set +o xtrace
 set +o verbose
 echo 'Done!'
-echo 'You can now boot into the new system with'
+echo 'You can now boot into the new system with (change the network device in the commands below if needed)'
 echo 'sudo systemd-nspawn --network-macvlan=eno1 --network-veth --boot --image '"${SPAWN_TARGET}"
 echo 'or you can can "chroot" into it with'
 echo 'sudo systemd-nspawn --network-macvlan=eno1 --network-veth --image '"${SPAWN_TARGET}"
