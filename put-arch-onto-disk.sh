@@ -758,8 +758,11 @@ fi
 
 set +o xtrace
 set +o verbose
-echo 'Done! You could explore by booting into the new system with'
-echo 'systemd-nspawn --network-macvlan=eno1 --network-veth --boot --image '"${SPAWN_TARGET}"
+echo 'Done!'
+echo 'You can now boot into the new system with'
+echo 'sudo systemd-nspawn --network-macvlan=eno1 --network-veth --boot --image '"${SPAWN_TARGET}"
+echo 'or you can can "chroot" into it with'
+echo 'sudo systemd-nspawn --network-macvlan=eno1 --network-veth --image '"${SPAWN_TARGET}"
 echo 'You might want to inspect the journal to see how the setup went'
 echo 'The presence/absence of the files'
 echo '/var/tmp/phase_two_setup_incomplete'
@@ -768,4 +771,3 @@ echo '/var/tmp/phase_two_setup_incomplete'
 echo '/root/setup.sh'
 echo '/root/phase_two.sh'
 echo 'might also give you hints about how things went.'
-echo 'Leaving out "--boot" from the above command will drop you directly into a root shell.'
