@@ -200,7 +200,7 @@ else # non-preexisting
     sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:swap "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
   fi
   #sgdisk -N 0 -t 0:8300 -c 0:${ROOT_FS_TYPE}Root "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-  sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8304 -c ${NEXT_PARTITION}:"Linux ${ROOT_FS_TYPE} data parition" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+  sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8304 -c ${NEXT_PARTITION}:"Arch Linux root" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 
   # make hybrid/protective MBR
   #sgdisk -h "1 2" "${TARGET_DEV}"  # this breaks rpi3
@@ -400,9 +400,14 @@ else
   pacman-key --populate archlinux
   reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
   
-  # boot with systemd-boot
+  # setup boot with systemd-boot
   if test "${PORTABLE}" = "false"; then
-    bootctl --graceful install
+    if test -d /sys/firmware/efi/efivars; then
+      bootctl --graceful install
+    else
+      echo "Can't find UEFI variables and so we won't try to mod them for systemd-boot install"
+      bootctl --no-variables --graceful install
+    fi
   else
     bootctl --no-variables --graceful install
   fi
@@ -660,13 +665,10 @@ fi # add admin
 rm -f /var/tmp/phase_two_setup_incomplete
 EOF
 
-if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
-then
-  :
-else
+if cmp --silent -- "${TMP_ROOT}"/boot/EFI/boot/bootx64.efi "${TMP_ROOT}"/usr/lib/systemd/boot/efi/systemd-bootx64.efi; then
   # let pacman update the bootloader
   mkdir -p "${TMP_ROOT}"/etc/pacman.d/hooks
-  cat > "${TMP_ROOT}/etc/pacman.d/hooks/100-systemd-boot.hook" <<END
+  cat > "${TMP_ROOT}"/etc/pacman.d/hooks/100-systemd-boot.hook <<END
 [Trigger]
 Type = Package
 Operation = Upgrade
@@ -677,11 +679,32 @@ Description = Updating systemd-boot
 When = PostTransaction
 Exec = /usr/bin/bootctl update
 END
+
   mkdir -p "${TMP_ROOT}"/boot/loader/entries
-  cp /usr/share/systemd/bootctl/arch.conf "${TMP_ROOT}"/boot/loader/entries
-  sed "s,root=PARTUUID=XXXX,root=PARTUUID=$(blkid -s PARTUUID -o value ${ROOT_DEVICE})," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
-  sed "s,rootfstype=XXXX,rootfstype=${ROOT_FS_TYPE}," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
-  sed "s,initrd,initrd  /intel-ucode.img\ninitrd  /amd-ucode.img\ninitrd," -i "${TMP_ROOT}"/boot/loader/entries/arch.conf
+  cat >"${TMP_ROOT}"/boot/loader/loader.conf <<END
+default arch.conf
+timeout 4
+console-mode keep
+editor yes
+END
+
+  cat >"${TMP_ROOT}"/boot/loader/entries/arch.conf <<END
+title   Arch Linux
+linux   /vmlinuz-linux
+initrd  /amd-ucode.img
+initrd  /intel-ucode.img
+initrd  /initramfs-linux.img
+options root="PARTLABEL=Arch Linux root" rootfstype=${ROOT_FS_TYPE} rw
+END
+
+  cat >"${TMP_ROOT}"/boot/loader/entries/arch.conf <<END
+title   Arch Linux (fallback initramfs)
+linux   /vmlinuz-linux
+initrd  /amd-ucode.img
+initrd  /intel-ucode.img
+initrd  /initramfs-linux-fallback.img
+options root="PARTLABEL=Arch Linux root" rootfstype=${ROOT_FS_TYPE} rw
+END
 fi
 
 # this lets localctl work in the container...
