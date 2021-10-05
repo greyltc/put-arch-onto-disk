@@ -440,7 +440,7 @@ linux   /vmlinuz-linux
 initrd  /amd-ucode.img
 initrd  /intel-ucode.img
 initrd  /initramfs-linux.img
-options root="PARTLABEL=Arch Linux root GPT" rootfstype=${ROOT_FS_TYPE} rw
+options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
 END
 
   cat >/boot/loader/entries/arch-fallback.conf <<END
@@ -449,7 +449,7 @@ linux   /vmlinuz-linux
 initrd  /amd-ucode.img
 initrd  /intel-ucode.img
 initrd  /initramfs-linux-fallback.img
-options root="PARTLABEL=Arch Linux root GPT" rootfstype=${ROOT_FS_TYPE} rw
+options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
 END
 fi
 
