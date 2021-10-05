@@ -443,7 +443,7 @@ initrd  /initramfs-linux.img
 options root="PARTLABEL=Arch Linux root GPT" rootfstype=${ROOT_FS_TYPE} rw
 END
 
-  cat >/boot/loader/entries/arch.conf <<END
+  cat >/boot/loader/entries/arch-fallback.conf <<END
 title   Arch Linux (fallback initramfs)
 linux   /vmlinuz-linux
 initrd  /amd-ucode.img
