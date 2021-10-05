@@ -5,7 +5,7 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
 - The default login/password is `admin/admin`
 
 ## Features
- - Multi architecture support (tested mostly with`x86_64` and `aarch64`)
+ - Multi architecture support (tested mostly with `x86_64` and `aarch64`)
  - LUKS whole partition encryption support
  - Create a disk image (suitable for dding later) or install directly to target disk
  - Multi root file system support (tested mostly with `btrfs` and `f2fs`)
