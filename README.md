@@ -5,16 +5,15 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
 - The default login/password is `admin/admin`
 
 ## Features
- - Installations are bootable on both BIOS and UEFI systems
+ - Multi architecture support (tested mostly with`x86_64` and `aarch64`)
  - LUKS whole partition encryption support
  - Create a disk image (suitable for dding later) or install directly to target disk
- - Optimized for removable flash storage (choose `f2fs` as root file system type)
- - Optimized for HDD and SSD targets (choose `btrfs` as root file system type)
+ - Multi root file system support (tested mostly with `btrfs` and `f2fs`)
  - Installations have persistant storage
- - Installations have (optional) AUR support (in the form of yay)
+ - Installations have (optional) AUR support (in the form of paru)
  - Installtions are up-to-date as of the minute you run the script
  - Can install into disks with pre-existing operating systems (like windows) for multi-booting
- - Easily set many installtion parameters programatically for an one-shot, no-further-setup-required Arch install:
+ - Easily set many installtion parameters programatically for an one-shot, no-further-setup-required Arch install
 
 ## Variables
 Look in the script for variables you can set and their defaults.
