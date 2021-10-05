@@ -411,6 +411,46 @@ else
   else
     bootctl --no-variables --graceful install
   fi
+
+  # let pacman update the bootloader
+  mkdir -p /etc/pacman.d/hooks
+  cat > /etc/pacman.d/hooks/100-systemd-boot.hook <<END
+[Trigger]
+Type = Package
+Operation = Upgrade
+Target = systemd
+
+[Action]
+Description = Updating systemd-boot
+When = PostTransaction
+Exec = /usr/bin/bootctl update
+END
+
+  mkdir -p /boot/loader/entries
+  cat >/boot/loader/loader.conf <<END
+default arch.conf
+timeout 4
+console-mode keep
+editor yes
+END
+
+  cat >/boot/loader/entries/arch.conf <<END
+title   Arch Linux
+linux   /vmlinuz-linux
+initrd  /amd-ucode.img
+initrd  /intel-ucode.img
+initrd  /initramfs-linux.img
+options root="PARTLABEL=Arch Linux root GPT" rootfstype=${ROOT_FS_TYPE} rw
+END
+
+  cat >/boot/loader/entries/arch.conf <<END
+title   Arch Linux (fallback initramfs)
+linux   /vmlinuz-linux
+initrd  /amd-ucode.img
+initrd  /intel-ucode.img
+initrd  /initramfs-linux-fallback.img
+options root="PARTLABEL=Arch Linux root GPT" rootfstype=${ROOT_FS_TYPE} rw
+END
 fi
 
 # make pacman color
@@ -664,48 +704,6 @@ then
 fi # add admin
 rm -f /var/tmp/phase_two_setup_incomplete
 EOF
-
-if cmp --silent -- "${TMP_ROOT}"/boot/EFI/BOOT/BOOTX64.EFI "${TMP_ROOT}"/usr/lib/systemd/boot/efi/systemd-bootx64.efi; then
-  # let pacman update the bootloader
-  mkdir -p "${TMP_ROOT}"/etc/pacman.d/hooks
-  cat > "${TMP_ROOT}"/etc/pacman.d/hooks/100-systemd-boot.hook <<END
-[Trigger]
-Type = Package
-Operation = Upgrade
-Target = systemd
-
-[Action]
-Description = Updating systemd-boot
-When = PostTransaction
-Exec = /usr/bin/bootctl update
-END
-
-  mkdir -p "${TMP_ROOT}"/boot/loader/entries
-  cat >"${TMP_ROOT}"/boot/loader/loader.conf <<END
-default arch.conf
-timeout 4
-console-mode keep
-editor yes
-END
-
-  cat >"${TMP_ROOT}"/boot/loader/entries/arch.conf <<END
-title   Arch Linux
-linux   /vmlinuz-linux
-initrd  /amd-ucode.img
-initrd  /intel-ucode.img
-initrd  /initramfs-linux.img
-options root="PARTLABEL=Arch Linux root GPT" rootfstype=${ROOT_FS_TYPE} rw
-END
-
-  cat >"${TMP_ROOT}"/boot/loader/entries/arch.conf <<END
-title   Arch Linux (fallback initramfs)
-linux   /vmlinuz-linux
-initrd  /amd-ucode.img
-initrd  /intel-ucode.img
-initrd  /initramfs-linux-fallback.img
-options root="PARTLABEL=Arch Linux root GPT" rootfstype=${ROOT_FS_TYPE} rw
-END
-fi
 
 # this lets localctl work in the container...
 sed 's,PrivateNetwork=yes,#PrivateNetwork=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-localed.service
