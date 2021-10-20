@@ -15,9 +15,6 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
  - Can install into disks with pre-existing operating systems (like windows) for multi-booting
  - Easily set many installtion parameters programatically for an one-shot, no-further-setup-required Arch install
 
-## Variables
-Look in the script for variables you can set and their defaults.
-
 ## Requirements and notes
 1. This script must be run from a x86_64 Arch Linux environment
 1. You must have internet access when running this script (it needs to download the Arch packages).
@@ -26,17 +23,17 @@ Look in the script for variables you can set and their defaults.
 1. The first boot of the installed system does some setup tasks automatically. You should have internet for that.
 
 ## Usage
-You can run the script remotely like this:
+This one line will fetch and run the script:
 ```
 S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
 ```
-Or with a local copy like this:
+Or if you clone the repo you can run it from a local copy like this:
 ```
 sudo -E ./put-arch-onto-disk.sh |& tee archInstall.log
 ```
-prefix new definitions for any variables you'd like to override.  
+you'll need to prefix new definitions for any variables you'd like to override.  
 The [recipes](README.md#recipes) section has a bunch of examples of this.  
-[Here are the variables](README.md#variables) you can override to tune your Arch install.
+Look in the script for variables you can set and their defaults.
 
 ## Recipes
 Here are some fun combos of environment variables to use when running the script.
