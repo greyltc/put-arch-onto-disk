@@ -470,6 +470,11 @@ fi
 if pacman -Q networkmanager > /dev/null 2>/dev/null; then
   echo "Enabling NetworkManager service"
   systemctl enable NetworkManager.service
+  cat > /etc/NetworkManager/conf.d/do_mdns.conf  << END
+[connection]
+connection.mdns=yes
+END
+  
 else
   echo "Setting up systemd-networkd service"
 
@@ -477,9 +482,13 @@ else
 [Match]
 Name=*
 
+[Link]
+Multicast=true
+
 [Network]
 DHCP=yes
 IPv6AcceptRA=yes
+MulticastDNS=yes
 
 [DHCPv4]
 UseDomains=yes
