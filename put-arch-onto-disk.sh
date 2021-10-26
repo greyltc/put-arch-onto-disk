@@ -466,7 +466,7 @@ if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable sshd.service
 fi
 
-# setup fire wall but don't turn it on just yet
+# setup firewall but don't turn it on just yet
 if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable ufw.service
   ufw default deny
