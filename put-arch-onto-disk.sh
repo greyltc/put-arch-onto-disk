@@ -466,13 +466,23 @@ if pacman -Q openssh > /dev/null 2>/dev/null; then
   systemctl enable sshd.service
 fi
 
+# setup fire wall but don't turn it on just yet
+if pacman -Q openssh > /dev/null 2>/dev/null; then
+  systemctl enable ufw.service
+  ufw default deny
+  ufw allow 5353/udp comment "allow mDNS"
+  ufw allow 5355 comment "allow LLMNR"
+  # ufw enable
+fi
+
 # if networkmanager is installed, enable it, otherwise let systemd things manage the network
 if pacman -Q networkmanager > /dev/null 2>/dev/null; then
   echo "Enabling NetworkManager service"
   systemctl enable NetworkManager.service
-  cat > /etc/NetworkManager/conf.d/do_mdns.conf  << END
+  cat > /etc/NetworkManager/conf.d/fancy_resolvers.conf  << END
 [connection]
 connection.mdns=yes
+connection.llmnr=yes
 END
   
 else
@@ -489,6 +499,7 @@ Multicast=true
 DHCP=yes
 IPv6AcceptRA=yes
 MulticastDNS=yes
+LLMNR=yes
 
 [DHCPv4]
 UseDomains=yes
