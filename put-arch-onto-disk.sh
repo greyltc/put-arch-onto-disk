@@ -461,18 +461,19 @@ if pacman -Q cpupower > /dev/null 2>/dev/null; then
   systemctl enable cpupower.service
 fi
 
-# if openssh is installed, enable the service
-if pacman -Q openssh > /dev/null 2>/dev/null; then
-  systemctl enable sshd.service
-fi
-
 # setup firewall but don't turn it on just yet
-if pacman -Q openssh > /dev/null 2>/dev/null; then
+if pacman -Q ufw > /dev/null 2>/dev/null; then
   systemctl enable ufw.service
   ufw default deny
   ufw allow 5353/udp comment "allow mDNS"
   ufw allow 5355 comment "allow LLMNR"
   # ufw enable
+fi
+
+# if openssh is installed, enable the service
+if pacman -Q openssh > /dev/null 2>/dev/null; then
+  systemctl enable sshd.service
+  ufw limit ssh comment "limit ssh"
 fi
 
 # if networkmanager is installed, enable it, otherwise let systemd things manage the network
