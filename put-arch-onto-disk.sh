@@ -118,7 +118,7 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools"
+DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools polkit"
 
 # if this is a pi then let's make sure we have the packages listed here
 if contains "${PACKAGE_LIST}" "raspberry"
