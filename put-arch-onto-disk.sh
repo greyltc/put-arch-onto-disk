@@ -47,7 +47,8 @@ shopt -s extglob
 : ${AUTOLOGIN_ADMIN='false'}
 
 # AUR options
-: ${AUR_HELPER='paru'}  # use empty string for no aur support
+: ${AUR_HELPER=''}
+#: ${AUR_HELPER='paru'}  # use empty string for no aur support
 : ${AUR_PACKAGE_LIST=''}
 
 : ${USE_TESTING='false'}
