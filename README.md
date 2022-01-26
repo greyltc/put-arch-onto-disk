@@ -60,7 +60,7 @@ PACKAGE_LIST="linux-raspberrypi4 linux-raspberrypi4-headers firmware-raspberrypi
 ```
 # where "/dev/sdX" is your flash drive
 
-TARGET=/dev/sdx \
+TARGET=/dev/sdX \
 ROOT_FS_TYPE=f2fs \
 PACKAGE_LIST="vim" \
 ```
