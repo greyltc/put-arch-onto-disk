@@ -382,9 +382,11 @@ localectl set-keymap --no-convert ${KEYMAP}
 
 # setup GnuPG
 install -m700 -d /etc/skel/.gnupg
-echo "keyserver keyserver.ubuntu.com" > /tmp/gpg.conf
+touch /tmp/gpg.conf
+echo "keyserver keyserver.ubuntu.com" >> /tmp/gpg.conf
 echo "keyserver-options auto-key-retrieve" >> /tmp/gpg.conf
-#echo "hkp-cacert /usr/share/gnupg/sks-keyservers.netCA.pem" > /tmp/dirmngr.conf
+touch /tmp/dirmngr.conf
+#echo "hkp-cacert /usr/share/gnupg/sks-keyservers.netCA.pem" >> /tmp/dirmngr.conf
 install -m600 -Dt /etc/skel/.gnupg/ /tmp/gpg.conf
 install -m600 -Dt /etc/skel/.gnupg/ /tmp/dirmngr.conf
 rm /tmp/gpg.conf
