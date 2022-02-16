@@ -424,9 +424,9 @@ Operation = Upgrade
 Target = systemd
 
 [Action]
-Description = Updating systemd-boot
+Description = Gracefully upgrading systemd-boot...
 When = PostTransaction
-Exec = /usr/bin/bootctl update
+Exec = /usr/bin/systemctl restart systemd-boot-update.service
 END
 
   mkdir -p /boot/loader/entries
@@ -437,7 +437,10 @@ console-mode keep
 editor yes
 END
 
-  cat >/boot/loader/entries/arch.conf <<END
+  if pacman -Q linux > /dev/null 2>/dev/null
+  then
+    sed --in-place 's,^default.*,default arch.conf,g' /boot/loader/loader.conf
+    cat >/boot/loader/entries/arch.conf <<END
 title   Arch Linux
 linux   /vmlinuz-linux
 initrd  /amd-ucode.img
@@ -446,7 +449,7 @@ initrd  /initramfs-linux.img
 options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
 END
 
-  cat >/boot/loader/entries/arch-fallback.conf <<END
+    cat >/boot/loader/entries/arch-fallback.conf <<END
 title   Arch Linux (fallback initramfs)
 linux   /vmlinuz-linux
 initrd  /amd-ucode.img
@@ -454,6 +457,29 @@ initrd  /intel-ucode.img
 initrd  /initramfs-linux-fallback.img
 options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
 END
+  fi
+
+  if pacman -Q linux-lts > /dev/null 2>/dev/null
+  then
+    sed --in-place 's,^default.*,default arch-lts.conf,g' /boot/loader/loader.conf
+    cat >/boot/loader/entries/arch-lts.conf <<END
+title   Arch Linux LTS
+linux   /vmlinuz-linux-lts
+initrd  /amd-ucode.img
+initrd  /intel-ucode.img
+initrd  /initramfs-linux-lts.img
+options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
+END
+
+    cat >/boot/loader/entries/arch-fallback.conf <<END
+title   Arch Linux LTS (fallback initramfs)
+linux   /vmlinuz-linux-lts
+initrd  /amd-ucode.img
+initrd  /intel-ucode.img
+initrd  /initramfs-linux-lts-fallback.img
+options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
+END
+  fi
 fi
 
 # make pacman color
