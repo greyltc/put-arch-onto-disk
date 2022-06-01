@@ -121,6 +121,11 @@ fi
 # here are a baseline set of packages for the new install
 DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools polkit"
 
+if test "${ROOT_FS_TYPE}" = "f2fs"
+then
+  DEFAULT_PACKAGES="${DEFAULT_PACKAGES} fscrypt"
+fi
+
 # if this is a pi then let's make sure we have the packages listed here
 if contains "${PACKAGE_LIST}" "raspberry"
 then
@@ -344,6 +349,11 @@ touch /var/tmp/phase_two_setup_incomplete
 # ONLY FOR TESTING:
 #rm /usr/share/factory/etc/securetty
 #rm /etc/securetty
+
+if test "${ROOT_FS_TYPE}" = "f2fs"
+then
+  fscrypt setup --force
+fi
 
 # change password for root
 if test -z "$ROOT_PASSWORD"
