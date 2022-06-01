@@ -448,7 +448,7 @@ console-mode keep
 editor yes
 END
 
-  cat > /etc/pacman.d/hooks/99-secureboot.hook <<'EOF'
+  cat > /etc/pacman.d/hooks/99-secureboot.hook <<"END"
 [Trigger]
 Operation = Install
 Operation = Upgrade
@@ -459,11 +459,11 @@ Target = systemd
 [Action]
 Description = Signing Kernel for SecureBoot
 When = PostTransaction
-Exec = /usr/bin/find /boot -type f ( -name vmlinuz-* -o -name systemd* ) -exec /usr/bin/sh -c 'if ! /usr/bin/sbverify --list {} 2>/dev/null | /usr/bin/grep -q "signature certificates"; then /usr/bin/sbsign --key db.key --cert db.crt --output "$1" "$1"; fi' _ {} ;
+Exec = /usr/bin/find /boot -type f ( -name vmlinuz-* -o -name systemd* ) -exec /usr/bin/sh -c 'if ! /usr/bin/sbverify --list {} 2>/dev/null | /usr/bin/grep -q "signature certificates"; then /usr/bin/sbsign --key db.key --cert db.crt --output "\$1" "\$1"; fi' _ {} ;
 Depends = sbsigntools
 Depends = findutils
 Depends = grep
-EOF
+END
 
   if pacman -Q linux > /dev/null 2>/dev/null
   then
@@ -850,7 +850,7 @@ echo '/var/tmp/phase_two_setup_incomplete'
 echo '/root/setup.sh'
 echo '/root/phase_two.sh'
 echo 'might also give you hints about how things went.'
-cat << EOF
+cat << "EOF"
 If things didn't work out, here are some recovery stratiges:
 1) use systemd-nspawn to chroot as above
 2) set a password for root with: `passwd root`
