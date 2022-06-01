@@ -352,7 +352,8 @@ touch /var/tmp/phase_two_setup_incomplete
 
 if test "${ROOT_FS_TYPE}" = "f2fs"
 then
-  fscrypt setup --force
+  #fscrypt setup --force
+  echo "not setting up fscrypt"
 fi
 
 # change password for root
@@ -708,8 +709,10 @@ then
     elif test "${ROOT_FS_TYPE}" = "f2fs"
     then
       #TODO: fscrypt is broken today with "Failed to install master key in keyring: Operation not permitted"
-      STORAGE=fscrypt
-      #STORAGE=directory
+      # see https://github.com/systemd/systemd/issues/18280
+      # this first breaks the container setup, then it breaks again on bare metal because the keyring isn't set up
+      #STORAGE=fscrypt
+      STORAGE=directory
     fi
 
     if ! userdbctl user ${ADMIN_USER_NAME} > /dev/null 2>/dev/null
