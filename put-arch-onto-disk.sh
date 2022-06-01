@@ -820,3 +820,11 @@ echo '/var/tmp/phase_two_setup_incomplete'
 echo '/root/setup.sh'
 echo '/root/phase_two.sh'
 echo 'might also give you hints about how things went.'
+cat << EOF
+If things didn't work out, here are some recovery stratiges:
+1) use systemd-nspawn to chroot as above
+2) set a password for root with: `passwd root`
+3) exit the chroot
+4) boot into rescue mode with systemd-nspawn like this:
+`sudo systemd-nspawn --network-macvlan=eno1 --network-veth --boot --image "${SPAWN_TARGET}" -- --unit rescue.target`
+EOF
