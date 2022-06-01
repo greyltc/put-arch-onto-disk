@@ -263,9 +263,9 @@ then
   btrfs subvolume set-default ${TMP_ROOT}/root
   #btrfs subvolume create ${TMP_ROOT}/home
   umount ${TMP_ROOT}
-  mount ${ROOT_DEVICE} -o subvol=root,compress=zstd ${TMP_ROOT}
+  mount ${ROOT_DEVICE} -o subvol=root,compress=zstd:2 ${TMP_ROOT}
   #mkdir ${TMP_ROOT}/home
-  #mount ${ROOT_DEVICE} -o subvol=home,compress=zstd ${TMP_ROOT}/home
+  #mount ${ROOT_DEVICE} -o subvol=home,compress=zstd:2 ${TMP_ROOT}/home
 fi
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
@@ -712,6 +712,7 @@ then
     cp -a /root/admin_sshkeys/* /home/${ADMIN_USER_NAME}/.ssh
     chown ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
     chgrp ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
+    homectl update ${ADMIN_USER_NAME} --ssh-authorized-keys=@/home/${ADMIN_USER_NAME}/.ssh/authorized_keys
     homectl deactivate ${ADMIN_USER_NAME}  || true
   fi  # copy in ssh keys
 
