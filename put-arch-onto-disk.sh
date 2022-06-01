@@ -448,7 +448,7 @@ console-mode keep
 editor yes
 END
 
-  cat > /etc/pacman.d/hooks/99-secureboot.hook <<END
+  cat > /etc/pacman.d/hooks/99-secureboot.hook <<'EOF'
 [Trigger]
 Operation = Install
 Operation = Upgrade
@@ -463,7 +463,7 @@ Exec = /usr/bin/find /boot -type f ( -name vmlinuz-* -o -name systemd* ) -exec /
 Depends = sbsigntools
 Depends = findutils
 Depends = grep
-END
+eof
 
   if pacman -Q linux > /dev/null 2>/dev/null
   then
