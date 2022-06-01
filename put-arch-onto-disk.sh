@@ -115,7 +115,7 @@ then
   fi
 else
   # alarm does not like/need these
-  ARCH_SPECIFIC_PKGS="linux grub efibootmgr reflector os-prober amd-ucode intel-ucode"
+  ARCH_SPECIFIC_PKGS="linux grub efibootmgr reflector os-prober amd-ucode intel-ucode sbsigntools"
 fi
 
 # here are a baseline set of packages for the new install
