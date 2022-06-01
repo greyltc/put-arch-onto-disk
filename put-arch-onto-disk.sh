@@ -448,22 +448,22 @@ console-mode keep
 editor yes
 END
 
-  cat > /etc/pacman.d/hooks/99-secureboot.hook <<"END"
-[Trigger]
-Operation = Install
-Operation = Upgrade
-Type = Package
-Target = linux
-Target = systemd
+  cat <<- "END" > /etc/pacman.d/hooks/99-secureboot.hook
+	[Trigger]
+	Operation = Install
+	Operation = Upgrade
+	Type = Package
+	Target = linux
+	Target = systemd
 
-[Action]
-Description = Signing Kernel for SecureBoot
-When = PostTransaction
-Exec = /usr/bin/find /boot -type f ( -name vmlinuz-* -o -name systemd* ) -exec /usr/bin/sh -c 'if ! /usr/bin/sbverify --list {} 2>/dev/null | /usr/bin/grep -q "signature certificates"; then /usr/bin/sbsign --key db.key --cert db.crt --output "\$1" "\$1"; fi' _ {} ;
-Depends = sbsigntools
-Depends = findutils
-Depends = grep
-END
+	[Action]
+	Description = Signing Kernel for SecureBoot
+	When = PostTransaction
+	Exec = /usr/bin/find /boot -type f ( -name vmlinuz-* -o -name systemd* ) -exec /usr/bin/sh -c 'if ! /usr/bin/sbverify --list {} 2>/dev/null | /usr/bin/grep -q "signature certificates"; then /usr/bin/sbsign --key db.key --cert db.crt --output "$1" "$1"; fi' _ {} ;
+	Depends = sbsigntools
+	Depends = findutils
+	Depends = grep
+	END
 
   if pacman -Q linux > /dev/null 2>/dev/null
   then
