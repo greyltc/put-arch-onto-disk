@@ -742,7 +742,7 @@ then
     cp -a /root/admin_sshkeys/* /home/${ADMIN_USER_NAME}/.ssh
     chown ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
     chgrp ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
-    homectl update ${ADMIN_USER_NAME} --ssh-authorized-keys=@/home/${ADMIN_USER_NAME}/.ssh/authorized_keys
+    homectl update ${ADMIN_USER_NAME} --ssh-authorized-keys=@/home/${ADMIN_USER_NAME}/.ssh/authorized_keys || true
     homectl deactivate ${ADMIN_USER_NAME}  || true
   fi  # copy in ssh keys
 
