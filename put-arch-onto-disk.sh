@@ -511,7 +511,10 @@ END
 fi
 
 # make pacman color
-sed -i 's/#Color/Color/g' /etc/pacman.conf
+sed -i 's/^#Color/Color/g' /etc/pacman.conf
+
+# enable parallel downloads
+sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
 
 # if cpupower is installed, enable the service
 if pacman -Q cpupower > /dev/null 2>/dev/null; then
