@@ -250,19 +250,26 @@ fi
 if test "${ROOT_FS_TYPE}" = "f2fs"
 then
   ELL=l
-  ENCR="-O encrypt"
+  FEATURES="-O extra_attr,encrypt,inode_checksum,sb_checksum,compression"
 else
   ELL=L
-  ENCR=""
+  FEATURES=""
 fi
-mkfs.${ROOT_FS_TYPE} ${ENCR} -${ELL} "ROOT${ROOT_FS_TYPE^^}" ${ROOT_DEVICE}
+mkfs.${ROOT_FS_TYPE} ${FEATURES} -${ELL} "ROOT${ROOT_FS_TYPE^^}" ${ROOT_DEVICE}
 
 echo "Current partition table:"
 sgdisk -p "${TARGET_DEV}"  # print the current partition table
 
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
-mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
+
+if test "${ROOT_FS_TYPE}" = "f2fs"
+then
+  mount -t f2fs -o compress_algorithm=zstd:6,compress_chksum,atgc,gc_merge,lazytime ${ROOT_DEVICE} ${TMP_ROOT}
+else
+  mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
+fi
+
 if test "${ROOT_FS_TYPE}" = "btrfs"
 then
   btrfs subvolume create ${TMP_ROOT}/root
