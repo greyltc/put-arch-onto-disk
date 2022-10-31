@@ -23,7 +23,7 @@ This repo contains a script which creates a ready-to-use Arch Linux installation
 1. The first boot of the installed system does some setup tasks automatically. You should have internet for that.
 
 ## Usage
-This one line will fetch and run the script:
+This "one line" will fetch and run the script:
 ```
 S=put-arch-onto-disk sudo -E bash -c 'curl -fsSL -o /tmp/$S.sh https://raw.githubusercontent.com/greyltc/$S/master/$S.sh; bash /tmp/$S.sh; rm /tmp/$S.sh' |& tee archInstall.log
 ```
