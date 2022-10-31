@@ -133,7 +133,7 @@ then
 fi
 
 # install these packages on the host now. they're needed for the install process
-pacman -S --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts
+pacman -S --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts hdparm
 
 # flush writes to disks and re-probe partitions
 sync
@@ -147,6 +147,7 @@ then
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   for n in ${TARGET_DEV}* ; do umount $n || true; done
   IMG_NAME=""
+  hdparm -r0 ${TARGET_DEV}
 else  # installing to image file
   IMG_NAME="${TARGET}.raw"
   rm -f "${IMG_NAME}"
