@@ -482,7 +482,7 @@ linux   /vmlinuz-linux
 initrd  /amd-ucode.img
 initrd  /intel-ucode.img
 initrd  /initramfs-linux.img
-options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
+options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw libata.allow_tpm=1
 END
 
     cat >/boot/loader/entries/arch-fallback.conf <<END
