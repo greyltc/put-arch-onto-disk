@@ -665,6 +665,21 @@ ExecStopPost=/usr/bin/sh -c 'rm -f /root/setup.sh; systemctl disable container-b
 END
 ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
 
+cat > "${TMP_ROOT}/root/recovery_notes.txt" <<EOF
+1) mount root in /mnt
+2) mount home in /mnt/home
+3) mount boot in /mnt/boot
+4) ncdu -x /mnt  # to make room in case the FS is full 
+5) pactree -u base | pacman --noscriptlet --root /mnt -S # reintall base with deps
+6) arch-chroot /mnt
+7) pacman -Qqn | pacman -S -
+8) paccheck --md5sum --quiet. # check integrity
+9) exit # exit chroot
+10) umount /mnt/boot
+11) umount /mnt/home
+12) umount /mnt
+EOF
+
 cat > "${TMP_ROOT}/root/phase_two.sh" <<EOF
 #!/usr/bin/env bash
 set -o pipefail
