@@ -675,7 +675,8 @@ cat > "${TMP_ROOT}/root/recovery_notes.txt" <<EOF
 6) arch-chroot /mnt
 7a) pacman -Qkknq | awk '{print $1 | "sort"}' | uniq | pacman -S -  # reinstall what's broken
 7b) pacman -Qqn | pacman -S -  # reinstall it all
-8) paccheck --md5sum --quiet # check integrity
+8a) paccheck --md5sum --quiet  # check integrity
+8b) pacman -Qkkq  # check integreity v2
 9) exit # exit chroot
 10) umount --recursive /mnt
 EOF
