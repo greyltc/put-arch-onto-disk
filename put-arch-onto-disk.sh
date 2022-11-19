@@ -673,7 +673,7 @@ cat > "${TMP_ROOT}/root/recovery_notes.txt" <<EOF
 4b) ncdu -x /mnt  # to make room in case the FS is full 
 5) pacstrap /mnt $(pactree base -lu | pacman -Qq -)  # reintall base with deps
 6) arch-chroot /mnt
-7a) pacman -Qkq | awk '{print $1 | "sort"}' | uniq | pacman -S -  # reinstall what's broken
+7a) pacman -Qkknq | awk '{print $1 | "sort"}' | uniq | pacman -S -  # reinstall what's broken
 7b) pacman -Qqn | pacman -S -  # reinstall it all
 8) paccheck --md5sum --quiet # check integrity
 9) exit # exit chroot
