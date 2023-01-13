@@ -671,9 +671,9 @@ cat > "${TMP_ROOT}/root/recovery_notes.txt" <<EOF
 3) mount boot in /mnt/boot
 4a) ncdu -x /mnt/home  # to make room in case the FS is full
 4b) ncdu -x /mnt  # to make room in case the FS is full 
-5) pacstrap /mnt $(pactree base -lu | pacman -Qq -)  # reintall base with deps
+5) pacstrap /mnt \$(pactree base -lu | pacman -Qq -)  # reintall base with deps
 6) arch-chroot /mnt
-7a) pacman -Qkknq | awk '{print $1 | "sort"}' | uniq | pacman -S -  # reinstall what's broken
+7a) pacman -Qkknq | awk '{print \$1 | "sort"}' | uniq | pacman -S -  # reinstall what's broken
 7b) pacman -Qqn | pacman -S -  # reinstall it all
 8a) paccheck --md5sum --quiet  # check integrity
 8b) pacman -Qkkq  # check integreity v2
