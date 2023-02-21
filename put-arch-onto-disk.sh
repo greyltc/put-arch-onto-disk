@@ -187,6 +187,13 @@ else # non-preexisting
   sgdisk -Z ${TARGET_DEV}  || true # wipe the device partition table
   
   NEXT_PARTITION=1
+  if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
+  then
+    echo "No bios grub for arm"
+    BOOT_P_TYPE=0700
+  else
+    BOOT_P_TYPE=ef00
+  fi
   BOOT_P_SIZE_MB=300
   sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition GPT" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
   if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"
