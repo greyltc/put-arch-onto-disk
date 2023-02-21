@@ -788,7 +788,7 @@ then
       
       echo gsettings set org.gnome.settings-daemon.plugins.power power-button-action interactive >> /tmp/gset
       echo gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type nothing >> /tmp/gset
-      sudo -u ${AUR_HELPER} dbus-launch bash /tmp/gset
+      sudo -u ${ADMIN_USER_NAME} dbus-launch bash /tmp/gset
       rm /tmp/gset
   fi
 
