@@ -780,12 +780,10 @@ then
   # gnome shell config
   if pacman -Q gnome-shell > /dev/null 2>/dev/null; then
       if test "${KEYMAP}" = "uk"; then
-        export GNOME_KEYS=gb
+        echo gsettings set org.gnome.desktop.input-sources sources \"[\(\'xkb\',\'gb\'\)]\" > /tmp/gset
       else
-        export GNOME_KEYS="${KEYMAP}"
+        echo gsettings set org.gnome.desktop.input-sources sources \"[\(\'xkb\',\'${KEYMAP}\'\)]\" > /tmp/gset
       fi
-      echo gsettings set org.gnome.desktop.input-sources sources \"[\(\'xkb\',\'${GNOME_KEYS}\'\)]\" > /tmp/gset
-      unset GNOME_KEYS
       echo gsettings set org.gnome.settings-daemon.plugins.power power-button-action interactive >> /tmp/gset
       echo gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type nothing >> /tmp/gset
       sudo -u ${AUR_HELPER} dbus-launch bash /tmp/gset
