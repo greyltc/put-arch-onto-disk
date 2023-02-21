@@ -600,6 +600,9 @@ if pacman -Q lxdm > /dev/null 2>/dev/null; then
   fi
 fi
 
+# purge packagekit crap
+pacman -Rs gnome-software-packagekit-plugin gnome-software packagekit libpackagekit-glib || true
+
 # attempt phase two setup (expected to fail in alarm because https://github.com/systemd/systemd/issues/18643)
 if test -f /root/phase_two.sh
 then
