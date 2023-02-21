@@ -116,7 +116,7 @@ then
   fi
 else
   # alarm does not like/need these
-  ARCH_SPECIFIC_PKGS="linux ${UCODES} sbsigntools"
+  ARCH_SPECIFIC_PKGS="linux ${UCODES} sbsigntools reflector"
 fi
 
 # here are a baseline set of packages for the new install
