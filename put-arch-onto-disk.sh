@@ -390,13 +390,11 @@ timedatectl set-ntp true
 # do locale things
 sed -i "s,^#${LOCALE} ${CHARSET},${LOCALE} ${CHARSET},g" /etc/locale.gen
 locale-gen
-#echo "LANG=${LOCALE}" > /etc/locale.conf
 localectl set-locale LANG=${LOCALE}
 unset LANG
 set +o nounset
 source /etc/profile.d/locale.sh
 set -o nounset
-#echo "KEYMAP=${KEYMAP}" > /etc/vconsole.conf
 localectl set-keymap --no-convert ${KEYMAP}
 
 # setup GnuPG
