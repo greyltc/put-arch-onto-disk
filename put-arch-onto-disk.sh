@@ -116,7 +116,7 @@ then
   fi
 else
   # alarm does not like/need these
-  ARCH_SPECIFIC_PKGS="linux efibootmgr os-prober ${UCODES} sbsigntools"
+  ARCH_SPECIFIC_PKGS="linux ${UCODES} sbsigntools"
 fi
 
 # here are a baseline set of packages for the new install
@@ -134,7 +134,7 @@ then
 fi
 
 # install these packages on the host now. they're needed for the install process
-pacman -S --needed --noconfirm efibootmgr btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts hdparm
+pacman -S --needed --noconfirm btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts hdparm
 
 # flush writes to disks and re-probe partitions
 sync
@@ -187,14 +187,6 @@ else # non-preexisting
   sgdisk -Z ${TARGET_DEV}  || true # wipe the device partition table
   
   NEXT_PARTITION=1
-  if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
-  then
-    echo "No bios grub for arm"
-    BOOT_P_TYPE=0700
-  else
-    sgdisk -n 0:+0:+1MiB -t 0:ef02 -c 0:"Legacy BIOS GRUB partition GPT" "${TARGET_DEV}"; ((NEXT_PARTITION++))
-    BOOT_P_TYPE=ef00
-  fi
   BOOT_P_SIZE_MB=300
   sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition GPT" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
   if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"
