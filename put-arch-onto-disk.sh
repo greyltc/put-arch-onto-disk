@@ -38,6 +38,7 @@ shopt -s extglob
 : ${ROOT_PASSWORD=''}  # zero length root password string locks out root password
 : ${THIS_HOSTNAME='archthing'}
 : ${PORTABLE='true'}  # set false if you want the bootloader install to mod *this machine's* EFI vars
+: ${UCODES='amd-ucode intel-ucode'}  # install these microcodes
 
 # admin user options
 : ${ADMIN_USER_NAME='admin'}  # zero length string for no admin user
@@ -115,7 +116,7 @@ then
   fi
 else
   # alarm does not like/need these
-  ARCH_SPECIFIC_PKGS="linux grub efibootmgr reflector os-prober amd-ucode intel-ucode sbsigntools"
+  ARCH_SPECIFIC_PKGS="linux efibootmgr os-prober ${UCODES} sbsigntools"
 fi
 
 # here are a baseline set of packages for the new install
@@ -804,6 +805,16 @@ then
       sudo -u ${ADMIN_USER_NAME} -D~ bash -c "${AUR_HELPER//-bin} -Syu --removemake yes --needed --noconfirm --noprogressbar ${AUR_PACKAGE_LIST}"
       homectl deactivate ${ADMIN_USER_NAME} || true
     fi
+
+    # use rate-mirrors if we have it
+    if pacman -Q rate-mirrors > /dev/null 2>/dev/null; then
+      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}  || true
+      sudo -u ${ADMIN_USER_NAME} -D~ bash -c "rate-mirrors arch > /tmp/mirrorlist"
+      homectl deactivate ${ADMIN_USER_NAME} || true
+      sudo mv /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.old
+      sudo mv /tmp/mirrorlist /etc/pacman.d/mirrorlist
+    fi
+
     # take away passwordless sudo for pacman for admin
     rm -rf /etc/sudoers.d/allow_${ADMIN_USER_NAME}_to_pacman
   fi  # add AUR
