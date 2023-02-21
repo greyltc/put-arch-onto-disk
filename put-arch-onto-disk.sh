@@ -581,11 +581,11 @@ fi
 # if gdm was installed, let's do a few things
 if pacman -Q gdm > /dev/null 2>/dev/null; then
   systemctl enable gdm
-  #TODO: set keyboard layout for gnome
+  sudo -u gdm dbus-launch gsettings set org.gnome.settings-daemon.plugins.power sleep-interactive-ac-type nothing
   if [ ! -z "${ADMIN_USER_NAME}" ] && [ "${AUTOLOGIN_ADMIN}" = true ] ; then
     echo "# Enable automatic login for user" >> /etc/gdm/custom.conf
     echo "[daemon]" >> /etc/gdm/custom.conf
-    echo "AutomaticLogin=$ADMIN_USER_NAME" >> /etc/gdm/custom.conf
+    echo "AutomaticLogin=${ADMIN_USER_NAME}" >> /etc/gdm/custom.conf
     echo "AutomaticLoginEnable=True" >> /etc/gdm/custom.conf
   fi
 fi
@@ -763,6 +763,21 @@ then
     homectl update ${ADMIN_USER_NAME} --ssh-authorized-keys=@/home/${ADMIN_USER_NAME}/.ssh/authorized_keys || true
     homectl deactivate ${ADMIN_USER_NAME}  || true
   fi  # copy in ssh keys
+
+  # gnome shell config
+  if pacman -Q gnome-shell > /dev/null 2>/dev/null; then
+      if test "${KEYMAP}" = "uk"; then
+        export GNOME_KEYS=gb
+      else
+        export GNOME_KEYS="${KEYMAP}"
+      fi
+      echo gsettings set org.gnome.desktop.input-sources sources \"[\(\'xkb\',\'${GNOME_KEYS}\'\)]\" > /tmp/gset
+      unset GNOME_KEYS
+      echo gsettings set org.gnome.settings-daemon.plugins.power power-button-action interactive >> /tmp/gset
+      echo gsettings set org.gnome.settings-daemon.plugins.power sleep-interactive-ac-type nothing >> /tmp/gset
+      sudo -u ${AUR_HELPER} dbus-launch bash /tmp/gset
+      rm /tmp/gset
+  fi
 
   if test ! -z "${AUR_HELPER}"
   then
