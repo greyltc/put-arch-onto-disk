@@ -581,7 +581,7 @@ fi
 # if gdm was installed, let's do a few things
 if pacman -Q gdm > /dev/null 2>/dev/null; then
   systemctl enable gdm
-  sudo -u gdm dbus-launch gsettings set org.gnome.settings-daemon.plugins.power sleep-interactive-ac-type nothing
+  sudo -u gdm dbus-launch gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type nothing
   if [ ! -z "${ADMIN_USER_NAME}" ] && [ "${AUTOLOGIN_ADMIN}" = true ] ; then
     echo "# Enable automatic login for user" >> /etc/gdm/custom.conf
     echo "[daemon]" >> /etc/gdm/custom.conf
@@ -780,7 +780,7 @@ then
       echo gsettings set org.gnome.desktop.input-sources sources \"[\(\'xkb\',\'${GNOME_KEYS}\'\)]\" > /tmp/gset
       unset GNOME_KEYS
       echo gsettings set org.gnome.settings-daemon.plugins.power power-button-action interactive >> /tmp/gset
-      echo gsettings set org.gnome.settings-daemon.plugins.power sleep-interactive-ac-type nothing >> /tmp/gset
+      echo gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type nothing >> /tmp/gset
       sudo -u ${AUR_HELPER} dbus-launch bash /tmp/gset
       rm /tmp/gset
   fi
