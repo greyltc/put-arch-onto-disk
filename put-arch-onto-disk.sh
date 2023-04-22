@@ -397,6 +397,14 @@ source /etc/profile.d/locale.sh
 set -o nounset
 localectl set-keymap --no-convert ${KEYMAP}
 
+# set up bash history
+cat <<END >> /etc/skel/.bashrc
+export HISTSIZE=10000
+export HISTFILESIZE=20000
+shopt -s histappend
+export PROMPT_COMMAND='history -a'
+END
+
 # setup GnuPG
 install -m700 -d /etc/skel/.gnupg
 touch /tmp/gpg.conf
