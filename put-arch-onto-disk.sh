@@ -251,6 +251,10 @@ if test "${ROOT_FS_TYPE}" = "f2fs"
 then
   ELL=l
   FEATURES="-O extra_attr,encrypt,inode_checksum,sb_checksum,compression"
+elif test "${ROOT_FS_TYPE}" = "btrfs"
+then
+  ELL=L
+  FEATURES="--metadata dup"
 else
   ELL=L
   FEATURES=""
