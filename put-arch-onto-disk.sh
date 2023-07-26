@@ -31,8 +31,8 @@ shopt -s extglob
 : ${IMG_SIZE='4GiB'}
 
 # misc options
-: ${KEYMAP='uk'}  # print options here with `localectl list-keymaps`
-: ${TIME_ZONE='Europe/London'}
+: ${KEYMAP='us'}  # print options here with `localectl list-keymaps`
+: ${TIME_ZONE='America/Edmonton'}
 : ${LOCALE='en_US.UTF-8'}
 : ${CHARSET='UTF-8'}
 : ${ROOT_PASSWORD=''}  # zero length root password string locks out root password
@@ -120,7 +120,7 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools polkit"
+DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools polkit systemd-resolved"
 
 if test "${ROOT_FS_TYPE}" = "f2fs"
 then
@@ -554,6 +554,10 @@ if pacman -Q openssh > /dev/null 2>/dev/null; then
   ufw limit ssh comment "limit ssh"
 fi
 
+systemctl enable systemd-resolved
+#ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf  # breaks network inside container
+touch /link_resolv_conf #leave a marker so we can complete this setup later
+
 # if networkmanager is installed, enable it, otherwise let systemd things manage the network
 if pacman -Q networkmanager > /dev/null 2>/dev/null; then
   echo "Enabling NetworkManager service"
@@ -566,6 +570,7 @@ END
   
 else
   echo "Setting up systemd-networkd service"
+  pacman -Syu 
 
   cat > /etc/systemd/network/DHCPany.network << END
 [Match]
@@ -590,11 +595,7 @@ END
 
   #sed -i -e 's/hosts: files dns myhostname/hosts: files resolve myhostname/g' /etc/nsswitch.conf
 
-  #ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf  # breaks network inside container
-  touch /link_resolv_conf #leave a marker so we can complete this setup later
-
   systemctl enable systemd-networkd
-  systemctl enable systemd-resolved
 fi
 
 # if gdm was installed, let's do a few things
