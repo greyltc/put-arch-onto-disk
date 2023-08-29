@@ -21,6 +21,9 @@ shopt -s extglob
 : ${TARGET_ARCH='x86_64'}
 : ${PACKAGE_LIST=''}
 
+# local path(s) to package files to be installed
+: ${PACKAGE_FILES=''}
+
 # file system options
 : ${ROOT_FS_TYPE='btrfs'}
 : ${SWAP_SIZE_IS_RAM_SIZE='false'}
@@ -105,22 +108,16 @@ fi
 
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
 then
-  if pacman -Q qemu-user-static > /dev/null 2>/dev/null && pacman -Q binfmt-qemu-static > /dev/null 2>/dev/null 
-  then
-    ARCH_SPECIFIC_PKGS="archlinuxarm-keyring"
-  else
-    echo "Please install qemu-user-static (or the -bin version of that) and binfmt-qemu-static from the AUR"
-    echo "and then restart systemd-binfmt.service"
-    echo "so that we can chroot into the ARM install"
-    exit 1
-  fi
+  HOST_NEEDS="qemu-user-static-binfmt"
+  ARCH_SPECIFIC_PKGS="archlinuxarm-keyring"
 else
   # alarm does not like/need these
   ARCH_SPECIFIC_PKGS="linux ${UCODES} sbsigntools reflector"
+  HOST_NEEDS=""
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools polkit systemd-resolved"
+DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools polkit systemd-resolvconf "
 
 if test "${ROOT_FS_TYPE}" = "f2fs"
 then
@@ -134,7 +131,7 @@ then
 fi
 
 # install these packages on the host now. they're needed for the install process
-pacman -S --needed --noconfirm btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts hdparm
+pacman -S --needed --noconfirm btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts hdparm ${HOST_NEEDS} 
 
 # flush writes to disks and re-probe partitions
 sync
@@ -338,7 +335,11 @@ then
   sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /tmp/mirrorlist
 fi
 
-pacstrap -G -C /tmp/pacman.conf -M -G "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
+pacstrap -C /tmp/pacman.conf -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
+if test ! -z "${PACKAGE_FILES}"
+then
+  pacstrap -C /tmp/pacman.conf -U -G -M "${TMP_ROOT}" ${PACKAGE_FILES}
+fi
 
 if test ! -z "${ADMIN_SSH_AUTH_KEY}"
 then
@@ -572,7 +573,7 @@ else
   echo "Setting up systemd-networkd service"
   pacman -Syu 
 
-  cat > /etc/systemd/network/DHCPany.network << END
+  cat > /etc/systemd/network/20-DHCPany.network << END
 [Match]
 Name=*
 
@@ -662,6 +663,7 @@ then
   echo "dtparam=poe_fan_temp1=60000" >> /boot/config.txt
   echo "dtparam=poe_fan_temp2=70000" >> /boot/config.txt
   echo "dtparam=poe_fan_temp3=80000" >> /boot/config.txt
+  # echo "hdmi_safe=1" >> /boot/config.txt
 fi
 
 rm -f /var/tmp/phase_one_setup_failed
@@ -900,7 +902,7 @@ then
 else
   SPAWN_TARGET="${IMG_NAME}"
 fi
-systemd-nspawn --boot --image "${SPAWN_TARGET}"
+systemd-nspawn --boot --image "${SPAWN_TARGET}"  # as of systemd-253, this will fail unless https://github.com/systemd/systemd/pull/28954 is applied
 
 if test ! -z "${ADMIN_SSH_AUTH_KEY}"
 then
