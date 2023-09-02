@@ -35,7 +35,7 @@ shopt -s extglob
 
 # misc options
 : ${KEYMAP='us'}  # print options here with `localectl list-keymaps`
-: ${TIME_ZONE='America/Edmonton'}
+: ${TIME_ZONE='America/Edmonton'}  # timedatectl list-timezones
 : ${LOCALE='en_US.UTF-8'}
 : ${CHARSET='UTF-8'}
 : ${ROOT_PASSWORD=''}  # zero length root password string locks out root password
