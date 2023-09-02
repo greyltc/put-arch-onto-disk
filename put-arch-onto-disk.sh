@@ -298,6 +298,7 @@ EOF
 
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
 then
+  IS_ARM=1
   cat <<EOF >> /tmp/pacman.conf
 
 [alarm]
@@ -307,7 +308,32 @@ Include = /tmp/mirrorlist
 Include = /tmp/mirrorlist
 EOF
   sed '1s;^;Server = http://mirror.archlinuxarm.org/$arch/$repo\n;' -i /tmp/mirrorlist
+else
+  IS_ARM=""
+fi
 
+if test ! -z "${CUSTOM_MIRROR_URL}"; then
+	sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /tmp/mirrorlist
+fi
+
+pacstrap -C /tmp/pacman.conf -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
+if test ! -z "${COPYIT}"; then
+	mkdir -p /root/install_copied
+	cp -a ${COPYIT} /root/install_copied/.
+fi
+
+if test ! -z "${PACKAGE_FILES}"; then
+	pacstrap -C /tmp/pacman.conf -U -G -M "${TMP_ROOT}" ${PACKAGE_FILES}
+fi
+
+if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
+	echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
+fi
+
+genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
+sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
+
+if test ! -z "${IS_ARM}"; then
   cat <<'EOF' > "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
 #!/usr/bin/env bash
 
@@ -334,27 +360,6 @@ sudo reboot
 EOF
   chmod +x "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
 fi
-
-if test ! -z "${CUSTOM_MIRROR_URL}"; then
-	sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /tmp/mirrorlist
-fi
-
-pacstrap -C /tmp/pacman.conf -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
-if test ! -z "${COPYIT}"; then
-	mkdir -p /root/install_copied
-	cp -a ${COPYIT} /root/install_copied/.
-fi
-
-if test ! -z "${PACKAGE_FILES}"; then
-	pacstrap -C /tmp/pacman.conf -U -G -M "${TMP_ROOT}" ${PACKAGE_FILES}
-fi
-
-if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
-	echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
-fi
-
-genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
-sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
 
 cat > "${TMP_ROOT}/root/setup.sh" <<EOF
 #!/usr/bin/env bash
