@@ -42,6 +42,7 @@ shopt -s extglob
 : ${THIS_HOSTNAME='archthing'}
 : ${PORTABLE='true'}  # set false if you want the bootloader install to mod *this machine's* EFI vars
 : ${UCODES='amd-ucode intel-ucode'}  # install these microcodes
+: ${COPYIT=''}  # cp anything specified here to /root/install_copied
 
 # admin user options
 : ${ADMIN_USER_NAME='admin'}  # zero length string for no admin user
@@ -74,60 +75,53 @@ shopt -s extglob
 
 ## END VARIABLE DEFINITION SECTION ##
 
-if test $EUID -ne 0
-then
-  echo "Please run with root permissions"
-  exit 1
+if test $EUID -ne 0;then
+	echo "Please run with root permissions"
+	exit 1
 fi
 
 # store off the absolute path to *this* script
 THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
 
 contains() {
-  string="$1"
-  substring="$2"
-  if test "${string#*$substring}" != "$string"
-  then
-    true    # $substring is in $string
-  else
-    false    # $substring is not in $string
-  fi
+	string="$1"
+	substring="$2"
+	if test "${string#*$substring}" != "$string"; then
+		true    # $substring is in $string
+	else
+		false    # $substring is not in $string
+	fi
 }
 
 TO_EXISTING=true
-if test -z "${PREEXISTING_BOOT_PARTITION_NUM}" || test -z "${PREEXISTING_ROOT_PARTITION_NUM}"
-then
-  if test -z "${PREEXISTING_BOOT_PARTITION_NUM}" && test -z "${PREEXISTING_ROOT_PARTITION_NUM}"
-  then
-    TO_EXISTING=false
-  else
-    echo "You must specify both root and boot pre-existing partition numbers"
-    exit 1
-  fi
+if test -z "${PREEXISTING_BOOT_PARTITION_NUM}" || test -z "${PREEXISTING_ROOT_PARTITION_NUM}"; then
+	if test -z "${PREEXISTING_BOOT_PARTITION_NUM}" && test -z "${PREEXISTING_ROOT_PARTITION_NUM}"; then
+		TO_EXISTING=false
+	else
+		echo "You must specify both root and boot pre-existing partition numbers"
+		exit 1
+	fi
 fi
 
-if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
-then
-  HOST_NEEDS="qemu-user-static-binfmt"
-  ARCH_SPECIFIC_PKGS="archlinuxarm-keyring"
+if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
+	HOST_NEEDS="qemu-user-static-binfmt"
+	ARCH_SPECIFIC_PKGS="archlinuxarm-keyring"
 else
-  # alarm does not like/need these
-  ARCH_SPECIFIC_PKGS="linux ${UCODES} sbsigntools reflector"
-  HOST_NEEDS=""
+	# alarm does not like/need these
+	ARCH_SPECIFIC_PKGS="linux ${UCODES} sbsigntools reflector"
+	HOST_NEEDS=""
 fi
 
 # here are a baseline set of packages for the new install
 DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools polkit systemd-resolvconf "
 
-if test "${ROOT_FS_TYPE}" = "f2fs"
-then
-  DEFAULT_PACKAGES="${DEFAULT_PACKAGES} fscrypt"
+if test "${ROOT_FS_TYPE}" = "f2fs"; then
+	DEFAULT_PACKAGES="${DEFAULT_PACKAGES} fscrypt"
 fi
 
 # if this is a pi then let's make sure we have the packages listed here
-if contains "${PACKAGE_LIST}" "raspberry"
-then
-  PACKAGE_LIST="${PACKAGE_LIST} iw wireless-regdb wireless_tools wpa_supplicant"
+if contains "${PACKAGE_LIST}" "raspberry"; then
+	PACKAGE_LIST="${PACKAGE_LIST} iw wireless-regdb wireless_tools wpa_supplicant"
 fi
 
 # install these packages on the host now. they're needed for the install process
@@ -138,34 +132,30 @@ sync
 partprobe
 
 # is this a block device?
-if test -b "${TARGET}"
-then
-  TARGET_DEV="${TARGET}"
-  for n in ${TARGET_DEV}* ; do umount $n || true; done
-  for n in ${TARGET_DEV}* ; do umount $n || true; done
-  for n in ${TARGET_DEV}* ; do umount $n || true; done
-  IMG_NAME=""
-  hdparm -r0 ${TARGET_DEV}
+if test -b "${TARGET}"; then
+	TARGET_DEV="${TARGET}"
+	for n in ${TARGET_DEV}* ; do umount $n || true; done
+	for n in ${TARGET_DEV}* ; do umount $n || true; done
+	for n in ${TARGET_DEV}* ; do umount $n || true; done
+	IMG_NAME=""
+	hdparm -r0 ${TARGET_DEV}
 else  # installing to image file
-  IMG_NAME="${TARGET}.raw"
-  rm -f "${IMG_NAME}"
-  fallocate -l $IMG_SIZE "${IMG_NAME}"
-  TARGET_DEV=$(losetup --find)
-  losetup -P ${TARGET_DEV} "${IMG_NAME}"
+	IMG_NAME="${TARGET}.raw"
+	rm -f "${IMG_NAME}"
+	fallocate -l $IMG_SIZE "${IMG_NAME}"
+	TARGET_DEV=$(losetup --find)
+	losetup -P ${TARGET_DEV} "${IMG_NAME}"
 fi
 
-if test ! -b "${TARGET_DEV}"
-then
-  echo "ERROR: Install target device ${TARGET_DEV} is not a block device."
-  exit 1
+if test ! -b "${TARGET_DEV}"; then
+	echo "ERROR: Install target device ${TARGET_DEV} is not a block device."
+	exit 1
 fi
 
 # check that install to existing will work here
-if test "${TO_EXISTING}" = "true"
-then
+if test "${TO_EXISTING}" = "true"; then
   PARTLINE=$(parted -s ${TARGET_DEV} print | sed -n "/^ ${PREEXISTING_BOOT_PARTITION_NUM}/p")
-  if contains "${PARTLINE}" "fat32" && contains "${PARTLINE}" "boot" && contains "${PARTLINE}" "esp"
-  then
+  if contains "${PARTLINE}" "fat32" && contains "${PARTLINE}" "boot" && contains "${PARTLINE}" "esp"; then
     echo "Pre-existing boot partition looks good"
   else
     echo "Pre-existing boot partition must be fat32 with boot and esp flags"
@@ -184,8 +174,7 @@ else # non-preexisting
   sgdisk -Z ${TARGET_DEV}  || true # wipe the device partition table
   
   NEXT_PARTITION=1
-  if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
-  then
+  if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
     echo "No bios grub for arm"
     BOOT_P_TYPE=0700
   else
@@ -193,12 +182,10 @@ else # non-preexisting
   fi
   BOOT_P_SIZE_MB=300
   sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition GPT" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
-  if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"
-  then
+  if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"; then
     SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
   fi
-  if test -z "${SWAP_SIZE}"
-  then
+  if test -z "${SWAP_SIZE}"; then
     echo "No swap partition"
   else
     sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:"Swap GPT" "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
@@ -215,8 +202,7 @@ else # non-preexisting
 
   wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
   mkfs.fat -F32 -n "BOOTF32" ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-  if test ! -z "${SWAP_SIZE}"
-  then
+  if test ! -z "${SWAP_SIZE}"; then
     wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
     mkswap -L "SWAP" ${TARGET_DEV}${PEE}${SWAP_PARTITION}
   fi
@@ -226,12 +212,10 @@ ROOT_DEVICE=${TARGET_DEV}${PEE}${ROOT_PARTITION}
 wipefs -a -f ${ROOT_DEVICE} || true
 
 LUKS_UUID=""
-if test -z "${LUKS_KEYFILE}"
-then
+if test -z "${LUKS_KEYFILE}"; then
   echo "Not using encryption"
 else
-  if test -f "${LUKS_KEYFILE}"
-  then
+  if test -f "${LUKS_KEYFILE}"; then
     echo "LUKS encryption with keyfile: $(readlink -f \"${LUKS_KEYFILE}\")"
     cryptsetup -q luksFormat ${ROOT_DEVICE} "${LUKS_KEYFILE}"
     LUKS_UUID=$(cryptsetup luksUUID ${ROOT_DEVICE})
@@ -244,12 +228,10 @@ else
   fi
 fi
 
-if test "${ROOT_FS_TYPE}" = "f2fs"
-then
+if test "${ROOT_FS_TYPE}" = "f2fs"; then
   ELL=l
   FEATURES="-O extra_attr,encrypt,inode_checksum,sb_checksum,compression"
-elif test "${ROOT_FS_TYPE}" = "btrfs"
-then
+elif test "${ROOT_FS_TYPE}" = "btrfs"; then
   ELL=L
   FEATURES="--metadata dup"
 else
@@ -264,15 +246,13 @@ sgdisk -p "${TARGET_DEV}"  # print the current partition table
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
 
-if test "${ROOT_FS_TYPE}" = "f2fs"
-then
+if test "${ROOT_FS_TYPE}" = "f2fs"; then
   mount -t f2fs -o compress_algorithm=zstd:6,compress_chksum,atgc,gc_merge,lazytime ${ROOT_DEVICE} ${TMP_ROOT}
 else
   mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
 fi
 
-if test "${ROOT_FS_TYPE}" = "btrfs"
-then
+if test "${ROOT_FS_TYPE}" = "btrfs"; then
   btrfs subvolume create ${TMP_ROOT}/root
   btrfs subvolume set-default ${TMP_ROOT}/root
   #btrfs subvolume create ${TMP_ROOT}/home
@@ -296,8 +276,7 @@ SigLevel = Never
 EOF
 
 # enable the testing repo
-if test "${USE_TESTING}" = "true"
-then
+if test "${USE_TESTING}" = "true"; then
   cat <<EOF >> /tmp/pacman.conf
 
 [testing]
@@ -328,22 +307,50 @@ Include = /tmp/mirrorlist
 Include = /tmp/mirrorlist
 EOF
   sed '1s;^;Server = http://mirror.archlinuxarm.org/$arch/$repo\n;' -i /tmp/mirrorlist
+
+  cat <<'EOF' > "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
+#!/usr/bin/env bash
+
+rpi-eeprom-config --out boot.conf
+
+conf01=('BOOT_ORDER' '0xf14')  # boot usb then sd card
+conf02=('BOOT_UART' '0')
+arr=(conf01 conf02)
+
+declare -n elmv
+
+for elmv in "${arr[@]}"; do
+    #if sed "s/^${elmv1[0]}=.*/${elmv1[0]}=${elmv1[1]}/" -i boot.conf; then
+    if grep ^${elmv[0]}= boot.conf > /dev/null 2>/dev/null; then
+        sed "s/^${elmv1[0]}=.*/${elmv1[0]}=${elmv1[1]}/" -i boot.conf
+    else
+        echo "${elmv[0]}=${elmv[1]}" >> boot.conf
+    fi
+done
+
+sudo rpi-eeprom-config --apply boot.conf
+rm boot.conf
+sudo reboot
+EOF
+  chmod +x "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
 fi
 
-if test ! -z "${CUSTOM_MIRROR_URL}"
-then
-  sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /tmp/mirrorlist
+if test ! -z "${CUSTOM_MIRROR_URL}"; then
+	sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /tmp/mirrorlist
 fi
 
 pacstrap -C /tmp/pacman.conf -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
-if test ! -z "${PACKAGE_FILES}"
-then
-  pacstrap -C /tmp/pacman.conf -U -G -M "${TMP_ROOT}" ${PACKAGE_FILES}
+if test ! -z "${COPYIT}"; then
+	mkdir -p /root/install_copied
+	cp -a ${COPYIT} /root/install_copied/.
 fi
 
-if test ! -z "${ADMIN_SSH_AUTH_KEY}"
-then
-  echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
+if test ! -z "${PACKAGE_FILES}"; then
+	pacstrap -C /tmp/pacman.conf -U -G -M "${TMP_ROOT}" ${PACKAGE_FILES}
+fi
+
+if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
+	echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
 fi
 
 genfstab -U "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
@@ -654,23 +661,47 @@ fi
 # undo changes to service files
 sed 's,#PrivateNetwork=yes,PrivateNetwork=yes,g' -i /usr/lib/systemd/system/systemd-localed.service
 
-# take care of some rpi fan stuff if needed
-if test -f /boot/config.txt
-then
+# take care of some rpi config stuff
+if test -f /boot/config.txt; then
   echo "" >> /boot/config.txt
   echo "# PoE Hat Fan Speeds" >> /boot/config.txt
   echo "dtparam=poe_fan_temp0=50000" >> /boot/config.txt
   echo "dtparam=poe_fan_temp1=60000" >> /boot/config.txt
   echo "dtparam=poe_fan_temp2=70000" >> /boot/config.txt
   echo "dtparam=poe_fan_temp3=80000" >> /boot/config.txt
-  # echo "hdmi_safe=1" >> /boot/config.txt
+
+  #echo "hdmi_ignore_edid:0=0xa5000080" >> /boot/config.txt
+  #echo "hdmi_force_mode:0=1" >> /boot/config.txt
+  #echo "hdmi_group:0=2" >> /boot/config.txt
+  #echo "hdmi_mode:0=85" >> /boot/config.txt
+  
+  #echo "hdmi_ignore_edid:1=0xa5000080" >> /boot/config.txt
+  #echo "hdmi_force_mode:1=1" >> /boot/config.txt
+  #echo "hdmi_group:1=2" >> /boot/config.txt
+  #echo "hdmi_mode:1=82" >> /boot/config.txt
+fi
+
+#add argument(s) to the pi kernel boot params
+#PI_VID_ARG='video=HDMI-A-1:1920x1080'
+PI_KERNEL_PARAMS=""
+if test ! -z "\${PI_KERNEL_PARAMS}"; then
+  if pacman -Q uboot-raspberrypi > /dev/null 2>/dev/null; then
+    pushd /boot
+    sed '/^setenv bootargs/ s/$/ '\${PI_KERNEL_PARAMS'/' file -i boot.txt
+    ./mkscr
+    popd
+  elif pacman -Q linux-rpi > /dev/null 2>/dev/null; then
+    pushd /boot
+    echo -n " \${PI_KERNEL_PARAMS}" >> cmdline.txt
+    popd
+  fi
 fi
 
 rm -f /var/tmp/phase_one_setup_failed
 exit 0
 EOF
 
-cat > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service <<END
+cat > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service <<EOF
 [Unit]
 Description=Initial system setup tasks to be run in a container
 ConditionPathExists=/root/setup.sh
@@ -680,7 +711,7 @@ Type=idle
 TimeoutStopSec=10sec
 ExecStart=/usr/bin/bash /root/setup.sh
 ExecStopPost=/usr/bin/sh -c 'rm -f /root/setup.sh; systemctl disable container-boot-setup; rm -f /usr/lib/systemd/system/container-boot-setup.service; halt'
-END
+EOF
 ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
 
 cat > "${TMP_ROOT}/root/recovery_notes.txt" <<EOF

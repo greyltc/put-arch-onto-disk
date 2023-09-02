@@ -47,14 +47,14 @@ TARGET=/dev/mmcblkX \
 TARGET_ARCH=aarch64 \
 ROOT_FS_TYPE=f2fs \
 AUR_HELPER="" \
-PACKAGE_LIST="linux-aarch64 linux-aarch64-headers firmware-raspberrypi raspberrypi-bootloader raspberrypi-firmware uboot-raspberrypi rpi-eeprom" \
+PACKAGE_LIST="linux-aarch64 linux-aarch64-headers firmware-raspberrypi raspberrypi-bootloader raspberrypi-firmware uboot-raspberrypi uboot-tools rpi-eeprom" \
 
 # kernel for rpi4 from raspberrypi.org's tree
 TARGET=/dev/mmcblkX \
 TARGET_ARCH=aarch64 \
 ROOT_FS_TYPE=f2fs \
 AUR_HELPER="" \
-PACKAGE_LIST="linux-raspberrypi4 linux-raspberrypi4-headers firmware-raspberrypi raspberrypi-bootloader raspberrypi-firmware rpi-eeprom" \
+PACKAGE_LIST="linux-rpi linux-rpi-headers firmware-raspberrypi raspberrypi-bootloader raspberrypi-firmware rpi-eeprom" \
 ```
 ### Bootable Flash Drive
 ```
