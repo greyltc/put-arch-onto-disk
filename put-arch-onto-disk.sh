@@ -702,6 +702,11 @@ if test ! -z "\${PI_KERNEL_PARAMS}"; then
   fi
 fi
 
+# fix hardcoded root in rpi.org's kernel package
+if test -f /boot/cmdline.txt; then
+	sed "s,root=[^ ]*,root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}),g" -i /boot/cmdline.txt
+fi
+
 rm -f /var/tmp/phase_one_setup_failed
 exit 0
 EOF
