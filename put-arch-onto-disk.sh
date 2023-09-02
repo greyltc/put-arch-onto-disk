@@ -353,7 +353,7 @@ if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
 	echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
 fi
 
-genfstab -U "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
+genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
 sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
 
 cat > "${TMP_ROOT}/root/setup.sh" <<EOF
