@@ -583,8 +583,6 @@ END
   
 else
   echo "Setting up systemd-networkd service"
-  pacman -Syu 
-
   cat > /etc/systemd/network/20-DHCPany.network << END
 [Match]
 Name=*
