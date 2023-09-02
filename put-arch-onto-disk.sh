@@ -318,8 +318,8 @@ fi
 
 pacstrap -C /tmp/pacman.conf -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
 if test ! -z "${COPYIT}"; then
-	mkdir -p /root/install_copied
-	cp -a ${COPYIT} /root/install_copied/.
+	mkdir -p /"${TMP_ROOT}/root/install_copied"
+	cp -a ${COPYIT} /"${TMP_ROOT}"/root/install_copied/.
 fi
 
 if test ! -z "${PACKAGE_FILES}"; then
