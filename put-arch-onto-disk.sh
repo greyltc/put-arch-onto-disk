@@ -585,7 +585,7 @@ else
   echo "Setting up systemd-networkd service"
   cat > /etc/systemd/network/20-DHCPany.network << END
 [Match]
-Name=*
+Name=!wg*
 
 [Link]
 Multicast=true
