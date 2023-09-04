@@ -337,8 +337,13 @@ if test ! -z "${IS_ARM}"; then
   cat <<'EOF' > "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
 #!/usr/bin/env bash
 
+# a script that will reprogram the rip eeprom to attempt boot first
+# from USB and then from SD card
+
 rpi-eeprom-config --out boot.conf
 
+# see config options here:
+# https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-4-bootloader-configuration
 conf01=('BOOT_ORDER' '0xf14')  # boot usb then sd card
 conf02=('BOOT_UART' '0')
 arr=(conf01 conf02)
@@ -631,9 +636,9 @@ if pacman -Q lxdm > /dev/null 2>/dev/null; then
 fi
 
 # purge packagekit crap
-pacman -Rs --noconfirm gnome-software-packagekit-plugin  || true
-pacman -Rs --noconfirm gnome-software  || true
-pacman -Rs --noconfirm packagekit  || true
+pacman -Rs --noconfirm gnome-software-packagekit-plugin || true
+pacman -Rs --noconfirm gnome-software || true
+pacman -Rs --noconfirm packagekit || true
 pacman -Rs --noconfirm libpackagekit-glib || true
 
 # attempt phase two setup (expected to fail in alarm because https://github.com/systemd/systemd/issues/18643)
@@ -677,7 +682,7 @@ if test -f /boot/config.txt; then
   #echo "hdmi_force_mode:0=1" >> /boot/config.txt
   #echo "hdmi_group:0=2" >> /boot/config.txt
   #echo "hdmi_mode:0=85" >> /boot/config.txt
-  
+
   #echo "hdmi_ignore_edid:1=0xa5000080" >> /boot/config.txt
   #echo "hdmi_force_mode:1=1" >> /boot/config.txt
   #echo "hdmi_group:1=2" >> /boot/config.txt
@@ -700,14 +705,14 @@ if test ! -z "\${PI_KERNEL_PARAMS}"; then
   fi
 fi
 
-# fix hardcoded root in rpi.org's kernel package
-if test -f /boot/cmdline.txt; then
-	sed "s,root=[^ ]*,root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}),g" -i /boot/cmdline.txt
-fi
-
 rm -f /var/tmp/phase_one_setup_failed
 exit 0
 EOF
+
+# fix hardcoded root kernel param in rpi.org's kernel package
+if test -f "${TMP_ROOT}/boot/cmdline.txt"; then
+  sed "s,root=[^ ]*,root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}),g" -i "${TMP_ROOT}/boot/cmdline.txt"
+fi
 
 cat > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service <<EOF
 [Unit]
