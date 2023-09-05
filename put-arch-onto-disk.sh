@@ -190,8 +190,7 @@ else # non-preexisting
   else
     sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:"Swap GPT" "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
   fi
-  #sgdisk -N 0 -t 0:8300 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=$NEXT_PARTITION; ((NEXT_PARTITION++))
-  sgdisk -N ${NEXT_PARTITION} -t ${NEXT_PARTITION}:8304 -c ${NEXT_PARTITION}:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+  sgdisk -n 0:+0:-5M -t 0:8304 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))  # leave 5MiB unused at the end
 
   # make hybrid/protective MBR
   #sgdisk -h "1 2" "${TARGET_DEV}"  # this breaks rpi3
