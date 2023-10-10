@@ -98,7 +98,7 @@ if test -z "${SIZE}"; then
 	if test ! -b "${TARGET}"; then
 		echo "You must specify a SIZE when creating an image file."
 		exit 1
- 	fi
+	fi
 fi
 
 TO_EXISTING=true
@@ -171,57 +171,57 @@ if test "${TO_EXISTING}" = "true"; then
 	fi
 	BOOT_PARTITION=${PREEXISTING_BOOT_PARTITION_NUM}
 	ROOT_PARTITION=${PREEXISTING_ROOT_PARTITION_NUM}
- 
+
 	# do we need to p? (depends on what the media is we're installing to)
- 	if test -b "${TARGET_DEV}p1"; then
+	if test -b "${TARGET_DEV}p1"; then
 		PEE=p
-       	else
+	else
 		PEE=""
 	fi
 else  # format everything from scratch
-  # destroy all file systems and partition tables on the target
-  for n in ${TARGET_DEV}+([[:alnum:]]) ; do wipefs -a -f $n || true; done # wipe the partitions' file systems
-  for n in ${TARGET_DEV}+([[:alnum:]]) ; do sgdisk -Z $n || true; done # zap the partitions' part tables
-  wipefs -a -f ${TARGET_DEV} || true # wipe the device file system
-  sgdisk -Z ${TARGET_DEV}  || true # wipe the device partition table
-  
-  NEXT_PARTITION=1
-  if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
-    echo "No bios grub for arm"
-    BOOT_P_TYPE=0700
-  else
-    BOOT_P_TYPE=ef00
-  fi
-  BOOT_P_SIZE_MB=300
-  sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition GPT" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
-  if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"; then
-    SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
-  fi
-  if test -z "${SWAP_SIZE}"; then
-    echo "No swap partition"
-  else
-    sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:"Swap GPT" "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
-  fi
-  
-  if test -z "${SIZE}"; then
-    sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
-  else
-    sgdisk -n "0:+0:${SIZE}" -t 0:8304 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
-  fi
+	# destroy all file systems and partition tables on the target
+	for n in ${TARGET_DEV}+([[:alnum:]]) ; do wipefs -a -f $n || true; done # wipe the partitions' file systems
+	for n in ${TARGET_DEV}+([[:alnum:]]) ; do sgdisk -Z $n || true; done # zap the partitions' part tables
+	wipefs -a -f ${TARGET_DEV} || true # wipe the device file system
+	sgdisk -Z ${TARGET_DEV}  || true # wipe the device partition table
 
-  # make hybrid/protective MBR
-  #sgdisk -h "1 2" "${TARGET_DEV}"  # this breaks rpi3
-  echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"  # that's needed for rpi3
+	NEXT_PARTITION=1
+	if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
+		echo "No bios grub for arm"
+		BOOT_P_TYPE=0700
+	else
+		BOOT_P_TYPE=ef00
+	fi
+	BOOT_P_SIZE_MB=300
+	sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition GPT" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+	if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"; then
+		SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
+	fi
+	if test -z "${SWAP_SIZE}"; then
+		echo "No swap partition"
+	else
+		sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:"Swap GPT" "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+	fi
 
-  # do we need to p? (depends on what the media is we're installing to)
-  if test -b "${TARGET_DEV}p1"; then PEE=p; else PEE=""; fi
+	if test -z "${SIZE}"; then
+		sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+	else
+		sgdisk -n "0:+0:${SIZE}" -t 0:8304 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+	fi
 
-  wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-  mkfs.fat -F32 -n "BOOTF32" ${TARGET_DEV}${PEE}${BOOT_PARTITION}
-  if test ! -z "${SWAP_SIZE}"; then
-    wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
-    mkswap -L "SWAP" ${TARGET_DEV}${PEE}${SWAP_PARTITION}
-  fi
+	# make hybrid/protective MBR
+	#sgdisk -h "1 2" "${TARGET_DEV}"  # this breaks rpi3
+	echo -e "r\nh\n1 2\nN\n0c\nN\n\nN\nN\nw\nY\n" | sudo gdisk "${TARGET_DEV}"  # that's needed for rpi3
+
+	# do we need to p? (depends on what the media is we're installing to)
+	if test -b "${TARGET_DEV}p1"; then PEE=p; else PEE=""; fi
+
+	wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+	mkfs.fat -F32 -n "BOOTF32" ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+	if test ! -z "${SWAP_SIZE}"; then
+		wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
+		mkswap -L "SWAP" ${TARGET_DEV}${PEE}${SWAP_PARTITION}
+	fi
 fi
 
 ROOT_DEVICE=${TARGET_DEV}${PEE}${ROOT_PARTITION}
@@ -229,30 +229,30 @@ wipefs -a -f ${ROOT_DEVICE} || true
 
 LUKS_UUID=""
 if test -z "${LUKS_KEYFILE}"; then
-  echo "Not using encryption"
+	echo "Not using encryption"
 else
-  if test -f "${LUKS_KEYFILE}"; then
-    echo "LUKS encryption with keyfile: $(readlink -f \"${LUKS_KEYFILE}\")"
-    cryptsetup -q luksFormat ${ROOT_DEVICE} "${LUKS_KEYFILE}"
-    LUKS_UUID=$(cryptsetup luksUUID ${ROOT_DEVICE})
-    cryptsetup -q --key-file ${LUKS_KEYFILE} open ${ROOT_DEVICE} luks-${LUKS_UUID}
-    ROOT_DEVICE=/dev/mapper/luks-${LUKS_UUID}
-  else
-    echo "Could not find ${LUKS_KEYFILE}"
-    echo "Not using encryption"
-    exit 1
-  fi
+	if test -f "${LUKS_KEYFILE}"; then
+		echo "LUKS encryption with keyfile: $(readlink -f \"${LUKS_KEYFILE}\")"
+		cryptsetup -q luksFormat ${ROOT_DEVICE} "${LUKS_KEYFILE}"
+		LUKS_UUID=$(cryptsetup luksUUID ${ROOT_DEVICE})
+		cryptsetup -q --key-file ${LUKS_KEYFILE} open ${ROOT_DEVICE} luks-${LUKS_UUID}
+		ROOT_DEVICE=/dev/mapper/luks-${LUKS_UUID}
+	else
+		echo "Could not find ${LUKS_KEYFILE}"
+		echo "Not using encryption"
+		exit 1
+	fi
 fi
 
 if test "${ROOT_FS_TYPE}" = "f2fs"; then
-  ELL=l
-  FEATURES="-O extra_attr,encrypt,inode_checksum,sb_checksum,compression"
+	ELL=l
+	FEATURES="-O extra_attr,encrypt,inode_checksum,sb_checksum,compression"
 elif test "${ROOT_FS_TYPE}" = "btrfs"; then
-  ELL=L
-  FEATURES="--metadata dup"
+	ELL=L
+	FEATURES="--metadata dup"
 else
-  ELL=L
-  FEATURES=""
+	ELL=L
+	FEATURES=""
 fi
 mkfs.${ROOT_FS_TYPE} ${FEATURES} -${ELL} "ROOT${ROOT_FS_TYPE^^}" ${ROOT_DEVICE}
 
@@ -263,20 +263,21 @@ TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
 
 if test "${ROOT_FS_TYPE}" = "f2fs"; then
-  mount -t f2fs -o compress_algorithm=zstd:6,compress_chksum,atgc,gc_merge,lazytime ${ROOT_DEVICE} ${TMP_ROOT}
+	mount -t f2fs -o compress_algorithm=zstd:6,compress_chksum,atgc,gc_merge,lazytime ${ROOT_DEVICE} ${TMP_ROOT}
 else
-  mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
+	mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
 fi
 
 if test "${ROOT_FS_TYPE}" = "btrfs"; then
-  btrfs subvolume create ${TMP_ROOT}/root
-  btrfs subvolume set-default ${TMP_ROOT}/root
-  #btrfs subvolume create ${TMP_ROOT}/home
-  umount ${TMP_ROOT}
-  mount ${ROOT_DEVICE} -o subvol=root,compress=zstd:2 ${TMP_ROOT}
-  #mkdir ${TMP_ROOT}/home
-  #mount ${ROOT_DEVICE} -o subvol=home,compress=zstd:2 ${TMP_ROOT}/home
+	btrfs subvolume create ${TMP_ROOT}/root
+	btrfs subvolume set-default ${TMP_ROOT}/root
+	#btrfs subvolume create ${TMP_ROOT}/home
+	umount ${TMP_ROOT}
+	mount ${ROOT_DEVICE} -o subvol=root,compress=zstd:2 ${TMP_ROOT}
+	#mkdir ${TMP_ROOT}/home
+	#mount ${ROOT_DEVICE} -o subvol=home,compress=zstd:2 ${TMP_ROOT}/home
 fi
+
 mkdir ${TMP_ROOT}/boot
 mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
 install -m644 -Dt /tmp /etc/pacman.d/mirrorlist
@@ -293,15 +294,13 @@ EOF
 
 # enable the testing repo
 if test "${USE_TESTING}" = "true"; then
-  cat <<EOF >> /tmp/pacman.conf
-
-[testing]
-Include = /tmp/mirrorlist
-EOF
+	cat <<-EOF >> /tmp/pacman.conf
+	[testing]
+	Include = /tmp/mirrorlist
+	EOF
 fi
 
 cat <<EOF >> /tmp/pacman.conf
-
 [core]
 Include = /tmp/mirrorlist
 
@@ -314,18 +313,17 @@ EOF
 
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"
 then
-  IS_ARM=1
-  cat <<EOF >> /tmp/pacman.conf
+	IS_ARM=1
+	cat <<-EOF >> /tmp/pacman.conf
+	[alarm]
+	Include = /tmp/mirrorlist
 
-[alarm]
-Include = /tmp/mirrorlist
-
-[aur]
-Include = /tmp/mirrorlist
-EOF
-  sed '1s;^;Server = http://mirror.archlinuxarm.org/$arch/$repo\n;' -i /tmp/mirrorlist
+	[aur]
+	Include = /tmp/mirrorlist
+	EOF
+	sed '1s;^;Server = http://mirror.archlinuxarm.org/$arch/$repo\n;' -i /tmp/mirrorlist
 else
-  IS_ARM=""
+	IS_ARM=""
 fi
 
 if test ! -z "${CUSTOM_MIRROR_URL}"; then
@@ -350,39 +348,39 @@ genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
 sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
 
 if test ! -z "${IS_ARM}"; then
-  cat <<'EOF' > "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
-#!/usr/bin/env bash
+	cat <<-'EOF' > "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
+	#!/usr/bin/env bash
 
-# a script that will reprogram the rip eeprom to attempt boot first
-# from USB and then from SD card
+	# a script that will reprogram the rip eeprom to attempt boot first
+	# from USB and then from SD card
 
-rpi-eeprom-config --out boot.conf
+	rpi-eeprom-config --out boot.conf
 
-# see config options here:
-# https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-4-bootloader-configuration
-conf01=('BOOT_ORDER' '0xf14')  # boot usb then sd card
-conf02=('BOOT_UART' '0')
-arr=(conf01 conf02)
+	# see config options here:
+	# https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-4-bootloader-configuration
+	conf01=('BOOT_ORDER' '0xf14')  # boot usb then sd card
+	conf02=('BOOT_UART' '0')
+	arr=(conf01 conf02)
 
-declare -n elmv
+	declare -n elmv
 
-for elmv in "${arr[@]}"; do
-    #if sed "s/^${elmv1[0]}=.*/${elmv1[0]}=${elmv1[1]}/" -i boot.conf; then
-    if grep ^${elmv[0]}= boot.conf > /dev/null 2>/dev/null; then
-        sed "s/^${elmv1[0]}=.*/${elmv1[0]}=${elmv1[1]}/" -i boot.conf
-    else
-        echo "${elmv[0]}=${elmv[1]}" >> boot.conf
-    fi
-done
+	for elmv in "${arr[@]}"; do
+		#if sed "s/^${elmv1[0]}=.*/${elmv1[0]}=${elmv1[1]}/" -i boot.conf; then
+		if grep ^${elmv[0]}= boot.conf > /dev/null 2>/dev/null; then
+			sed "s/^${elmv1[0]}=.*/${elmv1[0]}=${elmv1[1]}/" -i boot.conf
+		else
+			echo "${elmv[0]}=${elmv[1]}" >> boot.conf
+		fi
+	done
 
-sudo rpi-eeprom-config --apply boot.conf
-rm boot.conf
-sudo reboot
-EOF
-  chmod +x "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
+	sudo rpi-eeprom-config --apply boot.conf
+	rm boot.conf
+	sudo reboot
+	EOF
+	chmod +x "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
 fi
 
-cat > "${TMP_ROOT}/root/setup.sh" <<EOF
+cat <<EOF > "${TMP_ROOT}/root/setup.sh"
 #!/usr/bin/env bash
 set -o pipefail
 set -o errexit
@@ -727,10 +725,10 @@ EOF
 
 # fix hardcoded root kernel param in rpi.org's kernel package
 if test -f "${TMP_ROOT}/boot/cmdline.txt"; then
-  sed "s,root=[^ ]*,root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}),g" -i "${TMP_ROOT}/boot/cmdline.txt"
+	sed "s,root=[^ ]*,root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}),g" -i "${TMP_ROOT}/boot/cmdline.txt"
 fi
 
-cat > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service <<EOF
+cat <<EOF > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service
 [Unit]
 Description=Initial system setup tasks to be run in a container
 ConditionPathExists=/root/setup.sh
@@ -743,7 +741,7 @@ ExecStopPost=/usr/bin/sh -c 'rm -f /root/setup.sh; systemctl disable container-b
 EOF
 ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
 
-cat > "${TMP_ROOT}/root/recovery_notes.txt" <<EOF
+cat <<EOF > "${TMP_ROOT}/root/recovery_notes.txt"
 1) mount root in /mnt
 2) mount home in /mnt/home
 3) mount boot in /mnt/boot
@@ -759,7 +757,7 @@ cat > "${TMP_ROOT}/root/recovery_notes.txt" <<EOF
 10) umount --recursive /mnt
 EOF
 
-cat > "${TMP_ROOT}/root/phase_two.sh" <<EOF
+cat <<EOF > "${TMP_ROOT}/root/phase_two.sh"
 #!/usr/bin/env bash
 set -o pipefail
 set -o errexit
@@ -928,21 +926,19 @@ sed 's,PrivateNetwork=yes,#PrivateNetwork=yes,g' -i "${TMP_ROOT}"/usr/lib/system
 # unmount and clean up everything
 umount "${TMP_ROOT}/boot" || true
 umount -d "${TMP_ROOT}/boot" || true
-if test "${ROOT_FS_TYPE}" = "btrfs"
-then
-  for n in "${TMP_ROOT}"/home/* ; do umount $n || true; done
-  for n in "${TMP_ROOT}"/home/* ; do umount -d $n || true; done
-  umount "${TMP_ROOT}/home" || true
-  umount -d "${TMP_ROOT}/home" || true
+if test "${ROOT_FS_TYPE}" = "btrfs"; then
+	for n in "${TMP_ROOT}"/home/* ; do umount $n || true; done
+	for n in "${TMP_ROOT}"/home/* ; do umount -d $n || true; done
+	umount "${TMP_ROOT}/home" || true
+	umount -d "${TMP_ROOT}/home" || true
 fi
 umount "${TMP_ROOT}" || true
 umount -d "${TMP_ROOT}" || true
 cryptsetup close /dev/mapper/${LUKS_UUID} || true
 losetup -D || true
 sync
-if pacman -Q lvm2 > /dev/null 2>/dev/null
-then
-  pvscan --cache -aay
+if pacman -Q lvm2 > /dev/null 2>/dev/null; then
+	pvscan --cache -aay
 fi
 rm -r "${TMP_ROOT}" || true
 
@@ -956,19 +952,17 @@ set -o xtrace
 set -o verbose
 
 # boot into newly created system to perform setup tasks
-if test -z "${IMG_NAME}"
-then
-  SPAWN_TARGET=${TARGET_DEV}
+if test -z "${IMG_NAME}"; then
+	SPAWN_TARGET=${TARGET_DEV}
 else
-  SPAWN_TARGET="${IMG_NAME}"
+	SPAWN_TARGET="${IMG_NAME}"
 fi
 systemd-nspawn --boot --image "${SPAWN_TARGET}"  # as of systemd-253, this will fail unless https://github.com/systemd/systemd/pull/28954 is applied
 
-if test ! -z "${ADMIN_SSH_AUTH_KEY}"
-then
-  set +o xtrace
-  set +o verbose
-  echo 'If you need to ssh into the system, you can find the keypair you must use in /root/admin_sshkeys'
+if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
+	set +o xtrace
+	set +o verbose
+	echo 'If you need to ssh into the system, you can find the keypair you must use in /root/admin_sshkeys'
 fi
 
 set +o xtrace
@@ -986,6 +980,7 @@ echo '/var/tmp/phase_two_setup_incomplete'
 echo '/root/setup.sh'
 echo '/root/phase_two.sh'
 echo 'might also give you hints about how things went.'
+
 cat << "EOF"
 If things didn't work out, here are some recovery stratiges:
 1) use systemd-nspawn to chroot as above
@@ -994,3 +989,4 @@ If things didn't work out, here are some recovery stratiges:
 4) boot into rescue mode with systemd-nspawn like this:
 `sudo systemd-nspawn --network-macvlan=eno1 --network-veth --boot --image "${SPAWN_TARGET}" -- --unit rescue.target`
 EOF
+
