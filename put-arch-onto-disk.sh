@@ -31,7 +31,7 @@ shopt -s extglob
 
 # target options
 : ${TARGET='./bootable_arch.img'}  # if this is not a block device, then it's an image file that will be created
-: ${IMG_SIZE='4GiB'}
+: ${SIZE=''}  # total disk space to consume. empty (default) means fill the block device with the rootfs. can't be blank when giving an image file. example: "4GiB"
 
 # misc options
 : ${KEYMAP='us'}  # print options here with `localectl list-keymaps`
@@ -93,6 +93,14 @@ contains() {
 	fi
 }
 
+# check SIZE is given for an image file
+if test -z "${SIZE}"; then
+	if test ! -b "${TARGET}"; then
+		echo "You must specify a SIZE when creating an image file."
+		exit 1
+ 	fi
+fi
+
 TO_EXISTING=true
 if test -z "${PREEXISTING_BOOT_PARTITION_NUM}" || test -z "${PREEXISTING_ROOT_PARTITION_NUM}"; then
 	if test -z "${PREEXISTING_BOOT_PARTITION_NUM}" && test -z "${PREEXISTING_ROOT_PARTITION_NUM}"; then
@@ -142,7 +150,7 @@ if test -b "${TARGET}"; then
 else  # installing to image file
 	IMG_NAME="${TARGET}.raw"
 	rm -f "${IMG_NAME}"
-	fallocate -l $IMG_SIZE "${IMG_NAME}"
+	fallocate -l "$SIZE" "${IMG_NAME}"
 	TARGET_DEV=$(losetup --find)
 	losetup -P ${TARGET_DEV} "${IMG_NAME}"
 fi
@@ -154,19 +162,23 @@ fi
 
 # check that install to existing will work here
 if test "${TO_EXISTING}" = "true"; then
-  PARTLINE=$(parted -s ${TARGET_DEV} print | sed -n "/^ ${PREEXISTING_BOOT_PARTITION_NUM}/p")
-  if contains "${PARTLINE}" "fat32" && contains "${PARTLINE}" "boot" && contains "${PARTLINE}" "esp"; then
-    echo "Pre-existing boot partition looks good"
-  else
-    echo "Pre-existing boot partition must be fat32 with boot and esp flags"
-    exit 1
-  fi
-  BOOT_PARTITION=${PREEXISTING_BOOT_PARTITION_NUM}
-  ROOT_PARTITION=${PREEXISTING_ROOT_PARTITION_NUM}
-  
-  # do we need to p? (depends on what the media is we're installing to)
-  if test -b "${TARGET_DEV}p1"; then PEE=p; else PEE=""; fi
-else # non-preexisting
+	PARTLINE=$(parted -s ${TARGET_DEV} print | sed -n "/^ ${PREEXISTING_BOOT_PARTITION_NUM}/p")
+	if contains "${PARTLINE}" "fat32" && contains "${PARTLINE}" "boot" && contains "${PARTLINE}" "esp"; then
+		echo "Pre-existing boot partition looks good"
+	else
+		echo "Pre-existing boot partition must be fat32 with boot and esp flags"
+		exit 1
+	fi
+	BOOT_PARTITION=${PREEXISTING_BOOT_PARTITION_NUM}
+	ROOT_PARTITION=${PREEXISTING_ROOT_PARTITION_NUM}
+ 
+	# do we need to p? (depends on what the media is we're installing to)
+ 	if test -b "${TARGET_DEV}p1"; then
+		PEE=p
+       	else
+		PEE=""
+	fi
+else  # format everything from scratch
   # destroy all file systems and partition tables on the target
   for n in ${TARGET_DEV}+([[:alnum:]]) ; do wipefs -a -f $n || true; done # wipe the partitions' file systems
   for n in ${TARGET_DEV}+([[:alnum:]]) ; do sgdisk -Z $n || true; done # zap the partitions' part tables
@@ -190,7 +202,12 @@ else # non-preexisting
   else
     sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:"Swap GPT" "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
   fi
-  sgdisk -n 0:+0:-5M -t 0:8304 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))  # leave 5MiB unused at the end
+  
+  if test -z "${SIZE}"; then
+    sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+  else
+    sgdisk -n "0:+0:${SIZE}" -t 0:8304 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+  fi
 
   # make hybrid/protective MBR
   #sgdisk -h "1 2" "${TARGET_DEV}"  # this breaks rpi3
