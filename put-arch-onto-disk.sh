@@ -244,38 +244,37 @@ else
 	fi
 fi
 
-if test "${ROOT_FS_TYPE}" = "f2fs"; then
-	ELL=l
-	FEATURES="-O extra_attr,encrypt,inode_checksum,sb_checksum,compression"
-elif test "${ROOT_FS_TYPE}" = "btrfs"; then
-	ELL=L
-	FEATURES="--metadata dup"
-else
-	ELL=L
-	FEATURES=""
-fi
-mkfs.${ROOT_FS_TYPE} ${FEATURES} -${ELL} "ROOT${ROOT_FS_TYPE^^}" ${ROOT_DEVICE}
-
 echo "Current partition table:"
 sgdisk -p "${TARGET_DEV}"  # print the current partition table
+
+if test "${ROOT_FS_TYPE}" = "f2fs"; then
+	ELL=l
+	MKFS_FEATURES="-O extra_attr,encrypt,inode_checksum,sb_checksum,compression"
+ 	MOUNT_ARGS="--options defaults,compress_algorithm=zstd:6,compress_chksum,atgc,gc_merge,lazytime"
+elif test "${ROOT_FS_TYPE}" = "btrfs"; then
+	ELL=L
+	MKFS_FEATURES="--metadata dup --features free-space-tree,block-group-tree"
+ 	MOUNT_ARGS="--options defaults,noatime,compress=zstd:2"
+else
+	ELL=L
+	MKFS_FEATURES=""
+ 	MOUNT_ARGS="--options defaults"
+fi
+mkfs.${ROOT_FS_TYPE} ${MKFS_FEATURES} -${ELL} "ROOT${ROOT_FS_TYPE^^}" ${ROOT_DEVICE}
 
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
 
-if test "${ROOT_FS_TYPE}" = "f2fs"; then
-	mount -t f2fs -o compress_algorithm=zstd:6,compress_chksum,atgc,gc_merge,lazytime ${ROOT_DEVICE} ${TMP_ROOT}
-else
-	mount -t${ROOT_FS_TYPE} ${ROOT_DEVICE} ${TMP_ROOT}
-fi
+mount --types ${ROOT_FS_TYPE} ${MOUNT_ARGS} ${ROOT_DEVICE} ${TMP_ROOT}
 
 if test "${ROOT_FS_TYPE}" = "btrfs"; then
 	btrfs subvolume create ${TMP_ROOT}/root
 	btrfs subvolume set-default ${TMP_ROOT}/root
 	#btrfs subvolume create ${TMP_ROOT}/home
 	umount ${TMP_ROOT}
-	mount ${ROOT_DEVICE} -o subvol=root,compress=zstd:2 ${TMP_ROOT}
+	mount ${ROOT_DEVICE} ${MOUNT_ARGS},subvol=root ${TMP_ROOT}
 	#mkdir ${TMP_ROOT}/home
-	#mount ${ROOT_DEVICE} -o subvol=home,compress=zstd:2 ${TMP_ROOT}/home
+	#mount ${ROOT_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home
 fi
 
 mkdir ${TMP_ROOT}/boot
