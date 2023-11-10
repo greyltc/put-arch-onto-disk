@@ -248,19 +248,19 @@ echo "Current partition table:"
 sgdisk -p "${TARGET_DEV}"  # print the current partition table
 
 if test "${ROOT_FS_TYPE}" = "f2fs"; then
-	ELL=l
+	LABEL="-l"
 	MKFS_FEATURES="-O extra_attr,encrypt,inode_checksum,sb_checksum,compression"
  	MOUNT_ARGS="--options defaults,compress_algorithm=zstd:6,compress_chksum,atgc,gc_merge,lazytime"
 elif test "${ROOT_FS_TYPE}" = "btrfs"; then
-	ELL=L
+	LABEL="--label"
 	MKFS_FEATURES="--metadata dup --features free-space-tree,block-group-tree"
  	MOUNT_ARGS="--options defaults,noatime,compress=zstd:2"
 else
-	ELL=L
+	LABEL="-L"
 	MKFS_FEATURES=""
  	MOUNT_ARGS="--options defaults"
 fi
-mkfs.${ROOT_FS_TYPE} ${MKFS_FEATURES} -${ELL} "ROOT${ROOT_FS_TYPE^^}" ${ROOT_DEVICE}
+mkfs.${ROOT_FS_TYPE} ${MKFS_FEATURES} ${LABEL} "ROOT${ROOT_FS_TYPE^^}" ${ROOT_DEVICE}
 
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
