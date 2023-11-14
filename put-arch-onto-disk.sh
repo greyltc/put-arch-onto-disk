@@ -434,10 +434,16 @@ localectl set-keymap --no-convert ${KEYMAP}
 
 # set up bash history
 cat <<END >> /etc/skel/.bashrc
-export HISTSIZE=10000
-export HISTFILESIZE=20000
+# Avoid duplicates
+HISTCONTROL=ignoredups:erasedups
+# When the shell exits, append to the history file instead of overwriting it
 shopt -s histappend
-export PROMPT_COMMAND='history -a'
+
+# After each command, append to the history file and reread it
+PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND$'\n'}history -a; history -c; history -r"
+
+HISTSIZE=10000
+HISTFILESIZE=20000
 END
 
 # setup GnuPG
