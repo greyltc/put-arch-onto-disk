@@ -445,6 +445,14 @@ trap historymerge EXIT
 PROMPT_COMMAND="history -a; $PROMPT_COMMAND"
 END
 
+# vim history setup
+cat <<END >> /etc/skel/.vimrc
+set undodir=~/.vim/undodir
+set undofile
+set undolevels=1000
+set undoreload=10000
+END
+
 # setup GnuPG
 install -m700 -d /etc/skel/.gnupg
 touch /tmp/gpg.conf
