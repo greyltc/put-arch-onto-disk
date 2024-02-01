@@ -442,7 +442,7 @@ function historymerge {
     history -n; history -w; history -c; history -r;
 }
 trap historymerge EXIT
-PROMPT_COMMAND="history -a; $PROMPT_COMMAND"
+PROMPT_COMMAND="history -a; \${PROMPT_COMMAND}"
 END
 
 # vim history setup
