@@ -43,6 +43,7 @@ shopt -s extglob
 : ${PORTABLE='true'}  # set false if you want the bootloader install to mod *this machine's* EFI vars
 : ${UCODES='amd-ucode intel-ucode'}  # install these microcodes
 : ${COPYIT=''}  # cp anything specified here to /root/install_copied
+: ${CP_INTO_BOOT=''}  # cp anything specified here to /boot
 
 # admin user options
 : ${ADMIN_USER_NAME='admin'}  # zero length string for no admin user
@@ -333,6 +334,11 @@ pacstrap -C /tmp/pacman.conf -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_L
 if test ! -z "${COPYIT}"; then
 	mkdir -p /"${TMP_ROOT}/root/install_copied"
 	cp -a ${COPYIT} /"${TMP_ROOT}"/root/install_copied/.
+fi
+
+if test ! -z "${CP_INTO_BOOT}"; then
+	mkdir -p /"${TMP_ROOT}/root/install_copied"
+	cp -a ${CP_INTO_BOOT} /"${TMP_ROOT}"/boot/.
 fi
 
 if test ! -z "${PACKAGE_FILES}"; then
