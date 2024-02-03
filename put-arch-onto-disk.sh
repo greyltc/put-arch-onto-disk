@@ -738,6 +738,7 @@ if test ! -z "\${PI_KERNEL_PARAMS}"; then
 fi
 
 rm -f /var/tmp/phase_one_setup_failed
+echo 'Setup phase 1 was successful' | systemd-cat
 exit 0
 EOF
 
@@ -935,7 +936,8 @@ then
     rm -rf /etc/sudoers.d/allow_${ADMIN_USER_NAME}_to_pacman
   fi  # add AUR
 fi # add admin
-rm -f /var/tmp/phase_two_setup_incomplete
+rm -f /var/tmp/phase_two_setup_failed
+echo 'Setup phase 2 was successful' | systemd-cat
 EOF
 
 # this lets localctl work in the container...
@@ -992,9 +994,8 @@ echo 'or you can can "chroot" into it with'
 echo 'sudo systemd-nspawn --network-macvlan=eno1 --network-veth --image '"${SPAWN_TARGET}"
 echo 'You might want to inspect the journal to see how the setup went'
 echo 'The presence/absence of the files'
-echo '/var/tmp/phase_two_setup_incomplete'
+echo '/var/tmp/phase_two_setup_failed'
 echo '/var/tmp/phase_one_setup_failed'
-echo '/var/tmp/phase_two_setup_incomplete'
 echo '/root/setup.sh'
 echo '/root/phase_two.sh'
 echo 'might also give you hints about how things went.'
