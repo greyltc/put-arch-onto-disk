@@ -122,7 +122,7 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools polkit systemd-resolvconf "
+DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} libmicrohttpd quota-tools systemd-ukify qrencode libpwquality libfido2 mpdecimal gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools polkit systemd-resolvconf "
 
 if test "${ROOT_FS_TYPE}" = "f2fs"; then
 	DEFAULT_PACKAGES="${DEFAULT_PACKAGES} fscrypt"
@@ -521,22 +521,6 @@ timeout 4
 console-mode auto
 editor yes
 END
-
-#  cat > /etc/pacman.d/hooks/80-secureboot.hook <<"END"
-#[Trigger]
-#Operation = Install
-#Operation = Upgrade
-#Type = Path
-#Target = usr/lib/systemd/boot/efi/systemd-boot*.efi
-#
-#[Action]
-#Description = Signing systemd-boot EFI binary for Secure Boot
-#When = PostTransaction
-#Exec = /bin/sh -c 'while read -r i; do sbsign --key /path/to/keyfile.key --cert /path/to/certificate.crt "$i"; done;'
-#Depends = sh
-#Depends = sbsigntools
-#NeedsTargets
-#END
 
   if pacman -Q linux > /dev/null 2>/dev/null
   then
