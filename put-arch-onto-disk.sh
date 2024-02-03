@@ -994,7 +994,7 @@ echo '/root/setup.sh'
 echo '/root/phase_two.sh'
 echo 'might also give you hints about how things went.'
 
-cat << "EOF"
+cat << EOF
 If things didn't work out, here are some recovery stratiges:
 1) use systemd-nspawn to chroot as above
 2) set a password for root with: `passwd root`
