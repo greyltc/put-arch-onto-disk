@@ -278,8 +278,8 @@ if test "${ROOT_FS_TYPE}" = "btrfs"; then
 	#mount ${ROOT_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home
 fi
 
-mkdir ${TMP_ROOT}/boot
-mount ${TARGET_DEV}${PEE}${BOOT_PARTITION} ${TMP_ROOT}/boot
+install -d -m 0700 "${TMP_ROOT}/boot"
+mount -o uid=0,gid=0,fmask=0077,dmask=0077 ${TARGET_DEV}${PEE}${BOOT_PARTITION} "${TMP_ROOT}/boot"
 install -m644 -Dt /tmp /etc/pacman.d/mirrorlist
 cat <<EOF > /tmp/pacman.conf
 [options]
