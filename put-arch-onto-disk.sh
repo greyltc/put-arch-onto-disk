@@ -434,7 +434,7 @@ set -o nounset
 localectl set-keymap --no-convert ${KEYMAP}
 
 # set up bash history
-cat <<END >> /etc/skel/.bashrc
+cat << "END" >> /etc/skel/.bashrc
 export HISTSIZE=10000
 export HISTFILESIZE=20000
 export HISTCONTROL=ignorespace:erasedups
@@ -443,11 +443,11 @@ function historymerge {
     history -n; history -w; history -c; history -r;
 }
 trap historymerge EXIT
-PROMPT_COMMAND="history -a; \${PROMPT_COMMAND}"
+PROMPT_COMMAND="history -a; ${PROMPT_COMMAND}"
 END
 
 # vim history setup
-cat <<END >> /etc/skel/.vimrc
+cat << "END" >> /etc/skel/.vimrc
 set undodir=~/.vim/undodir
 set undofile
 set undolevels=1000
