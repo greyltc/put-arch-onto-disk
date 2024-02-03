@@ -392,8 +392,9 @@ set -o errexit
 set -o nounset
 set -o verbose
 set -o xtrace
+echo 'Starting setup phase 1' | systemd-cat --priority=notice --identifier=p1setup
 touch /var/tmp/phase_one_setup_failed
-touch /var/tmp/phase_two_setup_incomplete
+touch /var/tmp/phase_two_setup_failed
 
 # ONLY FOR TESTING:
 #rm /usr/share/factory/etc/securetty
@@ -787,6 +788,7 @@ set -o errexit
 set -o nounset
 set -o verbose
 set -o xtrace
+echo 'Starting setup phase 2' | systemd-cat --priority=notice --identifier=p2setup
 
 # setup admin user
 if test ! -z "${ADMIN_USER_NAME}"
