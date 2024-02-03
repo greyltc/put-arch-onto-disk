@@ -392,9 +392,10 @@ set -o errexit
 set -o nounset
 set -o verbose
 set -o xtrace
-echo 'Starting setup phase 1' | systemd-cat --priority=notice --identifier=p1setup
 touch /var/tmp/phase_one_setup_failed
 touch /var/tmp/phase_two_setup_failed
+echo 'Starting setup phase 1' | systemd-cat --priority=notice --identifier=p1setup
+
 
 # ONLY FOR TESTING:
 #rm /usr/share/factory/etc/securetty
@@ -406,15 +407,8 @@ then
   echo "not setting up fscrypt"
 fi
 
-# change password for root
-if test -z "$ROOT_PASSWORD"
-then
-  echo "password locked for root user"
-  passwd --lock root
-else
-  echo "root:${ROOT_PASSWORD}"|chpasswd
-  sed 's,^#PermitRootLogin prohibit-password,PermitRootLogin yes,g' -i /etc/ssh/sshd_config
-fi
+# make a root pw for now. if needed, this will be disabled in phase 2
+echo "root:admin"|chpasswd
 
 # enable magic sysrq
 echo "kernel.sysrq = 1" > /etc/sysctl.d/99-sysctl.conf
@@ -926,6 +920,16 @@ then
     rm -rf /etc/sudoers.d/allow_${ADMIN_USER_NAME}_to_pacman
   fi  # add AUR
 fi # add admin
+
+# change password for root
+if test -z "$ROOT_PASSWORD"
+then
+  echo "password locked for root user"
+  passwd --lock root
+else
+  sed 's,^#PermitRootLogin prohibit-password,PermitRootLogin yes,g' -i /etc/ssh/sshd_config
+fi
+
 rm -f /var/tmp/phase_two_setup_failed
 echo 'Setup phase 2 was successful' | systemd-cat --priority=notice --identifier=p2setup
 EOF
@@ -996,6 +1000,6 @@ If things didn't work out, here are some recovery stratiges:
 2) set a password for root with: `passwd root`
 3) exit the chroot
 4) boot into rescue mode with systemd-nspawn like this:
-`sudo systemd-nspawn --network-macvlan=eno1 --network-veth --boot --image "${SPAWN_TARGET}" -- --unit rescue.target`
+sudo systemd-nspawn --network-veth --boot --image "${SPAWN_TARGET}" -- --unit rescue.target
 EOF
 
