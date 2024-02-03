@@ -117,7 +117,7 @@ if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
 	ARCH_SPECIFIC_PKGS="archlinuxarm-keyring"
 else
 	# alarm does not like/need these
-	ARCH_SPECIFIC_PKGS="linux ${UCODES} sbsigntools reflector"
+	ARCH_SPECIFIC_PKGS="linux ${UCODES} sbsigntools reflector edk2-shell memtest86+-efi"
 	HOST_NEEDS=""
 fi
 
@@ -481,22 +481,27 @@ if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
 else
   pacman-key --populate archlinux
   reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
+
+  if pacman -Q edk2-shell > /dev/null 2>/dev/null
+  then
+    cp /usr/share/edk2-shell/x64/Shell.efi /boot/shellx64.efi
+  fi
   
   # setup boot with systemd-boot
   if test "${PORTABLE}" = "false"; then
     if test -d /sys/firmware/efi/efivars; then
-      bootctl --graceful install
+      bootctl --efi-boot-option-description="Linux Boot Manager (${THIS_HOSTNAME})" install
     else
       echo "Can't find UEFI variables and so we won't try to mod them for systemd-boot install"
-      bootctl --no-variables --graceful install
+      bootctl --efi-boot-option-description="Linux Boot Manager (${THIS_HOSTNAME})" --no-variables install
     fi
   else
-    bootctl --no-variables --graceful install
+    bootctl --efi-boot-option-description="Linux Boot Manager (${THIS_HOSTNAME})" --no-variables install
   fi
 
   # let pacman update the bootloader
   mkdir -p /etc/pacman.d/hooks
-  cat > /etc/pacman.d/hooks/100-systemd-boot.hook <<END
+  cat > /etc/pacman.d/hooks/95-systemd-boot.hook <<END
 [Trigger]
 Type = Package
 Operation = Upgrade
@@ -512,32 +517,31 @@ END
   cat >/boot/loader/loader.conf <<END
 default arch.conf
 timeout 4
-console-mode keep
+console-mode auto
 editor yes
 END
 
-  cat > /etc/pacman.d/hooks/99-secureboot.hook <<"END"
-[Trigger]
-Operation = Install
-Operation = Upgrade
-Type = Package
-Target = linux
-Target = systemd
-
-[Action]
-Description = Signing Kernel for SecureBoot
-When = PostTransaction
-Exec = /usr/bin/find /boot -type f ( -name vmlinuz-* -o -name systemd* ) -exec /usr/bin/sh -c 'if ! /usr/bin/sbverify --list {} 2>/dev/null | /usr/bin/grep -q "signature certificates"; then /usr/bin/sbsign --key db.key --cert db.crt --output "\$1" "\$1"; fi' _ {} ;
-Depends = sbsigntools
-Depends = findutils
-Depends = grep
-END
+#  cat > /etc/pacman.d/hooks/80-secureboot.hook <<"END"
+#[Trigger]
+#Operation = Install
+#Operation = Upgrade
+#Type = Path
+#Target = usr/lib/systemd/boot/efi/systemd-boot*.efi
+#
+#[Action]
+#Description = Signing systemd-boot EFI binary for Secure Boot
+#When = PostTransaction
+#Exec = /bin/sh -c 'while read -r i; do sbsign --key /path/to/keyfile.key --cert /path/to/certificate.crt "$i"; done;'
+#Depends = sh
+#Depends = sbsigntools
+#NeedsTargets
+#END
 
   if pacman -Q linux > /dev/null 2>/dev/null
   then
     sed --in-place 's,^default.*,default arch.conf,g' /boot/loader/loader.conf
     cat >/boot/loader/entries/arch.conf <<END
-title   Arch Linux
+title   Arch Linux (${THIS_HOSTNAME})
 linux   /vmlinuz-linux
 initrd  /amd-ucode.img
 initrd  /intel-ucode.img
@@ -546,7 +550,7 @@ options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw libata.allow_tpm=1
 END
 
     cat >/boot/loader/entries/arch-fallback.conf <<END
-title   Arch Linux (fallback initramfs)
+title   Arch Linux (fallback initramfs, ${THIS_HOSTNAME})
 linux   /vmlinuz-linux
 initrd  /amd-ucode.img
 initrd  /intel-ucode.img
@@ -559,7 +563,7 @@ END
   then
     sed --in-place 's,^default.*,default arch-lts.conf,g' /boot/loader/loader.conf
     cat >/boot/loader/entries/arch-lts.conf <<END
-title   Arch Linux LTS
+title   Arch Linux LTS (${THIS_HOSTNAME})
 linux   /vmlinuz-linux-lts
 initrd  /amd-ucode.img
 initrd  /intel-ucode.img
@@ -568,7 +572,7 @@ options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
 END
 
     cat >/boot/loader/entries/arch-fallback.conf <<END
-title   Arch Linux LTS (fallback initramfs)
+title   Arch Linux LTS (fallback initramfs, ${THIS_HOSTNAME})
 linux   /vmlinuz-linux-lts
 initrd  /amd-ucode.img
 initrd  /intel-ucode.img
