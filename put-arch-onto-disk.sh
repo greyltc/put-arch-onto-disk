@@ -742,7 +742,7 @@ if test ! -z "\${PI_KERNEL_PARAMS}"; then
 fi
 
 rm -f /var/tmp/phase_one_setup_failed
-echo 'Setup phase 1 was successful' | systemd-cat
+echo 'Setup phase 1 was successful' | systemd-cat --priority=notice --identifier=p1setup
 exit 0
 EOF
 
@@ -941,7 +941,7 @@ then
   fi  # add AUR
 fi # add admin
 rm -f /var/tmp/phase_two_setup_failed
-echo 'Setup phase 2 was successful' | systemd-cat
+echo 'Setup phase 2 was successful' | systemd-cat --priority=notice --identifier=p2setup
 EOF
 
 # this lets localctl work in the container...
