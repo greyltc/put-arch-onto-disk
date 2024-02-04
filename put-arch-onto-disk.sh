@@ -271,11 +271,11 @@ mount --types ${ROOT_FS_TYPE} ${MOUNT_ARGS} ${ROOT_DEVICE} ${TMP_ROOT}
 if test "${ROOT_FS_TYPE}" = "btrfs"; then
 	btrfs subvolume create ${TMP_ROOT}/root
 	btrfs subvolume set-default ${TMP_ROOT}/root
-	#btrfs subvolume create ${TMP_ROOT}/home
+	#btrfs subvolume create ${TMP_ROOT}/home  # can be commented to disable home subvol
 	umount ${TMP_ROOT}
 	mount ${ROOT_DEVICE} ${MOUNT_ARGS},subvol=root ${TMP_ROOT}
-	#mkdir ${TMP_ROOT}/home
-	#mount ${ROOT_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home
+	#mkdir ${TMP_ROOT}/home  # can be commented to disable home subvol
+	#mount ${ROOT_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home  # can be commented to disable home subvol
 fi
 
 install -d -m 0700 "${TMP_ROOT}/boot"
@@ -356,7 +356,7 @@ if test ! -z "${IS_ARM}"; then
 	cat <<-'EOF' > "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
 	#!/usr/bin/env bash
 
-	# a script that will reprogram the rip eeprom to attempt boot first
+	# a script that will reprogram the rpi eeprom to attempt boot first
 	# from USB and then from SD card
 
 	rpi-eeprom-config --out boot.conf
