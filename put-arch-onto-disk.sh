@@ -510,6 +510,7 @@ END
     cat >/boot/loader/entries/memtest.conf <<END
 title  memtest86+
 efi    /memtest86+/memtest.efi
+END
   fi
 
   UCODE_LINES=""
