@@ -530,7 +530,7 @@ END
     cat >/boot/loader/entries/arch.conf <<END
 title   Arch Linux (${THIS_HOSTNAME})
 linux   /vmlinuz-linux
-\${UCODE_LINES}
+\$(echo -e \${UCODE_LINES})
 initrd  /initramfs-linux.img
 options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw libata.allow_tpm=1
 END
@@ -538,7 +538,7 @@ END
     cat >/boot/loader/entries/arch-fallback.conf <<END
 title   Arch Linux (fallback initramfs, ${THIS_HOSTNAME})
 linux   /vmlinuz-linux
-\${UCODE_LINES}
+\$(echo -e \${UCODE_LINES})
 initrd  /initramfs-linux-fallback.img
 options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
 END
@@ -550,7 +550,7 @@ END
     cat >/boot/loader/entries/arch-lts.conf <<END
 title   Arch Linux LTS (${THIS_HOSTNAME})
 linux   /vmlinuz-linux-lts
-\${UCODE_LINES}
+\$(echo -e \${UCODE_LINES})
 initrd  /initramfs-linux-lts.img
 options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
 END
@@ -558,7 +558,7 @@ END
     cat >/boot/loader/entries/arch-fallback.conf <<END
 title   Arch Linux LTS (fallback initramfs, ${THIS_HOSTNAME})
 linux   /vmlinuz-linux-lts
-\${UCODE_LINES}
+\$(echo -e \${UCODE_LINES})
 initrd  /initramfs-linux-lts-fallback.img
 options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
 END
