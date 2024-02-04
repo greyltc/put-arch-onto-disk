@@ -494,6 +494,14 @@ else
     bootctl --efi-boot-option-description="Linux Boot Manager (${THIS_HOSTNAME})" --no-variables install
   fi
 
+  mkdir -p /boot/loader/entries
+  cat >/boot/loader/loader.conf <<END
+default arch.conf
+timeout 4
+console-mode auto
+editor yes
+END
+
   # let systemd update the bootloader
   systemctl enable systemd-boot-update.service
 
@@ -504,14 +512,24 @@ title  memtest86+
 efi    /memtest86+/memtest.efi
   fi
 
+  UCODE_LINES=""
+  if test -f /boot/amd-ucode.img
+  then
+    UCODE_LINES+="initrd  /amd-ucode.img\n"
+  fi
+
+  if test -f /boot/intel-ucode.img
+  then
+    UCODE_LINES+="initrd  /intel-ucode.img\n"
+  fi
+
   if pacman -Q linux > /dev/null 2>/dev/null
   then
-    sed --in-place 's,^default.*,default arch.conf,g' /boot/loader/loader.conf
+    sed 's,^default.*,default arch.conf,g' --in-place /boot/loader/loader.conf
     cat >/boot/loader/entries/arch.conf <<END
 title   Arch Linux (${THIS_HOSTNAME})
 linux   /vmlinuz-linux
-initrd  /amd-ucode.img
-initrd  /intel-ucode.img
+\${UCODE_LINES}
 initrd  /initramfs-linux.img
 options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw libata.allow_tpm=1
 END
@@ -519,8 +537,7 @@ END
     cat >/boot/loader/entries/arch-fallback.conf <<END
 title   Arch Linux (fallback initramfs, ${THIS_HOSTNAME})
 linux   /vmlinuz-linux
-initrd  /amd-ucode.img
-initrd  /intel-ucode.img
+\${UCODE_LINES}
 initrd  /initramfs-linux-fallback.img
 options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
 END
@@ -532,8 +549,7 @@ END
     cat >/boot/loader/entries/arch-lts.conf <<END
 title   Arch Linux LTS (${THIS_HOSTNAME})
 linux   /vmlinuz-linux-lts
-initrd  /amd-ucode.img
-initrd  /intel-ucode.img
+\${UCODE_LINES}
 initrd  /initramfs-linux-lts.img
 options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
 END
@@ -541,8 +557,7 @@ END
     cat >/boot/loader/entries/arch-fallback.conf <<END
 title   Arch Linux LTS (fallback initramfs, ${THIS_HOSTNAME})
 linux   /vmlinuz-linux-lts
-initrd  /amd-ucode.img
-initrd  /intel-ucode.img
+\${UCODE_LINES}
 initrd  /initramfs-linux-lts-fallback.img
 options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
 END
