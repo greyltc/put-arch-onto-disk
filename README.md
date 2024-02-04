@@ -40,7 +40,7 @@ Look in the script for variables you can set and their defaults.
 ## Recipes
 Here are some fun combos of environment variables to use when running the script.
 
-### Fixed disk in a desktop machine
+### Fixed disk in a desktop or laptop
 ```
 TARGET=/dev/nvmeX \
 PORTABLE=false \
