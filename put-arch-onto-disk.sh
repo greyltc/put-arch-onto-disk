@@ -923,6 +923,13 @@ then
       sudo mv /tmp/mirrorlist /etc/pacman.d/mirrorlist
     fi
 
+    # enable byobu if we have it
+    if pacman -Q byobu > /dev/null 2>/dev/null; then
+      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}  || true
+      sudo -u ${ADMIN_USER_NAME} -D~ bash -c "byobu-enable"
+      homectl deactivate ${ADMIN_USER_NAME} || true
+    fi
+
     # take away passwordless sudo for pacman for admin
     rm -rf /etc/sudoers.d/allow_${ADMIN_USER_NAME}_to_pacman
   fi  # add AUR
