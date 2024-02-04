@@ -394,7 +394,7 @@ set -o verbose
 set -o xtrace
 touch /var/tmp/phase_one_setup_failed
 touch /var/tmp/phase_two_setup_failed
-echo 'Starting setup phase 1' | systemd-cat --priority=notice --identifier=p1setup
+echo 'Starting setup phase 1' | systemd-cat --priority=alert --identifier=p1setup
 
 
 # ONLY FOR TESTING:
@@ -659,15 +659,15 @@ pacman -Rs --noconfirm libpackagekit-glib || true
 # attempt phase two setup (expected to fail in alarm because https://github.com/systemd/systemd/issues/18643)
 if test -f /root/phase_two.sh
 then
-  echo "Attempting phase two setup" | systemd-cat --priority=notice --identifier=p1setup
+  echo "Attempting phase two setup" | systemd-cat --priority=alert --identifier=p1setup
   set +o errexit
   bash /root/phase_two.sh
   P2RESULT=\$?
   set -o errexit
   if test -f /var/tmp/phase_two_setup_incomplete -o \${P2RESULT} -ne 0
   then
-    echo "Phase two setup failed" | systemd-cat --priority=notice --identifier=p1setup
-    echo "Boot into the system natively and run `bash /root/phase_two.sh`" | systemd-cat --priority=notice --identifier=p1setup
+    echo "Phase two setup failed" | systemd-cat --priority=emerg --identifier=p1setup
+    echo "Boot into the system natively and run `bash /root/phase_two.sh`" | systemd-cat --priority=emerg --identifier=p1setup
   else
     rm -f /root/phase_two.sh
   fi
@@ -937,7 +937,7 @@ else
 fi
 
 rm -f /var/tmp/phase_two_setup_failed
-echo 'Setup phase 2 was successful' | systemd-cat --priority=notice --identifier=p2setup
+echo 'Setup phase 2 was successful' | systemd-cat --priority=alert --identifier=p2setup
 EOF
 
 # this lets localctl work in the container...
