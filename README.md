@@ -48,7 +48,7 @@ ADMIN_USER_NAME=wentworth \
 UCODES=intel-ucode \
 THIS_HOSTNAME=atomsmasher \
 AUR_HELPER=paru \
-PACKAGE_LIST="vim gnome gnome-extra pipewire-jack networkmanager byobu" \
+PACKAGE_LIST="vim gnome gnome-extra pipewire-jack networkmanager byobu intel-media-driver" \
 ```
 
 ### Raspberry Pi 5
