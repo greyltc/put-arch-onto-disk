@@ -497,6 +497,13 @@ else
   # let systemd update the bootloader
   systemctl enable systemd-boot-update.service
 
+  if pacman -Q memtest86+-efi > /dev/null 2>/dev/null
+  then
+    cat >/boot/loader/entries/memtest.conf <<END
+title  memtest86+
+efi    /memtest86+/memtest.efi
+  fi
+
   if pacman -Q linux > /dev/null 2>/dev/null
   then
     sed --in-place 's,^default.*,default arch.conf,g' /boot/loader/loader.conf
