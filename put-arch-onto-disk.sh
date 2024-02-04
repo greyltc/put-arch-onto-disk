@@ -494,27 +494,8 @@ else
     bootctl --efi-boot-option-description="Linux Boot Manager (${THIS_HOSTNAME})" --no-variables install
   fi
 
-  # let pacman update the bootloader
-  mkdir -p /etc/pacman.d/hooks
-  cat > /etc/pacman.d/hooks/95-systemd-boot.hook <<END
-[Trigger]
-Type = Package
-Operation = Upgrade
-Target = systemd
-
-[Action]
-Description = Gracefully upgrading systemd-boot...
-When = PostTransaction
-Exec = /usr/bin/systemctl restart systemd-boot-update.service
-END
-
-  mkdir -p /boot/loader/entries
-  cat >/boot/loader/loader.conf <<END
-default arch.conf
-timeout 4
-console-mode auto
-editor yes
-END
+  # let systemd update the bootloader
+  systemctl enable systemd-boot-update.service
 
   if pacman -Q linux > /dev/null 2>/dev/null
   then
