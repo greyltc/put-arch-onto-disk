@@ -650,11 +650,8 @@ if pacman -Q lxdm > /dev/null 2>/dev/null; then
   fi
 fi
 
-# purge packagekit crap
-pacman -Rs --noconfirm gnome-software-packagekit-plugin || true
+# purge gui package management crap
 pacman -Rs --noconfirm gnome-software || true
-pacman -Rs --noconfirm packagekit || true
-pacman -Rs --noconfirm libpackagekit-glib || true
 
 # attempt phase two setup (expected to fail in alarm because https://github.com/systemd/systemd/issues/18643)
 if test -f /root/phase_two.sh
