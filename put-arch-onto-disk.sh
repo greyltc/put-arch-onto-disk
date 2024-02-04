@@ -659,16 +659,16 @@ pacman -Rs --noconfirm libpackagekit-glib || true
 # attempt phase two setup (expected to fail in alarm because https://github.com/systemd/systemd/issues/18643)
 if test -f /root/phase_two.sh
 then
-  echo "Attempting phase two setup"
+  echo "Attempting phase two setup" | systemd-cat --priority=notice --identifier=p1setup
   set +o errexit
   bash /root/phase_two.sh
+  P2RESULT=$?
   set -o errexit
-  if test -f /var/tmp/phase_two_setup_incomplete
+  if test -f /var/tmp/phase_two_setup_incomplete -o ${P2RESULT} -ne 0
   then
-    echo "Phase two setup failed"
-    echo "Boot into the system natively and run `bash /root/phase_two.sh`"
+    echo "Phase two setup failed" | systemd-cat --priority=notice --identifier=p1setup
+    echo "Boot into the system natively and run `bash /root/phase_two.sh`" | systemd-cat --priority=notice --identifier=p1setup
   else
-    echo "Phase two setup complete!"
     rm -f /root/phase_two.sh
   fi
 fi
@@ -710,7 +710,7 @@ PI_KERNEL_PARAMS=""
 if test ! -z "\${PI_KERNEL_PARAMS}"; then
   if pacman -Q uboot-raspberrypi > /dev/null 2>/dev/null; then
     pushd /boot
-    sed '/^setenv bootargs/ s/$/ '\${PI_KERNEL_PARAMS'/' file -i boot.txt
+    sed '/^setenv bootargs/ s/$/ '\${PI_KERNEL_PARAMS}'/' file -i boot.txt
     ./mkscr
     popd
   elif pacman -Q linux-rpi > /dev/null 2>/dev/null; then
@@ -721,7 +721,7 @@ if test ! -z "\${PI_KERNEL_PARAMS}"; then
 fi
 
 rm -f /var/tmp/phase_one_setup_failed
-echo 'Setup phase 1 was successful' | systemd-cat --priority=notice --identifier=p1setup
+echo 'Setup phase 1 was successful' | systemd-cat --priority=alert --identifier=p1setup
 exit 0
 EOF
 
@@ -743,7 +743,7 @@ ExecStopPost=/usr/bin/sh -c 'rm -f /root/setup.sh; systemctl disable container-b
 EOF
 ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
 
-cat <<EOF > "${TMP_ROOT}/root/recovery_notes.txt"
+cat << "EOF" > "${TMP_ROOT}/root/recovery_notes.txt"
 1) mount root in /mnt
 2) mount home in /mnt/home
 3) mount boot in /mnt/boot
@@ -766,7 +766,7 @@ set -o errexit
 set -o nounset
 set -o verbose
 set -o xtrace
-echo 'Starting setup phase 2' | systemd-cat --priority=notice --identifier=p2setup
+echo 'Starting setup phase 2' | systemd-cat --priority=alert --identifier=p2setup
 
 # setup admin user
 if test ! -z "${ADMIN_USER_NAME}"
@@ -843,13 +843,19 @@ then
 
   if test -f /root/admin_sshkeys/id_rsa.pub
   then
-    PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}  || true
+    if test "${ADMIN_HOMED}" = "true"
+    then
+      PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}
+    fi
     install -d /home/${ADMIN_USER_NAME}/.ssh -o ${ADMIN_USER_NAME} -g ${ADMIN_USER_NAME} -m=700
     cp -a /root/admin_sshkeys/* /home/${ADMIN_USER_NAME}/.ssh
     chown ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
     chgrp ${ADMIN_USER_NAME} /home/${ADMIN_USER_NAME}/.ssh/*
-    homectl update ${ADMIN_USER_NAME} --ssh-authorized-keys=@/home/${ADMIN_USER_NAME}/.ssh/authorized_keys || true
-    homectl deactivate ${ADMIN_USER_NAME}  || true
+    if test "${ADMIN_HOMED}" = "true"
+    then
+      homectl update ${ADMIN_USER_NAME} --ssh-authorized-keys=@/home/${ADMIN_USER_NAME}/.ssh/authorized_keys
+      homectl deactivate ${ADMIN_USER_NAME}
+    fi
   fi  # copy in ssh keys
 
   # gnome shell config
