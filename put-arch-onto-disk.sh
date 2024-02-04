@@ -662,9 +662,9 @@ then
   echo "Attempting phase two setup" | systemd-cat --priority=notice --identifier=p1setup
   set +o errexit
   bash /root/phase_two.sh
-  P2RESULT=$?
+  P2RESULT=\$?
   set -o errexit
-  if test -f /var/tmp/phase_two_setup_incomplete -o ${P2RESULT} -ne 0
+  if test -f /var/tmp/phase_two_setup_incomplete -o \${P2RESULT} -ne 0
   then
     echo "Phase two setup failed" | systemd-cat --priority=notice --identifier=p1setup
     echo "Boot into the system natively and run `bash /root/phase_two.sh`" | systemd-cat --priority=notice --identifier=p1setup
