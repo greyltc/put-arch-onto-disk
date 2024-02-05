@@ -338,7 +338,7 @@ fi
 
 if test ! -z "${CP_INTO_BOOT}"; then
 	mkdir -p /"${TMP_ROOT}/root/install_copied"
-	cp -a ${CP_INTO_BOOT} /"${TMP_ROOT}"/boot/.
+	cp -r ${CP_INTO_BOOT} /"${TMP_ROOT}"/boot/.
 fi
 
 if test ! -z "${PACKAGE_FILES}"; then
