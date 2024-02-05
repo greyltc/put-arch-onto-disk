@@ -477,6 +477,8 @@ find /etc/skel -maxdepth 1 -mindepth 1 -exec cp -a {} /root \;
 
 pacman-key --init
 if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
+  sed '1iallow-weak-key-signatures' -i /etc/pacman.d/gnupg/gpg.conf  # some nasty hack to avoid
+  # signature from "Arch Linux ARM Build System <builder@archlinuxarm.org>" is marginal trust
   pacman-key --populate archlinuxarm
   echo 'Server = http://mirror.archlinuxarm.org/\$arch/\$repo' > /etc/pacman.d/mirrorlist
 else
@@ -720,7 +722,8 @@ if test ! -z "\${PI_KERNEL_PARAMS}"; then
     sed '/^setenv bootargs/ s/$/ '\${PI_KERNEL_PARAMS}'/' file -i boot.txt
     ./mkscr
     popd
-  elif pacman -Q linux-rpi > /dev/null 2>/dev/null; then
+  elif pacman -Qi linux-rpi &>/dev/null || pacman -Qi linux-rpi-16k &>/dev/null
+  then
     pushd /boot
     echo -n " \${PI_KERNEL_PARAMS}" >> cmdline.txt
     popd
