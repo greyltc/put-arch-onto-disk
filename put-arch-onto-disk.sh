@@ -991,7 +991,7 @@ if test -z "${IMG_NAME}"; then
 else
 	SPAWN_TARGET="${IMG_NAME}"
 fi
-systemd-nspawn --boot --image "${SPAWN_TARGET}"  # as of systemd-253, this will fail unless https://github.com/systemd/systemd/pull/28954 is applied
+systemd-nspawn --link-journal=host --boot --image "${SPAWN_TARGET}"  # as of systemd-253, this will fail unless https://github.com/systemd/systemd/pull/28954 is applied
 
 if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
 	set +o xtrace
@@ -1003,9 +1003,9 @@ set +o xtrace
 set +o verbose
 echo 'Done!'
 echo 'You can now boot into the new system with (change the network device in the commands below if needed)'
-echo 'sudo systemd-nspawn --network-macvlan=eno1 --network-veth --boot --image '"${SPAWN_TARGET}"
+echo 'sudo systemd-nspawn --link-journal=host --network-macvlan=eno1 --network-veth --boot --image '"${SPAWN_TARGET}"
 echo 'or you can can "chroot" into it with'
-echo 'sudo systemd-nspawn --network-macvlan=eno1 --network-veth --image '"${SPAWN_TARGET}"
+echo 'sudo systemd-nspawn --link-journal=host --network-macvlan=eno1 --network-veth --image '"${SPAWN_TARGET}"
 echo 'You might want to inspect the journal to see how the setup went'
 echo 'The presence/absence of the files'
 echo '/var/tmp/phase_two_setup_failed'
@@ -1014,12 +1014,12 @@ echo '/root/setup.sh'
 echo '/root/phase_two.sh'
 echo 'might also give you hints about how things went.'
 
-cat << "EOF"
+cat << EOF
 If things didn't work out, here are some recovery stratiges:
 1) use systemd-nspawn to chroot as above
-2) set a password for root with: `passwd root`
+2) set a password for root with: "passwd root"
 3) exit the chroot
 4) boot into rescue mode with systemd-nspawn like this:
-`sudo systemd-nspawn --network-veth --boot --image "${SPAWN_TARGET}" -- --unit rescue.target`
+sudo systemd-nspawn --link-journal=host --network-veth --boot --image "${SPAWN_TARGET}" -- --unit rescue.target
 EOF
 
