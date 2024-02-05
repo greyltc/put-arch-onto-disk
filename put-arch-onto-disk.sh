@@ -38,7 +38,7 @@ shopt -s extglob
 : ${TIME_ZONE='America/Edmonton'}  # timedatectl list-timezones
 : ${LOCALE='en_US.UTF-8'}
 : ${CHARSET='UTF-8'}
-: ${ROOT_PASSWORD=''}  # zero length root password string locks out root password
+: ${ROOT_PASSWORD=''}  # zero length root password string locks out root login, otherwise even ssh via password is enabled for root
 : ${THIS_HOSTNAME='archthing'}
 : ${PORTABLE='true'}  # set false if you want the bootloader install to mod *this machine's* EFI vars
 : ${UCODES='amd-ucode intel-ucode'}  # install these microcodes
@@ -408,16 +408,22 @@ then
 fi
 
 # make a root pw for now. if needed, this will be disabled in phase 2
-echo "root:admin"|chpasswd
+if test -z "${ROOT_PASSWORD}"
+then
+  echo "root:admin"|chpasswd
+else
+  echo "root:${ROOT_PASSWORD}"|chpasswd
+fi
+sed 's,^#PermitRootLogin .*,PermitRootLogin yes,g' -i /etc/ssh/sshd_config
 
 # enable magic sysrq
 echo "kernel.sysrq = 1" > /etc/sysctl.d/99-sysctl.conf
 
 # set hostname
-echo ${THIS_HOSTNAME} > /etc/hostname
+echo "${THIS_HOSTNAME}" > /etc/hostname
 
 # set timezone
-ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
+ln -sf "/usr/share/zoneinfo/${TIME_ZONE}" /etc/localtime
 
 # generate adjtime (this is probably forbidden)
 hwclock --systohc || :
@@ -426,12 +432,12 @@ timedatectl set-ntp true
 # do locale things
 sed -i "s,^#${LOCALE} ${CHARSET},${LOCALE} ${CHARSET},g" /etc/locale.gen
 locale-gen
-localectl set-locale LANG=${LOCALE}
+localectl set-locale LANG="${LOCALE}"
 unset LANG
 set +o nounset
 source /etc/profile.d/locale.sh
 set -o nounset
-localectl set-keymap --no-convert ${KEYMAP}
+localectl set-keymap --no-convert "${KEYMAP}"
 
 # set up bash history
 cat << "END" >> /etc/skel/.bashrc
@@ -776,8 +782,6 @@ then
   # users in the wheel group have password triggered sudo powers
   echo '%wheel ALL=(ALL) ALL' > /etc/sudoers.d/01_wheel_can_sudo
 
-  sed 's,^PermitRootLogin yes,#PermitRootLogin prohibit-password,g' -i /etc/ssh/sshd_config
-
   if test ! -z "${AUR_HELPER}"
   then
     pacman -S --needed --noconfirm base-devel
@@ -933,15 +937,17 @@ then
     # take away passwordless sudo for pacman for admin
     rm -rf /etc/sudoers.d/allow_${ADMIN_USER_NAME}_to_pacman
   fi  # add AUR
+  # now that we have a proper admin user, ensure ssh login for root with password is disabled
+  sed 's,^PermitRootLogin .*,#PermitRootLogin prohibit-password,g' -i /etc/ssh/sshd_config
 fi # add admin
 
 # change password for root
-if test -z "$ROOT_PASSWORD"
+# note that root will have perminant password ssh login if ROOT_PASSWORD was set
+if test -z "${ROOT_PASSWORD}"
 then
   echo "password locked for root user"
   passwd --lock root
-else
-  sed 's,^#PermitRootLogin prohibit-password,PermitRootLogin yes,g' -i /etc/ssh/sshd_config
+  sed 's,^PermitRootLogin .*,#PermitRootLogin prohibit-password,g' -i /etc/ssh/sshd_config
 fi
 
 rm -f /var/tmp/phase_two_setup_failed
