@@ -775,6 +775,11 @@ EOF
 
 cat << "EOF" > "${TMP_ROOT}/root/online_expand_btrfs_root.sh"
 #!/usr/bin/env bash
+set -o pipefail
+set -o errexit
+set -o nounset
+set -o verbose
+set -o xtrace
 ROOT_BLOCK="\$(findmnt -n --fstab --df -e --target / -o SOURCE)"
 ROOT_DEV="/dev/\$(lsblk -no pkname \${ROOT_BLOCK})"
 
