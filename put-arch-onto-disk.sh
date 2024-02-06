@@ -801,7 +801,7 @@ sgdisk --partition-guid=\${N_PARTITIONS}:\${TEH_PART_UUID} "\${ROOT_DEV}"
 partprobe
 echo "You should probably reboot now"
 EOF
-chmod +x "${TMP_ROOT}/root/online_expand_root.sh"
+chmod +x "${TMP_ROOT}/root/online_expand_btrfs_root.sh"
 
 cat <<EOF > "${TMP_ROOT}/root/phase_two.sh"
 #!/usr/bin/env bash
