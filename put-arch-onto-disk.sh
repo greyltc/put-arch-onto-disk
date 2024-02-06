@@ -997,7 +997,7 @@ if test -z "${IMG_NAME}"; then
 else
 	SPAWN_TARGET="${IMG_NAME}"
 fi
-systemd-nspawn --link-journal=host --boot --image "${SPAWN_TARGET}"  # as of systemd-253, this will fail unless https://github.com/systemd/systemd/pull/28954 is applied
+systemd-nspawn --link-journal=host --boot --image "${SPAWN_TARGET}" init --log-level=debug  # as of systemd-253, this will fail unless https://github.com/systemd/systemd/pull/28954 is applied
 
 if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
 	set +o xtrace
