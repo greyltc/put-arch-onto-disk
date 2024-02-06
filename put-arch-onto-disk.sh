@@ -794,9 +794,11 @@ sgdisk -d "\${N_PARTITIONS}" "\${ROOT_DEV}"
 
 sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"Arch Linux root GPT" "\${ROOT_DEV}"
 partprobe
+
+btrfs filesystem resize max /
+
 sgdisk --partition-guid=\${N_PARTITIONS}:\${TEH_PART_UUID} "\${ROOT_DEV}"
 partprobe
-btrfs filesystem resize max /
 echo "You should probably reboot now"
 EOF
 chmod +x "${TMP_ROOT}/root/online_expand_root.sh"
