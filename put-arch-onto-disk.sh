@@ -782,6 +782,7 @@ set -o verbose
 set -o xtrace
 ROOT_BLOCK="\$(findmnt -n --fstab --df -e --target / -o SOURCE)"
 ROOT_DEV="/dev/\$(lsblk -no pkname \${ROOT_BLOCK})"
+TEH_PART_UUID="\$(lsblk -n -oPARTUUID \${ROOT_BLOCK})"
 
 # move backup header to end
 sgdisk -e "\${ROOT_DEV}"
@@ -792,6 +793,8 @@ N_PARTITIONS="\$(sgdisk \${ROOT_DEV} -p | tail -1 | tr -s ' ' | cut -d ' ' -f2)"
 sgdisk -d "\${N_PARTITIONS}" "\${ROOT_DEV}"
 
 sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"Arch Linux root GPT" "\${ROOT_DEV}"
+partprobe
+sgdisk --partition-guid=\${N_PARTITIONS}:\${TEH_PART_UUID} "\${ROOT_DEV}"
 partprobe
 btrfs filesystem resize max /
 echo "You should probably reboot now"
