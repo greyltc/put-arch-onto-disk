@@ -867,7 +867,7 @@ then
     then
       pacman -S --needed --noconfirm jq
       # make the user with homectl
-      jq -n --arg pw "${ADMIN_USER_PASSWORD}" --arg pwhash "\$(openssl passwd -6 ${ADMIN_USER_PASSWORD})" '{secret:{password:[\$pw]},privileged:{hashedPassword:[\$pwhash]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE} "\${ADD_KEY_CMD}"
+      jq -n --arg pw "${ADMIN_USER_PASSWORD}" --arg pwhash \$(openssl passwd -6 "${ADMIN_USER_PASSWORD}") '{secret:{password:[\$pw]},privileged:{hashedPassword:[\$pwhash]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE} "\${ADD_KEY_CMD}"
       sed "s,^#AuthorizedKeysCommand none,AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u,g" -i /etc/ssh/sshd_config
       sed "s,^#AuthorizedKeysCommandUser nobody,AuthorizedKeysCommandUser root,g" -i /etc/ssh/sshd_config
       if test -f /var/tmp/auth_pub.key
