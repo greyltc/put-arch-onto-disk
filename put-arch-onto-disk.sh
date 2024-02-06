@@ -773,6 +773,26 @@ cat << "EOF" > "${TMP_ROOT}/root/recovery_notes.txt"
 10) umount --recursive /mnt
 EOF
 
+cat << "EOF" > "${TMP_ROOT}/root/online_expand_btrfs_root.sh"
+#!/usr/bin/env bash
+ROOT_BLOCK="\$(findmnt -n --fstab --df -e --target / -o SOURCE)"
+ROOT_DEV="/dev/\$(lsblk -no pkname \${ROOT_BLOCK})"
+
+# move backup header to end
+sgdisk -e "\${ROOT_DEV}"
+partprobe
+
+# delete last parfition
+N_PARTITIONS="\$(sgdisk \${ROOT_DEV} -p | tail -1 | tr -s ' ' | cut -d ' ' -f2)"
+sgdisk -d "\${N_PARTITIONS}" "\${ROOT_DEV}"
+
+sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"Arch Linux root GPT" "\${ROOT_DEV}"
+partprobe
+btrfs filesystem resize max /
+echo "You should probably reboot now"
+EOF
+chmod +x "${TMP_ROOT}/root/online_expand_root.sh"
+
 cat <<EOF > "${TMP_ROOT}/root/phase_two.sh"
 #!/usr/bin/env bash
 set -o pipefail
