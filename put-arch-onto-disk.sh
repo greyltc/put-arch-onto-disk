@@ -322,6 +322,7 @@ then
 	Include = /tmp/mirrorlist
 	EOF
 	sed '1s;^;Server = http://mirror.archlinuxarm.org/$arch/$repo\n;' -i /tmp/mirrorlist
+ 	sed '1s;^;Server = http://ca.us.mirror.archlinuxarm.org/$arch/$repo\n;' -i /tmp/mirrorlist
 else
 	IS_ARM=""
 fi
