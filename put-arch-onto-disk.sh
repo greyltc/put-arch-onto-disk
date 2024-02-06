@@ -114,10 +114,10 @@ fi
 
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
 	HOST_NEEDS="qemu-user-static-binfmt"
-	ARCH_SPECIFIC_PKGS="archlinuxarm-keyring"
+	ARCH_SPECIFIC_PKGS="archlinuxarm-keyring dbus-daemon-units"
 else
 	# alarm does not like/need these
-	ARCH_SPECIFIC_PKGS="linux ${UCODES} sbsigntools reflector edk2-shell memtest86+-efi"
+	ARCH_SPECIFIC_PKGS="linux ${UCODES} sbsigntools reflector edk2-shell memtest86+-efi dbus-broker-units"
 	HOST_NEEDS=""
 fi
 
