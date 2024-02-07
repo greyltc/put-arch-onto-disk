@@ -44,6 +44,8 @@ shopt -s extglob
 : ${UCODES='amd-ucode intel-ucode'}  # install these microcodes
 : ${COPYIT=''}  # cp anything specified here to /root/install_copied
 : ${CP_INTO_BOOT=''}  # cp anything specified here to /boot
+: ${NUKE_DRIVE='false'}  # try to zero the partitions before creating file systems
+# TODO: add prewipe with dd if=/dev/null option
 
 # admin user options
 : ${ADMIN_USER_NAME='admin'}  # zero length string for no admin user
