@@ -702,11 +702,11 @@ sed 's,#PrivateNetwork=yes,PrivateNetwork=yes,g' -i /usr/lib/systemd/system/syst
 # take care of some rpi config stuff
 if test -f /boot/config.txt; then
   echo "" >> /boot/config.txt
-  echo "# PoE Hat Fan Speeds" >> /boot/config.txt
-  echo "dtparam=poe_fan_temp0=50000" >> /boot/config.txt
-  echo "dtparam=poe_fan_temp1=60000" >> /boot/config.txt
-  echo "dtparam=poe_fan_temp2=70000" >> /boot/config.txt
-  echo "dtparam=poe_fan_temp3=80000" >> /boot/config.txt
+  #echo "# PoE Hat Fan Speeds" >> /boot/config.txt
+  #echo "dtparam=poe_fan_temp0=50000" >> /boot/config.txt
+  #echo "dtparam=poe_fan_temp1=60000" >> /boot/config.txt
+  #echo "dtparam=poe_fan_temp2=70000" >> /boot/config.txt
+  #echo "dtparam=poe_fan_temp3=80000" >> /boot/config.txt
 
   #echo "hdmi_ignore_edid:0=0xa5000080" >> /boot/config.txt
   #echo "hdmi_force_mode:0=1" >> /boot/config.txt
@@ -735,6 +735,8 @@ if test ! -z "\${PI_KERNEL_PARAMS}"; then
     popd
   fi
 fi
+
+fstrim --all
 
 rm -f /var/tmp/phase_one_setup_failed
 echo 'Setup phase 1 was successful' | systemd-cat --priority=alert --identifier=p1setup
@@ -989,12 +991,18 @@ then
   sed 's,^PermitRootLogin .*,#PermitRootLogin prohibit-password,g' -i /etc/ssh/sshd_config
 fi
 
+fstrim --all
+
 rm -f /var/tmp/phase_two_setup_failed
 echo 'Setup phase 2 was successful' | systemd-cat --priority=alert --identifier=p2setup
 EOF
 
 # this lets localctl work in the container...
 sed 's,PrivateNetwork=yes,#PrivateNetwork=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-localed.service
+
+fstrim "${TMP_ROOT}"
+fstrim "${TMP_ROOT}"/boot
+fstrim "${TMP_ROOT}"/home
 
 # unmount and clean up everything
 umount "${TMP_ROOT}/boot" || true
