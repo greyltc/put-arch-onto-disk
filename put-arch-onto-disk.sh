@@ -124,7 +124,46 @@ else
 fi
 
 # here are a baseline set of packages for the new install
-DEFAULT_PACKAGES="base ${ARCH_SPECIFIC_PKGS} libmicrohttpd quota-tools systemd-ukify qrencode libpwquality libfido2 mpdecimal gnupg mkinitcpio haveged btrfs-progs dosfstools exfat-utils f2fs-tools openssh gpart parted mtools nilfs-utils ntfs-3g gdisk arch-install-scripts bash-completion rsync dialog ifplugd cpupower vi openssl ufw crda linux-firmware wireguard-tools polkit systemd-resolvconf "
+DEFAULT_PACKAGES="\
+base \
+${ARCH_SPECIFIC_PKGS} \
+libmicrohttpd \
+quota-tools \
+systemd-ukify \
+qrencode \
+libpwquality \
+libfido2 \
+mpdecimal \
+gnupg \
+mkinitcpio \
+haveged \
+btrfs-progs \
+dosfstools \
+exfat-utils \
+f2fs-tools \
+openssh \
+gpart \
+parted \
+mtools \
+nilfs-utils \
+ntfs-3g \
+gdisk \
+arch-install-scripts \
+bash-completion \
+rsync \
+dialog \
+ifplugd \
+cpupower \
+vi \
+openssl \
+ufw \
+crda \
+linux-firmware \
+wireguard-tools \
+polkit \
+systemd-resolvconf \
+pacman-contrib \
+"
 
 if test "${ROOT_FS_TYPE}" = "f2fs"; then
 	DEFAULT_PACKAGES="${DEFAULT_PACKAGES} fscrypt"
@@ -274,11 +313,11 @@ mount --types ${ROOT_FS_TYPE} ${MOUNT_ARGS} ${ROOT_DEVICE} ${TMP_ROOT}
 if test "${ROOT_FS_TYPE}" = "btrfs"; then
 	btrfs subvolume create ${TMP_ROOT}/root
 	btrfs subvolume set-default ${TMP_ROOT}/root
-	#btrfs subvolume create ${TMP_ROOT}/home  # can be commented to disable home subvol
+	btrfs subvolume create ${TMP_ROOT}/home  # can be commented to disable home subvol
 	umount ${TMP_ROOT}
 	mount ${ROOT_DEVICE} ${MOUNT_ARGS},subvol=root ${TMP_ROOT}
-	#mkdir ${TMP_ROOT}/home  # can be commented to disable home subvol
-	#mount ${ROOT_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home  # can be commented to disable home subvol
+	mkdir ${TMP_ROOT}/home  # can be commented to disable home subvol
+	mount ${ROOT_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home  # can be commented to disable home subvol
 fi
 
 install -d -m 0700 "${TMP_ROOT}/boot"
@@ -583,6 +622,17 @@ if test "${SKIP_NSPAWN}" != "true"; then
 			if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
 				sed "s,^#governor=.*,governor='performance'," -i /etc/default/cpupower
 			fi
+		fi
+
+		# enable package cleanup timer
+		if pacman -Q pacman-contrib &> /dev/null; then
+			systemctl enable paccache.timer
+		fi
+
+		# enable btrfs scrub timer
+		if pacman -Q btrfs-progs &> /dev/null; then
+			systemctl enable btrfs-scrub@-.timer
+			systemctl enable btrfs-scrub@home.timer
 		fi
 
 		# setup firewall but don't turn it on just yet
