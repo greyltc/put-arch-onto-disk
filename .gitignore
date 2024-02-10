@@ -1,3 +1,5 @@
 *.img
+*.img.xz
+*.img.zst
 *.log
 recipes/doit.sh
