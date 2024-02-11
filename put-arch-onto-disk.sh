@@ -820,6 +820,7 @@ if test "${SKIP_NSPAWN}" != "true"; then
 		#!/usr/bin/env bash
 		# nb. this script can be very destructive if its assumptions are not met
 		# it assumes
+  		# - you have btrfs-tools (btrfs command) and gptfdisk (sgdisk command) installed
 		# - root is mounted on a block device with a GPT
 		# - root is btrfs
 		# - root is the last partition in the table
