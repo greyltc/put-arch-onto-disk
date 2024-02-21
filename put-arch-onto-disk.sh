@@ -757,7 +757,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		ConditionPathExists=/root/setup.sh
 
 		[Service]
-		Type=idle
+		Type=oneshot
 		TimeoutStopSec=10sec
 		ExecStart=/usr/bin/bash /root/setup.sh
 		ExecStartPost=/usr/bin/sh -c 'rm -f /root/setup.sh; systemctl disable container-boot-setup; rm -f /usr/lib/systemd/system/container-boot-setup.service; halt'
