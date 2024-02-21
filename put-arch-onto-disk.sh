@@ -855,7 +855,7 @@ if test "${SKIP_NSPAWN}" != "true"; then
 
 		btrfs filesystem resize max /
 
-		rm /.expand
+		rm -f /.expand
 
 		sync
 		partprobe
