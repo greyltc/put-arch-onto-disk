@@ -44,8 +44,8 @@ shopt -s extglob
 : ${UCODES='amd-ucode intel-ucode'}  # install these microcodes
 : ${COPYIT=''}  # cp anything specified here to /root/install_copied
 : ${CP_INTO_BOOT=''}  # cp anything specified here to /boot
-: ${SKIP_NSPAWN='false'}  # skip systemd-nspawn setup
-: ${SKIP_SETUP='false'}  # skip _all_ custom OS setup altogether
+: ${SKIP_NSPAWN='false'}  # if true, then don't do the OS setup in a container (do it on first boot)
+: ${SKIP_SETUP='false'}  # skip _all_ custom OS setup altogether (implies SKIP_NSPAWN)
 
 # admin user options
 : ${ADMIN_USER_NAME='admin'}  # zero length string for no admin user
@@ -427,7 +427,15 @@ sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
 # 	chmod +x "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
 # fi
 
-if test "${SKIP_NSPAWN}" != "true"; then
+if test "${SKIP_SETUP}" != "true"; then
+	# setup systemd's resolve stub
+	if test "${SKIP_NSPAWN}" != "true"; then
+		touch /link_resolv_conf.note #leave a marker so we can complete this setup later
+	else
+		# breaks network inside container
+		ln -sf /run/systemd/resolve/stub-resolv.conf "${TMP_ROOT}/etc/resolv.conf"
+	fi
+
 	cat <<-EOF > "${TMP_ROOT}/root/setup.sh"
 		#!/usr/bin/env bash
 		set -o pipefail
@@ -651,12 +659,6 @@ if test "${SKIP_NSPAWN}" != "true"; then
 		fi
 
 		systemctl enable systemd-resolved
-		if test "${SKIP_NSPAWN}" != "true"; then
-			touch /link_resolv_conf #leave a marker so we can complete this setup later
-		else
-			# breaks network inside container
-			ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-		fi
 
 		# if networkmanager is installed, enable it, otherwise let systemd things manage the network
 		if pacman -Q networkmanager &> /dev/null; then
@@ -730,13 +732,13 @@ if test "${SKIP_NSPAWN}" != "true"; then
 			fi
 		fi
 
-		# must do this last because it breaks networking
-		if test -f /link_resolv_conf; the
+		# link systemd resolve stub now in case we were running in a container and didn't do it earlier 
+		if test -f /link_resolv_conf.note; the
 			ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-			rm /link_resolv_conf
+			rm /link_resolv_conf.note
 		fi
 
-		# undo changes to service files
+		# undo container-needed changes to localed.service files
 		if test "${SKIP_NSPAWN}" != "true"; then
 			sed 's,#PrivateNetwork=yes,PrivateNetwork=yes,g' -i /usr/lib/systemd/system/systemd-localed.service
 		fi
@@ -748,7 +750,7 @@ if test "${SKIP_NSPAWN}" != "true"; then
 		exit 0
 	EOF
 
-	# create and activate the service that will run phase 1 setup
+	# create the service that will run phase 1 setup
 	cat <<- "EOF" > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service
 		[Unit]
 		Description=Initial system setup tasks to be run in a container
@@ -761,6 +763,7 @@ if test "${SKIP_NSPAWN}" != "true"; then
 		ExecStartPost=/usr/bin/sh -c 'rm -f /root/setup.sh; systemctl disable container-boot-setup; rm -f /usr/lib/systemd/system/container-boot-setup.service; halt'
 	EOF
 
+	# activate the service that will run phase 1 setup
 	ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
 
 	# take care of some rpi config stuff
@@ -800,6 +803,7 @@ if test "${SKIP_NSPAWN}" != "true"; then
 	#fi
 
 
+	# make some notes
 	cat <<- "EOF" > "${TMP_ROOT}/root/recovery_notes.txt"
 		1) mount root in /mnt
 		2) mount home in /mnt/home
@@ -816,6 +820,7 @@ if test "${SKIP_NSPAWN}" != "true"; then
 		10) umount --recursive /mnt
 	EOF
 
+	# add a rootfs expander script
 	cat <<- "EOF" > "${TMP_ROOT}/root/online_expand_btrfs_root.sh"
 		#!/usr/bin/env bash
 		# nb. this script can be very destructive if its assumptions are not met
@@ -864,6 +869,7 @@ if test "${SKIP_NSPAWN}" != "true"; then
 	EOF
 	chmod +x "${TMP_ROOT}/root/online_expand_btrfs_root.sh"
 
+	# make a phase 2 setup script
 	cat <<-EOF > "${TMP_ROOT}/root/phase_two.sh"
 		#!/usr/bin/env bash
 		set -o pipefail
@@ -1040,6 +1046,7 @@ if test "${SKIP_NSPAWN}" != "true"; then
 		exit 0
 	EOF
 
+	# make changes needed for nspawn
 	if test "${SKIP_NSPAWN}" != "true"; then
 		# disable PrivateNetwork to allow localectl to work in a container
 		sed 's,PrivateNetwork=yes,#PrivateNetwork=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-localed.service
