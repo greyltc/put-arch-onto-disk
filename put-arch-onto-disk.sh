@@ -226,7 +226,7 @@ else  # format everything from scratch
 	for n in ${TARGET_DEV}+([[:alnum:]]) ; do sgdisk -Z $n || true; done # zap the partitions' part tables
 	wipefs -a -f ${TARGET_DEV} || true # wipe the device file system
 	sgdisk -Z ${TARGET_DEV}  || true # wipe the device partition table
-	blkdiscard "${TARGET_DEV}"
+	blkdiscard "${TARGET_DEV}" || true
 
 	NEXT_PARTITION=1
 	if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
