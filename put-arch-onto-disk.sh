@@ -733,7 +733,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 
 		# link systemd resolve stub now in case we were running in a container and didn't do it earlier 
-		if test -f /link_resolv_conf.note; the
+		if test -f /link_resolv_conf.note; then
 			ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 			rm /link_resolv_conf.note
 		fi
