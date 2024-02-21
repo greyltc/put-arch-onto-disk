@@ -436,7 +436,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		ln -sf /run/systemd/resolve/stub-resolv.conf "${TMP_ROOT}/etc/resolv.conf"
 	fi
 
-	cat <<-EOF > "${TMP_ROOT}/root/setup.sh"
+	cat <<-EOF > "${TMP_ROOT}/root/phase_one.sh"
 		#!/usr/bin/env bash
 		set -o pipefail
 		set -o errexit
@@ -749,18 +749,19 @@ if test "${SKIP_SETUP}" != "true"; then
 		echo 'Setup phase 1 was successful' | systemd-cat --priority=alert --identifier=p1setup
 		exit 0
 	EOF
+	chmod +x "${TMP_ROOT}/root/phase_one.sh"
 
 	# create the service that will run phase 1 setup
 	cat <<- "EOF" > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service
 		[Unit]
 		Description=Initial system setup tasks to be run in a container
-		ConditionPathExists=/root/setup.sh
+		ConditionPathExists=/root/phase_one.sh
 
 		[Service]
 		Type=oneshot
 		TimeoutStopSec=10sec
-		ExecStart=/usr/bin/bash /root/setup.sh
-		ExecStartPost=/usr/bin/sh -c 'rm -f /root/setup.sh; systemctl disable container-boot-setup; rm -f /usr/lib/systemd/system/container-boot-setup.service; halt'
+		ExecStart=/usr/bin/bash /root/phase_one.sh
+		ExecStartPost=/usr/bin/sh -c 'rm -f /root/phase_one.sh; systemctl disable container-boot-setup; rm -f /usr/lib/systemd/system/container-boot-setup.service; halt'
 	EOF
 
 	# activate the service that will run phase 1 setup
@@ -1045,6 +1046,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		echo 'Setup phase 2 was successful' | systemd-cat --priority=alert --identifier=p2setup
 		exit 0
 	EOF
+	chmod +x "${TMP_ROOT}/root/phase_two.sh"
 
 	# make changes needed for nspawn
 	if test "${SKIP_NSPAWN}" != "true"; then
@@ -1118,7 +1120,7 @@ cat <<- EOF
 	The presence/absence of the files
 	/var/tmp/phase_two_setup_failed
 	/var/tmp/phase_one_setup_failed
-	/root/setup.sh
+	/root/phase_one.sh
 	/root/phase_two.sh
 	might also give you hints about how things went.
 
