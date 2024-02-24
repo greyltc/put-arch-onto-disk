@@ -31,7 +31,8 @@ shopt -s extglob
 
 # target options
 : ${TARGET='./bootable_arch.img'}  # if this is not a block device, then it's an image file that will be created
-: ${SIZE=''}  # total disk space to consume. empty (default) means fill the block device with the rootfs. can't be blank when giving an image file. example: "4GiB"
+: ${SIZE=''}  # if TARGET is a block device, this is the size of the (or each of the, if AB_ROOTS is true) root partition(s)
+# if TARGET is an image file, then it's the total size of that file
 
 # misc options
 : ${KEYMAP='us'}  # print options here with `localectl list-keymaps`
@@ -46,6 +47,7 @@ shopt -s extglob
 : ${CP_INTO_BOOT=''}  # cp anything specified here to /boot
 : ${SKIP_NSPAWN='false'}  # if true, then don't do the OS setup in a container (do it on first boot)
 : ${SKIP_SETUP='false'}  # skip _all_ custom OS setup altogether (implies SKIP_NSPAWN)
+: ${AB_ROOTS='false'}  # make a second root partition ready for A/B operation
 
 # admin user options
 : ${ADMIN_USER_NAME='admin'}  # zero length string for no admin user
@@ -212,7 +214,7 @@ if test "${TO_EXISTING}" = "true"; then
 		exit 1
 	fi
 	BOOT_PARTITION=${PREEXISTING_BOOT_PARTITION_NUM}
-	ROOT_PARTITION=${PREEXISTING_ROOT_PARTITION_NUM}
+	ROOTA_PARTITION=${PREEXISTING_ROOT_PARTITION_NUM}
 
 	# do we need to p? (depends on what the media is we're installing to)
 	if test -b "${TARGET_DEV}p1"; then
@@ -235,7 +237,7 @@ else  # format everything from scratch
 	else
 		BOOT_P_TYPE=ef00
 	fi
-	BOOT_P_SIZE_MB=300
+	BOOT_P_SIZE_MB=550
 	sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition GPT" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 	if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"; then
 		SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
@@ -246,10 +248,24 @@ else  # format everything from scratch
 		sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:"Swap GPT" "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 	fi
 
+	ROOTA_START=$(sgdisk -F "${TARGET_DEV}")
+	ROOTA_END=$(sgdisk -E "${TARGET_DEV}")
+	if test "${AB_ROOTS}" = "true"; then
+		ROOTA_END=$((($ROOTA_START+$ROOTA_END)/2))
+	fi
+	
 	if test -z "${SIZE}" -o -n "${IMG_NAME}"; then
-		sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+		sgdisk -n 0:${ROOTA_START}:${ROOTA_END} -t 0:8304 -c 0:"Arch Linux rootA GPT" "${TARGET_DEV}"; ROOTA_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 	else
-		sgdisk -n "0:+0:${SIZE}" -t 0:8304 -c 0:"Arch Linux root GPT" "${TARGET_DEV}"; ROOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+		sgdisk -n "0:${ROOTA_START}:+${SIZE}" -t 0:8304 -c 0:"Arch Linux rootA GPT" "${TARGET_DEV}"; ROOTA_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+	fi
+
+	if test "${AB_ROOTS}" = "true"; then
+		if test -z "${SIZE}" -o -n "${IMG_NAME}"; then
+			sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"Arch Linux rootB GPT" "${TARGET_DEV}"; ROOTB_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+		else
+			sgdisk -n "0:+0:+${SIZE}" -t 0:8304 -c 0:"Arch Linux rootB GPT" "${TARGET_DEV}"; ROOTB_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+		fi
 	fi
 
 	# make hybrid/protective MBR
@@ -267,7 +283,7 @@ else  # format everything from scratch
 	fi
 fi
 
-ROOT_DEVICE=${TARGET_DEV}${PEE}${ROOT_PARTITION}
+ROOT_DEVICE=${TARGET_DEV}${PEE}${ROOTA_PARTITION}
 wipefs -a -f ${ROOT_DEVICE} || true
 
 LUKS_UUID=""
