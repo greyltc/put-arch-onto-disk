@@ -410,6 +410,11 @@ fi
 genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
 sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
 
+# switch rpi to "latest" firmware channel
+if test -f "${TMP_ROOT}/etc/default/rpi-update"
+	sed 's,^FIRMWARE_RELEASE_STATUS.*,FIRMWARE_RELEASE_STATUS="latest",' -i "${TMP_ROOT}/etc/default/rpi-update"
+fi
+
 # if test ! -z "${IS_ARM}"; then
 # 	cat <<-'EOF' > "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
 # 		#!/usr/bin/env bash
