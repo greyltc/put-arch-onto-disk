@@ -266,6 +266,8 @@ else  # format everything from scratch
 		else
 			sgdisk -n "0:+0:+${SIZE}" -t 0:8304 -c 0:"Arch Linux rootB GPT" "${TARGET_DEV}"; ROOTB_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 		fi
+	else
+		ROOTB_PARTITION=""
 	fi
 
 	# make hybrid/protective MBR
@@ -283,8 +285,14 @@ else  # format everything from scratch
 	fi
 fi
 
-ROOT_DEVICE=${TARGET_DEV}${PEE}${ROOTA_PARTITION}
-wipefs -a -f ${ROOT_DEVICE} || true
+ROOTA_DEVICE=${TARGET_DEV}${PEE}${ROOTA_PARTITION}
+wipefs -a -f ${ROOTA_DEVICE} || true
+if -n "${ROOTB_PARTITION}"; then
+	ROOTB_DEVICE=${TARGET_DEV}${PEE}${ROOTB_PARTITION}
+	wipefs -a -f ${ROOTB_DEVICE} || true
+else
+	ROOTB_DEVICE=""
+fi
 
 LUKS_UUID=""
 if test -z "${LUKS_KEYFILE}"; then
@@ -292,10 +300,10 @@ if test -z "${LUKS_KEYFILE}"; then
 else
 	if test -f "${LUKS_KEYFILE}"; then
 		echo "LUKS encryption with keyfile: $(readlink -f \"${LUKS_KEYFILE}\")"
-		cryptsetup -q luksFormat ${ROOT_DEVICE} "${LUKS_KEYFILE}"
-		LUKS_UUID=$(cryptsetup luksUUID ${ROOT_DEVICE})
-		cryptsetup -q --key-file ${LUKS_KEYFILE} open ${ROOT_DEVICE} luks-${LUKS_UUID}
-		ROOT_DEVICE=/dev/mapper/luks-${LUKS_UUID}
+		cryptsetup -q luksFormat ${ROOTA_DEVICE} "${LUKS_KEYFILE}"
+		LUKS_UUID=$(cryptsetup luksUUID ${ROOTA_DEVICE})
+		cryptsetup -q --key-file ${LUKS_KEYFILE} open ${ROOTA_DEVICE} luks-${LUKS_UUID}
+		ROOTA_DEVICE=/dev/mapper/luks-${LUKS_UUID}
 	else
 		echo "Could not find ${LUKS_KEYFILE}"
 		echo "Not using encryption"
@@ -319,21 +327,24 @@ else
 	MKFS_FEATURES=""
  	MOUNT_ARGS="--options defaults"
 fi
-mkfs.${ROOT_FS_TYPE} ${MKFS_FEATURES} ${LABEL} "ROOT${ROOT_FS_TYPE^^}" ${ROOT_DEVICE}
+mkfs.${ROOT_FS_TYPE} ${MKFS_FEATURES} ${LABEL} "ROOT${ROOT_FS_TYPE^^}" ${ROOTA_DEVICE}
+if -n "${ROOTB_DEVICE}"; then
+	mkfs.${ROOT_FS_TYPE} ${MKFS_FEATURES} ${LABEL} "ROOT${ROOT_FS_TYPE^^}" ${ROOTB_DEVICE}
+fi
 
 TMP_ROOT=/tmp/diskRootTarget
 mkdir -p ${TMP_ROOT}
 
-mount --types ${ROOT_FS_TYPE} ${MOUNT_ARGS} ${ROOT_DEVICE} ${TMP_ROOT}
+mount --types ${ROOT_FS_TYPE} ${MOUNT_ARGS} ${ROOTA_DEVICE} ${TMP_ROOT}
 
 if test "${ROOT_FS_TYPE}" = "btrfs"; then
 	btrfs subvolume create ${TMP_ROOT}/root
 	btrfs subvolume set-default ${TMP_ROOT}/root
 	btrfs subvolume create ${TMP_ROOT}/home  # can be commented to disable home subvol
 	umount ${TMP_ROOT}
-	mount ${ROOT_DEVICE} ${MOUNT_ARGS},subvol=root ${TMP_ROOT}
+	mount ${ROOTA_DEVICE} ${MOUNT_ARGS},subvol=root ${TMP_ROOT}
 	mkdir ${TMP_ROOT}/home  # can be commented to disable home subvol
-	mount ${ROOT_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home  # can be commented to disable home subvol
+	mount ${ROOTA_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home  # can be commented to disable home subvol
 fi
 
 install -d -m 0700 "${TMP_ROOT}/boot"
@@ -602,7 +613,7 @@ if test "${SKIP_SETUP}" != "true"; then
 					linux   /vmlinuz-linux
 					\$(echo -e \${UCODE_LINES})
 					initrd  /initramfs-linux.img
-					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw libata.allow_tpm=1
+					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOTA_DEVICE}) rw libata.allow_tpm=1
 				END
 
 				cat << END > /boot/loader/entries/arch-fallback.conf
@@ -610,7 +621,7 @@ if test "${SKIP_SETUP}" != "true"; then
 					linux   /vmlinuz-linux
 					\$(echo -e \${UCODE_LINES})
 					initrd  /initramfs-linux-fallback.img
-					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
+					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOTA_DEVICE}) rw
 				END
 			fi
 
@@ -621,7 +632,7 @@ if test "${SKIP_SETUP}" != "true"; then
 					linux   /vmlinuz-linux-lts
 					\$(echo -e \${UCODE_LINES})
 					initrd  /initramfs-linux-lts.img
-					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
+					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOTA_DEVICE}) rw
 				END
 
 				cat << END > /boot/loader/entries/arch-fallback.conf
@@ -629,7 +640,7 @@ if test "${SKIP_SETUP}" != "true"; then
 					linux   /vmlinuz-linux-lts
 					\$(echo -e \${UCODE_LINES})
 					initrd  /initramfs-linux-lts-fallback.img
-					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}) rw
+					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOTA_DEVICE}) rw
 				END
 			fi
 		fi
@@ -1073,7 +1084,7 @@ fi
 
 # fix hardcoded root kernel param in rpi.org's kernel package
 if test -f "${TMP_ROOT}/boot/cmdline.txt"; then
-	sed "s,root=[^ ]*,root=PARTUUID=$(lsblk -no PARTUUID ${ROOT_DEVICE}),g" -i "${TMP_ROOT}/boot/cmdline.txt"
+	sed "s,root=[^ ]*,root=PARTUUID=$(lsblk -no PARTUUID ${ROOTA_DEVICE}),g" -i "${TMP_ROOT}/boot/cmdline.txt"
 fi
 
 fstrim --verbose --all
