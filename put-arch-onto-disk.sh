@@ -854,13 +854,17 @@ if test "${SKIP_SETUP}" != "true"; then
 	EOF
 
 	# add a rootfs expander script
-	cat <<- "EOF" > "${TMP_ROOT}/root/online_expand_btrfs_root.sh"
+	cat <<- "EOF" > "${TMP_ROOT}/root/online_expand_root.sh"
 		#!/usr/bin/env bash
+  		# live (on-line) expands the root file system to take up all avialable space
 		# nb. this script can be very destructive if its assumptions are not met
 		# it assumes
-  		# - you have btrfs-tools (btrfs command) and gptfdisk (sgdisk command) installed
-		# - root is mounted on a block device with a GPT
-		# - root is btrfs
+  		# - root is btrfs, ext3 or ext4
+    		# - root is mounted on a block device with a GPT
+  		# - you have gptfdisk (for the sgdisk command) installed
+		# - you have btrfs-tools installed (for the btrfs command) if you're expanding a btrfs root
+		# - you have e2fsprogs installed (for the resize2fs command) if you're expanding an ext3 or ext4 root
+  		# - if you're expanding an ext3 root, the resize_inode feature is enabled
 		# - root is the last partition in the table
 		# - the last partition does not end at the end of the block device
 		# - there's nothing on the block device between the end of the last
@@ -875,6 +879,12 @@ if test "${SKIP_SETUP}" != "true"; then
 		ROOT_DEV="/dev/$(lsblk -no pkname ${ROOT_BLOCK})"
 		TEH_PART_UUID="$(lsblk -n -oPARTUUID ${ROOT_BLOCK})"
 		TEH_PART_LABEL="$(lsblk -n -oPARTLABEL ${ROOT_BLOCK})"
+  		TEH_FSTYPE="$(lsblk -n -ofstype ${ROOT_BLOCK})"
+
+		if test "${TEH_FSTYPE}" != "btrfs" -a "${TEH_FSTYPE}" != "ext4" -a "${TEH_FSTYPE}" != "ext3"; then
+			echo "Can not expand unsupported file system type: ${TEH_FSTYPE}"
+   			exit 44
+		fi
 
 		# move backup header to end
 		sgdisk -e "${ROOT_DEV}"
@@ -891,7 +901,11 @@ if test "${SKIP_SETUP}" != "true"; then
 		partprobe
 		sync
 
-		btrfs filesystem resize max /
+		if test "${TEH_FSTYPE}" = "btrfs"; then
+  			btrfs filesystem resize max /
+		else
+			resize2fs -p "${ROOT_DEV}"
+     		fi
 
 		rm -f /.expand
 
@@ -900,7 +914,7 @@ if test "${SKIP_SETUP}" != "true"; then
 
 		echo "You should probably reboot now"
 	EOF
-	chmod +x "${TMP_ROOT}/root/online_expand_btrfs_root.sh"
+	chmod +x "${TMP_ROOT}/root/online_expand_root.sh"
 
 	# make a phase 2 setup script
 	cat <<-EOF > "${TMP_ROOT}/root/phase_two.sh"
