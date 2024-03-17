@@ -904,7 +904,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		if test "${TEH_FSTYPE}" = "btrfs"; then
   			btrfs filesystem resize max /
 		else
-			resize2fs -p "${ROOT_DEV}"
+			resize2fs -p "${ROOT_BLOCK}"
      		fi
 
 		rm -f /.expand
