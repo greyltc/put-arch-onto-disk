@@ -695,6 +695,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		# if networkmanager is installed, enable it, otherwise let systemd things manage the network
 		if pacman -Q networkmanager &> /dev/null; then
 			systemctl enable NetworkManager.service
+   			systemctl enable NetworkManager-wait-online.service
 			cat << "END" > /etc/NetworkManager/conf.d/fancy_resolvers.conf
 				[connection]
 				connection.mdns=yes
