@@ -164,6 +164,7 @@ linux-firmware \
 wireguard-tools \
 polkit \
 zsh \
+pkgfile \
 systemd-resolvconf \
 pacman-contrib \
 "
@@ -523,8 +524,9 @@ if test "${SKIP_SETUP}" != "true"; then
 		set -o nounset
 		localectl set-keymap --no-convert "${KEYMAP}"
 
-		# set up bash history
+		# set up bashrc
 		cat << "END" >> /etc/skel/.bashrc
+  			source /usr/share/doc/pkgfile/command-not-found.bash
 			export HISTSIZE=10000
 			export HISTFILESIZE=20000
 			export HISTCONTROL=ignorespace:erasedups
@@ -927,6 +929,8 @@ if test "${SKIP_SETUP}" != "true"; then
 		set -o verbose
 		set -o xtrace
 		echo 'Starting setup phase 2' | systemd-cat --priority=alert --identifier=p2setup
+
+  		pkgfile -u
 
 		# setup admin user
 		if test ! -z "${ADMIN_USER_NAME}"; then
