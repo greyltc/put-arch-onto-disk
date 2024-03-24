@@ -982,12 +982,12 @@ if test "${SKIP_SETUP}" != "true"; then
 						grep -qxF 'AuthenticationMethods publickey,password' /etc/ssh/sshd_config || echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config
 					fi
 				fi  # user doesn't exist
-    				homectl update ${ADMIN_USER_NAME} --shell=/usr/bin/zsh
+    				#homectl update ${ADMIN_USER_NAME} --shell=/usr/bin/zsh
 			else  # non-homed user
 				echo "Creating user"
 				useradd -m ${ADMIN_USER_NAME} --groups "\${GRPS}"
 				echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
-    				sudo -u ${ADMIN_USER_NAME} chsh -s /usr/bin/zsh
+    				#sudo -u ${ADMIN_USER_NAME} chsh -s /usr/bin/zsh
 			fi  # user creation method
 
 			rm -f /var/tmp/auth_pub.key
