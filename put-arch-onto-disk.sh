@@ -48,6 +48,7 @@ shopt -s extglob
 : ${SKIP_NSPAWN='false'}  # if true, then don't do the OS setup in a container (do it on first boot)
 : ${SKIP_SETUP='false'}  # skip _all_ custom OS setup altogether (implies SKIP_NSPAWN)
 : ${AB_ROOTS='false'}  # make a second root partition ready for A/B operation
+: ${RDP_SYSTEM='false'}  # enable system-level remote desktop share
 
 # admin user options
 : ${ADMIN_USER_NAME='admin'}  # zero length string for no admin user
@@ -1017,6 +1018,14 @@ if test "${SKIP_SETUP}" != "true"; then
 				else
 					export GNOME_KEYS="${KEYMAP}"
 				fi
+    				if pacman -Q gnome-remote-desktop > /dev/null 2>/dev/null -a test "${RDP_SYSTEM}" = "true"; then
+					mkdir -p /root/.local/share/gnome-remote-desktop
+					winpr-makecert3 -y 50 -rdp -path /root/.local/share/gnome-remote-desktop
+					grdctl --system rdp set-tls-key /root/.local/share/gnome-remote-desktop/$(hostname).key
+					grdctl --system rdp set-tls-cert /root/.local/share/gnome-remote-desktop/$(hostname).crt
+					grdctl --system rdp set-credentials "${ADMIN_USER_NAME}" "${ADMIN_USER_PASSWORD}"
+					grdctl --system rdp enable
+    				fi
 				echo gsettings set org.gnome.desktop.input-sources sources \"[\(\'xkb\',\'\${GNOME_KEYS}\'\)]\" > /tmp/gset
 				unset GNOME_KEYS
 
