@@ -1018,7 +1018,7 @@ if test "${SKIP_SETUP}" != "true"; then
 				else
 					export GNOME_KEYS="${KEYMAP}"
 				fi
-    				if pacman -Q gnome-remote-desktop > /dev/null 2>/dev/null -a test "${RDP_SYSTEM}" = "true"; then
+    				if pacman -Q gnome-remote-desktop > /dev/null 2>/dev/null && test "${RDP_SYSTEM}" = "true"; then
 					mkdir -p "/var/grdtls"
 					winpr-makecert3 -silent -y 50 -rdp -path "/var/grdtls"
 					chgrp -R gnome-remote-desktop "/var/grdtls"
