@@ -1166,7 +1166,7 @@ fi
 
 if test "${SKIP_NSPAWN}" != "true"; then
 	# as of systemd-253, this will fail unless https://github.com/systemd/systemd/pull/28954 is applied
-	systemd-nspawn --link-journal=host --boot --image "${SPAWN_TARGET}" init --log-level=debug
+	systemd-nspawn --machine="${THIS_HOSTNAME}" --hostname="${THIS_HOSTNAME}"--link-journal=host --boot --image "${SPAWN_TARGET}" init --log-level=debug
 fi
 
 if test -n "${ADMIN_SSH_AUTH_KEY}"; then
