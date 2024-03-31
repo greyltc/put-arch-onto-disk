@@ -6,6 +6,8 @@ set -o verbose
 set -o xtrace
 shopt -s extglob
 
+echo $@
+
 # put-arch-onto-disk.sh
 # This script installs Arch Linux onto media (making it bootable)
 # or into a disk image which can later be dd'd onto some media to make it bootable
