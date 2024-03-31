@@ -1023,7 +1023,7 @@ if test "${SKIP_SETUP}" != "true"; then
 				fi
     				if pacman -Q gnome-remote-desktop > /dev/null 2>/dev/null && test "${RDP_SYSTEM}" = "true"; then
 					mkdir -p "/var/grdtls"
-					winpr-makecert3 -silent -y 50 -rdp -name "rdpsystem" -path "/var/grdtls"
+					winpr-makecert3 -silent -y 50 -rdp -n "rdpsystem" -path "/var/grdtls"
 					chgrp -R gnome-remote-desktop "/var/grdtls"
 					chmod o-r -R "/var/grdtls"
 					grdctl --system rdp set-tls-key "/var/grdtls/rdpsystem.key"
