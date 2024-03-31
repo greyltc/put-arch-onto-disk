@@ -6,6 +6,7 @@ set -o verbose
 set -o xtrace
 shopt -s extglob
 
+printenv
 echo $@
 
 # put-arch-onto-disk.sh
