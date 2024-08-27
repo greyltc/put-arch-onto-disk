@@ -1197,7 +1197,7 @@ if test "${SKIP_NSPAWN}" != "true"; then
 	#INIT_LOG_LEVEL=debug
 	INIT_LOG_LEVEL=info
 
-	MACHINE_ID=$(systemd-machine-id-setup --print --directory="${TMP_ROOT}")
+	MACHINE_ID=$(systemd-machine-id-setup --print --="${TMP_ROOT}")
 
 	set +o xtrace
 	set +o verbose
