@@ -450,7 +450,6 @@ if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
 fi
 
 # PARTUUIDs cause errors in systemd-remount-fs.service in nspawn https://github.com/systemd/systemd/issues/34150
-# TODO: look into launching it with --directory= instead of --image=
 genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
 sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
 
