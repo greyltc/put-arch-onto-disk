@@ -229,9 +229,11 @@ fi
 
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
         echo "No bios grub for arm"
-        BOOT_P_TYPE=0700
+        BOOT_P_TYPE=0700 # c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+		ROOT_P_TYPE=b921b045-1df0-41c3-af44-4c6f280d3fae
 else
-        BOOT_P_TYPE=ef00
+        BOOT_P_TYPE=c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+		ROOT_P_TYPE=4f68bce3-e8cd-4db1-96e7-fbcaf984b709
 fi
 
 # check that install to existing will work here
@@ -246,7 +248,7 @@ if test "${TO_EXISTING}" = "true"; then
 	BOOT_PARTITION=${PREEXISTING_BOOT_PARTITION_NUM}
 	ROOTA_PARTITION=${PREEXISTING_ROOT_PARTITION_NUM}
 	#sgdisk --typecode=${BOOT_PARTITION}:${BOOT_P_TYPE} --change-name=${BOOT_PARTITION}:"EFI system parition GPT" "${TARGET_DEV}"
-        sgdisk --typecode=${ROOTA_PARTITION}:8304 --change-name=${ROOTA_PARTITION}:"Arch Linux rootA GPT" "${TARGET_DEV}"
+    sgdisk --typecode=${ROOTA_PARTITION}:${ROOT_P_TYPE} --change-name=${ROOTA_PARTITION}:"Arch Linux rootA GPT" "${TARGET_DEV}"
 	ROOTB_PARTITION=""
 
 	# do we need to p? (depends on what the media is we're installing to)
@@ -265,14 +267,14 @@ else  # format everything from scratch
 
 	NEXT_PARTITION=1
 	BOOT_P_SIZE_MB=550
-	sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition GPT" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+	sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB --typecode=0:${BOOT_P_TYPE} -c 0:"EFI system parition GPT" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 	if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"; then
 		SWAP_SIZE="$(free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K)KiB"
 	fi
 	if test -z "${SWAP_SIZE}"; then
 		echo "No swap partition"
 	else
-		sgdisk -n 0:+0:+${SWAP_SIZE} -t 0:8200 -c 0:"Swap GPT" "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+		sgdisk -n 0:+0:+${SWAP_SIZE} --typecode=0:0657fd6d-a4ab-43c4-84e5-0933c84b4f4f -c 0:"Swap GPT" "${TARGET_DEV}"; SWAP_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 	fi
 
 	ROOTA_START=$(sgdisk -F "${TARGET_DEV}")
@@ -282,16 +284,16 @@ else  # format everything from scratch
 	fi
 	
 	if test -z "${SIZE}" -o -n "${IMG_NAME}"; then
-		sgdisk -n 0:${ROOTA_START}:${ROOTA_END} -t 0:8304 -c 0:"Arch Linux rootA GPT" "${TARGET_DEV}"; ROOTA_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+		sgdisk -n 0:${ROOTA_START}:${ROOTA_END} --typecode=0:${ROOT_P_TYPE} -c 0:"Arch Linux rootA GPT" "${TARGET_DEV}"; ROOTA_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 	else
-		sgdisk -n "0:${ROOTA_START}:+${SIZE}" -t 0:8304 -c 0:"Arch Linux rootA GPT" "${TARGET_DEV}"; ROOTA_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+		sgdisk -n "0:${ROOTA_START}:+${SIZE}" --typecode=0:${ROOT_P_TYPE} -c 0:"Arch Linux rootA GPT" "${TARGET_DEV}"; ROOTA_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 	fi
 
 	if test "${AB_ROOTS}" = "true"; then
 		if test -z "${SIZE}" -o -n "${IMG_NAME}"; then
-			sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"Arch Linux rootB GPT" "${TARGET_DEV}"; ROOTB_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+			sgdisk -n 0:+0:+0 --typecode=0:${ROOT_P_TYPE} -c 0:"Arch Linux rootB GPT" "${TARGET_DEV}"; ROOTB_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 		else
-			sgdisk -n "0:+0:+${SIZE}" -t 0:8304 -c 0:"Arch Linux rootB GPT" "${TARGET_DEV}"; ROOTB_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
+			sgdisk -n "0:+0:+${SIZE}" --typecode=0:${ROOT_P_TYPE} -c 0:"Arch Linux rootB GPT" "${TARGET_DEV}"; ROOTB_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 		fi
 	else
 		ROOTB_PARTITION=""
@@ -367,11 +369,11 @@ mount --types ${ROOT_FS_TYPE} ${MOUNT_ARGS} ${ROOTA_DEVICE} ${TMP_ROOT}
 if test "${ROOT_FS_TYPE}" = "btrfs"; then
 	btrfs subvolume create ${TMP_ROOT}/root
 	btrfs subvolume set-default ${TMP_ROOT}/root
-	btrfs subvolume create ${TMP_ROOT}/home  # can be commented to disable home subvol
+	#btrfs subvolume create ${TMP_ROOT}/home  # can be commented to disable home subvol
 	umount ${TMP_ROOT}
 	mount ${ROOTA_DEVICE} ${MOUNT_ARGS},subvol=root ${TMP_ROOT}
-	mkdir ${TMP_ROOT}/home  # can be commented to disable home subvol
-	mount ${ROOTA_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home  # can be commented to disable home subvol
+	#mkdir ${TMP_ROOT}/home  # can be commented to disable home subvol
+	#mount ${ROOTA_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home  # can be commented to disable home subvol
 fi
 
 install -d -m 0755 "${TMP_ROOT}/boot"
@@ -447,12 +449,10 @@ if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
 	echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
 fi
 
+# PARTUUIDs cause errors in systemd-remount-fs.service in nspawn https://github.com/systemd/systemd/issues/34150
+# TODO: look into launching it with --directory= instead of --image=
 genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
 sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
-
-# TODO: figure out why systemd-nspawn can't access these UUIDs
-#genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab.uuid
-#sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab.uuid
 
 # switch rpi to "latest" firmware channel
 if test -f "${TMP_ROOT}/etc/default/rpi-update"; then
@@ -883,7 +883,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		10) umount --recursive /mnt
 	EOF
 
-	# add a rootfs expander script
+	# add a rootfs expander script, to be run (possibly manually) on final hardware
 	cat <<- "EOF" > "${TMP_ROOT}/root/online_expand_root.sh"
 		#!/usr/bin/env bash
 		# live (on-line) expands the root file system to take up all avialable space
@@ -945,6 +945,23 @@ if test "${SKIP_SETUP}" != "true"; then
 		echo "You should probably reboot now"
 	EOF
 	chmod +x "${TMP_ROOT}/root/online_expand_root.sh"
+
+	# add a rootfs bootloader installer script, to be run (possibly manually) on final hardware
+	cat <<- "EOF" > "${TMP_ROOT}/root/register_bootloader.sh"
+		#!/usr/bin/env bash
+		set -o pipefail
+		set -o errexit
+		set -o nounset
+		set -o verbose
+		set -o xtrace
+		EFI_VAR_FOLDER="/sys/firmware/efi/efivars"
+		if test -d "${EFI_VAR_FOLDER}"; then
+			bootctl --efi-boot-option-description="Linux Boot Manager ($(hostname))" install
+		else
+			echo "${EFI_VAR_FOLDER} does not exist"
+		fi
+	EOF
+	chmod +x "${TMP_ROOT}/root/register_bootloader.sh"
 
 	# make a phase 2 setup script
 	cat <<-EOF > "${TMP_ROOT}/root/phase_two.sh"
@@ -1174,31 +1191,14 @@ fi
 
 fstrim --verbose --all
 
-# unmount and clean up everything
-findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${TARGET_DEV} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
-cryptsetup close /dev/mapper/${LUKS_UUID} || true
-losetup -D || true
-sync
-if pacman -Q lvm2 > /dev/null 2>/dev/null; then
-	pvscan --cache -aay
-fi
-rm -r "${TMP_ROOT}" || true
-
-
-# boot into newly created system to perform setup tasks
-if test -z "${IMG_NAME}"; then
-	SPAWN_TARGET=${TARGET_DEV}
-else
-	SPAWN_TARGET="${IMG_NAME}"
-fi
-
 if test "${SKIP_NSPAWN}" != "true"; then
+	# boot into newly created system to perform setup tasks
 	# as of systemd-253, this will fail unless https://github.com/systemd/systemd/pull/28954 is applied
 
 	#INIT_LOG_LEVEL=debug
 	INIT_LOG_LEVEL=info
 
-	MACHINE_ID=$(systemd-machine-id-setup --print --image "${SPAWN_TARGET}")
+	MACHINE_ID=$(systemd-machine-id-setup --print --directory="${TMP_ROOT}")
 
 	set +o xtrace
 	set +o verbose
@@ -1215,15 +1215,32 @@ if test "${SKIP_NSPAWN}" != "true"; then
 	# --capability="$(systemd-nspawn --capability=help | paste -s -d,)"
 	#strace 
 	#SYSTEMD_LOG_LEVEL=${INIT_LOG_LEVEL} 
-	systemd-nspawn --machine="${THIS_HOSTNAME}" --hostname="${THIS_HOSTNAME}" --link-journal=host --boot --image "${SPAWN_TARGET}"
+	systemd-nspawn --machine="${THIS_HOSTNAME}" --hostname="${THIS_HOSTNAME}" --link-journal=host --boot --directory="${TMP_ROOT}"
 	# --setenv=SYSTEMD_FSTAB=/etc/fstab.nspawn
 	journalctl --no-pager --directory="/var/log/journal/${MACHINE_ID}/"
 fi
+
+# unmount and clean up everything
+findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${TARGET_DEV} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
+cryptsetup close /dev/mapper/${LUKS_UUID} || true
+losetup -D || true
+sync
+if pacman -Q lvm2 > /dev/null 2>/dev/null; then
+	pvscan --cache -aay
+fi
+rm -r "${TMP_ROOT}" || true
 
 if test -n "${ADMIN_SSH_AUTH_KEY}"; then
 	set +o xtrace
 	set +o verbose
 	echo 'If you need to ssh into the system, you can find the keypair you must use in /root/admin_sshkeys'
+fi
+
+
+if test -z "${IMG_NAME}"; then
+	SPAWN_TARGET="${TARGET_DEV}"
+else
+	SPAWN_TARGET="${IMG_NAME}"
 fi
 
 set +o xtrace
