@@ -21,8 +21,9 @@ echo $@
 
 # define defaults for variables. defaults get overriden by previous definitions
 
-: ${TARGET_ARCH='x86_64'}
+: ${TARGET_ARCH=$(uname -m)}
 : ${PACKAGE_LIST=''}
+: ${AS_OF='now'}  # can be an iso date like 2023-06-01 if you want packages from 1 June 2023, works if TARGET_ARCH=x86_64
 
 # local path(s) to package files to be installed
 : ${PACKAGE_FILES=''}
@@ -38,20 +39,21 @@ echo $@
 # if TARGET is an image file, then it's the total size of that file
 
 # misc options
-: ${KEYMAP='us'}  # print options here with `localectl list-keymaps`
+: ${KEYMAP='us'}  # print options here with 'localectl list-keymaps'
 : ${TIME_ZONE='America/Edmonton'}  # timedatectl list-timezones
 : ${LOCALE='en_US.UTF-8'}
 : ${CHARSET='UTF-8'}
 : ${ROOT_PASSWORD=''}  # zero length root password string locks out root login, otherwise even ssh via password is enabled for root
 : ${THIS_HOSTNAME='archthing'}
 : ${PORTABLE='true'}  # set false if you want the bootloader install to mod *this machine's* EFI vars
-: ${UCODES='amd-ucode intel-ucode'}  # install these microcodes
 : ${COPYIT=''}  # cp anything specified here to /root/install_copied
 : ${CP_INTO_BOOT=''}  # cp anything specified here to /boot
 : ${SKIP_NSPAWN='false'}  # if true, then don't do the OS setup in a container (do it on first boot)
 : ${SKIP_SETUP='false'}  # skip _all_ custom OS setup altogether (implies SKIP_NSPAWN)
 : ${AB_ROOTS='false'}  # make a second root partition ready for A/B operation
 : ${RDP_SYSTEM='false'}  # enable system-level remote desktop share
+: ${RDP_HEADLESS_ADMIN='false'}  # enable admin user headless remote desktop share
+: ${RDP_ADMIN='false'}  # enable admin user remote desktop share
 
 # admin user options
 : ${ADMIN_USER_NAME='admin'}  # zero length string for no admin user
@@ -120,13 +122,27 @@ if test -z "${PREEXISTING_BOOT_PARTITION_NUM}" || test -z "${PREEXISTING_ROOT_PA
 	fi
 fi
 
-if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
-	HOST_NEEDS="qemu-user-static-binfmt"
-	ARCH_SPECIFIC_PKGS="archlinuxarm-keyring"
-else
-	# alarm does not like/need these
-	ARCH_SPECIFIC_PKGS="linux ${UCODES} sbsigntools reflector edk2-shell memtest86+-efi"
+# will the host need emulation?
+if test "$(uname -m)" = "${TARGET_ARCH}"; then
 	HOST_NEEDS=""
+else
+	HOST_NEEDS="qemu-user-static-binfmt"
+fi
+
+# archetecture specific packages for the target
+if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
+	ARCH_SPECIFIC_PKGS="archlinuxarm-keyring"
+else  # non-arm
+	ARCH_SPECIFIC_PKGS="linux intel-ucode amd-ucode linux-firmware sbsigntools reflector edk2-shell memtest86+-efi"
+fi
+
+# exclude systemd-ukify if needed
+_pre_ukify=false
+_ukify="systemd-ukify"
+_ukify_start="$(date -d 2023-03-08 +%s)"
+if test ! "${AS_OF}" = "now" -a "$(date -d ${AS_OF} +%s)" -lt "${_ukify_start}" ; then
+	PRE_UKIFY=true
+	_ukify=""
 fi
 
 # here are a baseline set of packages for the new install
@@ -135,7 +151,7 @@ base \
 ${ARCH_SPECIFIC_PKGS} \
 libmicrohttpd \
 quota-tools \
-systemd-ukify \
+${_ukify} \
 qrencode \
 libpwquality \
 libfido2 \
@@ -183,7 +199,7 @@ if contains "${PACKAGE_LIST}" "raspberry"; then
 fi
 
 # install these packages on the host now. they're needed for the install process
-pacman -S --needed --noconfirm btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts hdparm ${HOST_NEEDS} 
+pacman -S --needed --noconfirm strace btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts hdparm ${HOST_NEEDS} 
 
 # flush writes to disks and re-probe partitions
 sync
@@ -192,9 +208,7 @@ partprobe
 # is this a block device?
 if test -b "${TARGET}"; then
 	TARGET_DEV="${TARGET}"
-	for n in ${TARGET_DEV}* ; do umount $n || true; done
-	for n in ${TARGET_DEV}* ; do umount $n || true; done
-	for n in ${TARGET_DEV}* ; do umount $n || true; done
+	findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${TARGET_DEV} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
 	IMG_NAME=""
 	hdparm -r0 ${TARGET_DEV}
 else  # installing to image file
@@ -205,9 +219,19 @@ else  # installing to image file
 	losetup --partscan ${TARGET_DEV} "${IMG_NAME}"
 fi
 
+# check everything is unmounted (prevents distasters)
+for n in ${TARGET_DEV}* ; do ! findmnt --source $n > /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
+
 if test ! -b "${TARGET_DEV}"; then
 	echo "ERROR: Install target device ${TARGET_DEV} is not a block device."
 	exit 1
+fi
+
+if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
+        echo "No bios grub for arm"
+        BOOT_P_TYPE=0700
+else
+        BOOT_P_TYPE=ef00
 fi
 
 # check that install to existing will work here
@@ -221,6 +245,9 @@ if test "${TO_EXISTING}" = "true"; then
 	fi
 	BOOT_PARTITION=${PREEXISTING_BOOT_PARTITION_NUM}
 	ROOTA_PARTITION=${PREEXISTING_ROOT_PARTITION_NUM}
+	#sgdisk --typecode=${BOOT_PARTITION}:${BOOT_P_TYPE} --change-name=${BOOT_PARTITION}:"EFI system parition GPT" "${TARGET_DEV}"
+        sgdisk --typecode=${ROOTA_PARTITION}:8304 --change-name=${ROOTA_PARTITION}:"Arch Linux rootA GPT" "${TARGET_DEV}"
+	ROOTB_PARTITION=""
 
 	# do we need to p? (depends on what the media is we're installing to)
 	if test -b "${TARGET_DEV}p1"; then
@@ -237,16 +264,10 @@ else  # format everything from scratch
 	blkdiscard "${TARGET_DEV}" || true
 
 	NEXT_PARTITION=1
-	if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
-		echo "No bios grub for arm"
-		BOOT_P_TYPE=0700
-	else
-		BOOT_P_TYPE=ef00
-	fi
 	BOOT_P_SIZE_MB=550
 	sgdisk -n 0:+0:+${BOOT_P_SIZE_MB}MiB -t 0:${BOOT_P_TYPE} -c 0:"EFI system parition GPT" "${TARGET_DEV}"; BOOT_PARTITION=${NEXT_PARTITION}; ((NEXT_PARTITION++))
 	if test "${SWAP_SIZE_IS_RAM_SIZE}" = "true"; then
-		SWAP_SIZE=`free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K`KiB
+		SWAP_SIZE="$(free -b | grep Mem: | awk '{print $2}' | numfmt --to-unit=K)KiB"
 	fi
 	if test -z "${SWAP_SIZE}"; then
 		echo "No swap partition"
@@ -323,18 +344,18 @@ sgdisk -p "${TARGET_DEV}"  # print the current partition table
 if test "${ROOT_FS_TYPE}" = "f2fs"; then
 	LABEL="-l"
 	MKFS_FEATURES="-O extra_attr,encrypt,inode_checksum,sb_checksum,compression"
- 	MOUNT_ARGS="--options defaults,compress_algorithm=zstd:6,compress_chksum,atgc,gc_merge,lazytime"
+	MOUNT_ARGS="--options defaults,compress_algorithm=zstd:6,compress_chksum,atgc,gc_merge,lazytime"
 elif test "${ROOT_FS_TYPE}" = "btrfs"; then
 	LABEL="--label"
-	MKFS_FEATURES="--metadata dup --features free-space-tree,block-group-tree"
- 	MOUNT_ARGS="--options defaults,noatime,compress=zstd:2"
+	MKFS_FEATURES="--features block-group-tree,squota"
+	MOUNT_ARGS="--options defaults,noatime,compress=zstd:2"
 else
 	LABEL="-L"
 	MKFS_FEATURES=""
- 	MOUNT_ARGS="--options defaults"
+	MOUNT_ARGS="--options defaults"
 fi
 mkfs.${ROOT_FS_TYPE} ${MKFS_FEATURES} ${LABEL} "ROOT${ROOT_FS_TYPE^^}" ${ROOTA_DEVICE}
-if -n "${ROOTB_DEVICE}"; then
+if test -n "${ROOTB_DEVICE}"; then
 	mkfs.${ROOT_FS_TYPE} ${MKFS_FEATURES} ${LABEL} "ROOT${ROOT_FS_TYPE^^}" ${ROOTB_DEVICE}
 fi
 
@@ -353,8 +374,8 @@ if test "${ROOT_FS_TYPE}" = "btrfs"; then
 	mount ${ROOTA_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home  # can be commented to disable home subvol
 fi
 
-install -d -m 0700 "${TMP_ROOT}/boot"
-mount -o uid=0,gid=0,fmask=0077,dmask=0077 ${TARGET_DEV}${PEE}${BOOT_PARTITION} "${TMP_ROOT}/boot"
+install -d -m 0755 "${TMP_ROOT}/boot"
+mount -o uid=0,gid=0,fmask=0022,dmask=0022 ${TARGET_DEV}${PEE}${BOOT_PARTITION} "${TMP_ROOT}/boot"
 install -m644 -Dt /tmp /etc/pacman.d/mirrorlist
 cat <<-EOF > /tmp/pacman.conf
 	[options]
@@ -402,7 +423,9 @@ else
 fi
 
 if test ! -z "${CUSTOM_MIRROR_URL}"; then
-	sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /tmp/mirrorlist
+	echo "Server = ${CUSTOM_MIRROR_URL}" > /tmp/mirrorlist
+elif test ! "${AS_OF}" = "now" -a "${TARGET_ARCH}" = "x86_64" ; then
+	echo "Server = https://archive.archlinux.org/repos/${AS_OF//-//}/\$repo/os/\$arch" > /tmp/mirrorlist
 fi
 
 pacstrap -C /tmp/pacman.conf -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
@@ -424,8 +447,12 @@ if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
 	echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
 fi
 
-genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
+genfstab "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
 sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
+
+# TODO: figure out why systemd-nspawn can't access these UUIDs
+genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab.uuid
+sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab.uuid
 
 # switch rpi to "latest" firmware channel
 if test -f "${TMP_ROOT}/etc/default/rpi-update"; then
@@ -530,7 +557,7 @@ if test "${SKIP_SETUP}" != "true"; then
 
 		# set up bashrc
 		cat << "END" >> /etc/skel/.bashrc
-  			source /usr/share/doc/pkgfile/command-not-found.bash
+			source /usr/share/doc/pkgfile/command-not-found.bash
 			export HISTSIZE=10000
 			export HISTFILESIZE=20000
 			export HISTCONTROL=ignorespace:erasedups
@@ -573,7 +600,13 @@ if test "${SKIP_SETUP}" != "true"; then
 			echo 'Server = http://mirror.archlinuxarm.org/\$arch/\$repo' > /etc/pacman.d/mirrorlist
 		else
 			pacman-key --populate archlinux
-			reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
+			if test ! -z "${CUSTOM_MIRROR_URL}"; then
+				echo "Server = ${CUSTOM_MIRROR_URL}" > /etc/pacman.d/mirrorlist
+			elif test ! "${AS_OF}" = "now" -a "\$(uname -m)" = "x86_64" ; then
+				echo "Server = https://archive.archlinux.org/repos/${AS_OF//-//}/\\\$repo/os/\\\$arch" > /etc/pacman.d/mirrorlist
+			else
+				reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
+			fi
 
 			if pacman -Q edk2-shell > /dev/null 2>/dev/null; then
 				cp /usr/share/edk2-shell/x64/Shell.efi /boot/shellx64.efi
@@ -610,12 +643,14 @@ if test "${SKIP_SETUP}" != "true"; then
 			fi
 
 			UCODE_LINES=""
-			if test -f /boot/amd-ucode.img; then
-				UCODE_LINES+="initrd  /amd-ucode.img\n"
-			fi
+			if test "${_pre_ukify}" = "true"; then
+				if test -f /boot/amd-ucode.img; then
+					UCODE_LINES+="initrd  /amd-ucode.img\n"
+				fi
 
-			if test -f /boot/intel-ucode.img; then
-				UCODE_LINES+="initrd  /intel-ucode.img\n"
+				if test -f /boot/intel-ucode.img; then
+					UCODE_LINES+="initrd  /intel-ucode.img\n"
+				fi
 			fi
 
 			if pacman -Q linux &> /dev/null; then
@@ -702,7 +737,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		# if networkmanager is installed, enable it, otherwise let systemd things manage the network
 		if pacman -Q networkmanager &> /dev/null; then
 			systemctl enable NetworkManager.service
-   			systemctl enable NetworkManager-wait-online.service
+			systemctl enable NetworkManager-wait-online.service
 			cat << "END" > /etc/NetworkManager/conf.d/fancy_resolvers.conf
 				[connection]
 				connection.mdns=yes
@@ -761,14 +796,16 @@ if test "${SKIP_SETUP}" != "true"; then
 		if test -f /root/phase_two.sh; then
 			echo "Attempting phase two setup" | systemd-cat --priority=alert --identifier=p1setup
 			set +o errexit
-			bash /root/phase_two.sh
+			bash /root/phase_two.sh >> /var/tmp/phase_two_log.txt 2>&1
 			P2RESULT=\$?
 			set -o errexit
 			if test -f /var/tmp/phase_two_setup_incomplete -o \${P2RESULT} -ne 0; then
 				echo "Phase two setup failed" | systemd-cat --priority=emerg --identifier=p1setup
-				echo "Boot into the system natively and run `bash /root/phase_two.sh`" | systemd-cat --priority=emerg --identifier=p1setup
+				echo "Boot into the system natively and run 'bash /root/phase_two.sh'" | systemd-cat --priority=emerg --identifier=p1setup
+				echo "And 'cat /var/tmp/phase_two_log.txt'"
 			else
 				rm -f /root/phase_two.sh
+				rm -f /var/tmp/phase_two_log.txt
 			fi
 		fi
 
@@ -864,15 +901,15 @@ if test "${SKIP_SETUP}" != "true"; then
 	# add a rootfs expander script
 	cat <<- "EOF" > "${TMP_ROOT}/root/online_expand_root.sh"
 		#!/usr/bin/env bash
-  		# live (on-line) expands the root file system to take up all avialable space
+		# live (on-line) expands the root file system to take up all avialable space
 		# nb. this script can be very destructive if its assumptions are not met
 		# it assumes
-  		# - root is btrfs, ext3 or ext4
-    		# - root is mounted on a block device with a GPT
-  		# - you have gptfdisk (for the sgdisk command) installed
+		# - root is btrfs, ext3 or ext4
+		# - root is mounted on a block device with a GPT
+		# - you have gptfdisk (for the sgdisk command) installed
 		# - you have btrfs-tools installed (for the btrfs command) if you're expanding a btrfs root
 		# - you have e2fsprogs installed (for the resize2fs command) if you're expanding an ext3 or ext4 root
-  		# - if you're expanding an ext3 root, the resize_inode feature is enabled
+		# - if you're expanding an ext3 root, the resize_inode feature is enabled
 		# - root is the last partition in the table
 		# - the last partition does not end at the end of the block device
 		# - there's nothing on the block device between the end of the last
@@ -887,11 +924,11 @@ if test "${SKIP_SETUP}" != "true"; then
 		ROOT_DEV="/dev/$(lsblk -no pkname ${ROOT_BLOCK})"
 		TEH_PART_UUID="$(lsblk -n -oPARTUUID ${ROOT_BLOCK})"
 		TEH_PART_LABEL="$(lsblk -n -oPARTLABEL ${ROOT_BLOCK})"
-  		TEH_FSTYPE="$(lsblk -n -ofstype ${ROOT_BLOCK})"
+		TEH_FSTYPE="$(lsblk -n -ofstype ${ROOT_BLOCK})"
 
 		if test "${TEH_FSTYPE}" != "btrfs" -a "${TEH_FSTYPE}" != "ext4" -a "${TEH_FSTYPE}" != "ext3"; then
 			echo "Can not expand unsupported file system type: ${TEH_FSTYPE}"
-   			exit 44
+			exit 44
 		fi
 
 		# move backup header to end
@@ -910,10 +947,10 @@ if test "${SKIP_SETUP}" != "true"; then
 		sync
 
 		if test "${TEH_FSTYPE}" = "btrfs"; then
-  			btrfs filesystem resize max /
+			btrfs filesystem resize max /
 		else
 			resize2fs -p "${ROOT_BLOCK}"
-     		fi
+		fi
 
 		rm -f /.expand
 
@@ -934,7 +971,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		set -o xtrace
 		echo 'Starting setup phase 2' | systemd-cat --priority=alert --identifier=p2setup
 
-  		pkgfile -u
+		pkgfile -u
 
 		# setup admin user
 		if test ! -z "${ADMIN_USER_NAME}"; then
@@ -990,12 +1027,12 @@ if test "${SKIP_SETUP}" != "true"; then
 						grep -qxF 'AuthenticationMethods publickey,password' /etc/ssh/sshd_config || echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config
 					fi
 				fi  # user doesn't exist
-    				#homectl update ${ADMIN_USER_NAME} --shell=/usr/bin/zsh
+					#homectl update ${ADMIN_USER_NAME} --shell=/usr/bin/zsh
 			else  # non-homed user
 				echo "Creating user"
 				useradd -m ${ADMIN_USER_NAME} --groups "\${GRPS}"
 				echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
-    				#sudo -u ${ADMIN_USER_NAME} chsh -s /usr/bin/zsh
+				#sudo -u ${ADMIN_USER_NAME} chsh -s /usr/bin/zsh
 			fi  # user creation method
 
 			rm -f /var/tmp/auth_pub.key
@@ -1021,22 +1058,44 @@ if test "${SKIP_SETUP}" != "true"; then
 				else
 					export GNOME_KEYS="${KEYMAP}"
 				fi
-    				if pacman -Q gnome-remote-desktop > /dev/null 2>/dev/null && test "${RDP_SYSTEM}" = "true"; then
-					mkdir -p "/var/grdtls"
-					winpr-makecert3 -silent -y 50 -rdp -n "rdpsystem" -path "/var/grdtls"
-					chgrp -R gnome-remote-desktop "/var/grdtls"
-					chmod o-r -R "/var/grdtls"
-					grdctl --system rdp set-tls-key "/var/grdtls/rdpsystem.key"
-					grdctl --system rdp set-tls-cert "/var/grdtls/rdpsystem.crt"
-					grdctl --system rdp set-credentials "${ADMIN_USER_NAME}" "${ADMIN_USER_PASSWORD}"
-					grdctl --system rdp enable
-    				fi
+				if pacman -Q gnome-remote-desktop > /dev/null 2>/dev/null; then
+					if test "${RDP_SYSTEM}" = "true"; then
+						mkdir -p /var/grdtls
+						winpr-makecert3 -silent -y 50 -rdp -n rdpsystem -path /var/grdtls
+						chgrp -R gnome-remote-desktop /var/grdtls
+						chmod o-r -R /var/grdtls
+						grdctl --system rdp set-tls-cert /var/grdtls/rdpsystem.crt
+						grdctl --system rdp set-tls-key /var/grdtls/rdpsystem.key
+						grdctl --system rdp set-credentials "${ADMIN_USER_NAME}" "${ADMIN_USER_PASSWORD}"
+						grdctl --system rdp disable-view-only
+						grdctl --system rdp enable
+					fi
+					if test "${RDP_ADMIN}" = "true"; then
+						sudo -u "${ADMIN_USER_NAME}" bash -c 'mkdir -p ~/.local/grdtls && winpr-makecert3 -silent -y 50 -rdp -n rdp -path ~/.local/grdtls'
+						sudo -u "${ADMIN_USER_NAME}" bash -c 'dbus-launch grdctl rdp set-tls-cert ~/.local/grdtls/rdp.crt'
+						sudo -u "${ADMIN_USER_NAME}" bash -c 'dbus-launch grdctl rdp set-tls-key ~/.local/grdtls/rdp.key'
+						sudo -u "${ADMIN_USER_NAME}" bash -c 'dbus-launch grdctl rdp disable-view-only'
+						sudo -u "${ADMIN_USER_NAME}" bash -c 'dbus-launch grdctl rdp enable'
+						#sudo -i -u ${ADMIN_USER_NAME} ADMIN_USER_PASSWORD="${ADMIN_USER_PASSWORD}" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/\$(id -u ${ADMIN_USER_NAME})/bus" bash -c 'echo -n "\${ADMIN_USER_PASSWORD}" | gnome-keyring-daemon --daemonize --login'
+						#RDP_CREDS="{'username': <'${ADMIN_USER_NAME}'>, 'password': <'${ADMIN_USER_PASSWORD}'>}"
+						#sudo -i -u ${ADMIN_USER_NAME} RDP_CREDS="\${RDP_CREDS}" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/\$(id -u ${ADMIN_USER_NAME})/bus" bash -c 'echo -n \${RDP_CREDS} | secret-tool store --label "GNOME Remote Desktop RDP credentials" xdg:schema org.gnome.RemoteDesktop.RdpCredentials'
+						#sudo -i -u ${ADMIN_USER_NAME} ADMIN_USER_PASSWORD="${ADMIN_USER_PASSWORD}" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/\$(id -u ${ADMIN_USER_NAME})/bus" bash -c 'echo -n "\${ADMIN_USER_PASSWORD}" | gnome-keyring-daemon --daemonize --login'
+						#sudo -i -u "${ADMIN_USER_NAME}" bash -c "dbus-launch grdctl rdp set-credentials \"${ADMIN_USER_NAME}\" \"${ADMIN_USER_PASSWORD}\""
+						#sudo -u "${ADMIN_USER_NAME}" bash -c "source /etc/X11/xinit/xinitrc.d/50-systemd-user.sh && dbus-launch grdctl rdp set-credentials \"${ADMIN_USER_NAME}\" \"${ADMIN_USER_PASSWORD}\""
+						#sudo -u "${ADMIN_USER_NAME}" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/\$(id -u ${ADMIN_USER_NAME})/bus" bash -c "dbus-update-activation-environment --systemd DISPLAY && dbus-launch grdctl rdp set-credentials \"${ADMIN_USER_NAME}\" \"${ADMIN_USER_PASSWORD}\""
+						#export XDG_RUNTIME_DIR="/run/user/$UID"
+						#export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+						#mkdir -p .local/share/keyrings/
+						#https://wiki.archlinux.org/title/GNOME/Keyring#Launching
+						systemd-run --user --machine ${ADMIN_USER_NAME}@.host --wait --collect --service-type=exec --pipe rdp set-credentials "${ADMIN_USER_NAME}" "${ADMIN_USER_PASSWORD}"
+					fi
+				fi
 				echo gsettings set org.gnome.desktop.input-sources sources \"[\(\'xkb\',\'\${GNOME_KEYS}\'\)]\" > /tmp/gset
 				unset GNOME_KEYS
 
 				echo gsettings set org.gnome.settings-daemon.plugins.power power-button-action interactive >> /tmp/gset
 				echo gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type nothing >> /tmp/gset
-				sudo -u ${ADMIN_USER_NAME} dbus-launch bash /tmp/gset
+				sudo -u "${ADMIN_USER_NAME}" dbus-launch bash /tmp/gset
 				rm /tmp/gset
 			fi
 
@@ -1131,16 +1190,7 @@ fi
 fstrim --verbose --all
 
 # unmount and clean up everything
-umount "${TMP_ROOT}/boot" || true
-umount -d "${TMP_ROOT}/boot" || true
-if test "${ROOT_FS_TYPE}" = "btrfs"; then
-	for n in "${TMP_ROOT}"/home/* ; do umount $n || true; done
-	for n in "${TMP_ROOT}"/home/* ; do umount -d $n || true; done
-	umount "${TMP_ROOT}/home" || true
-	umount -d "${TMP_ROOT}/home" || true
-fi
-umount "${TMP_ROOT}" || true
-umount -d "${TMP_ROOT}" || true
+findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${TARGET_DEV} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
 cryptsetup close /dev/mapper/${LUKS_UUID} || true
 losetup -D || true
 sync
@@ -1149,14 +1199,6 @@ if pacman -Q lvm2 > /dev/null 2>/dev/null; then
 fi
 rm -r "${TMP_ROOT}" || true
 
-set +o xtrace
-set +o verbose
-echo $'We\'ll now boot into the partially set up system.'
-echo 'A one time systemd service will be run to complete the install/setup'
-echo 'This could take a while (like if paru needs to be compiled)'
-echo $'Nothing much will appear to be taking place but the container will exit once it\'s complete'
-set -o xtrace
-set -o verbose
 
 # boot into newly created system to perform setup tasks
 if test -z "${IMG_NAME}"; then
@@ -1167,7 +1209,30 @@ fi
 
 if test "${SKIP_NSPAWN}" != "true"; then
 	# as of systemd-253, this will fail unless https://github.com/systemd/systemd/pull/28954 is applied
-	systemd-nspawn --machine="${THIS_HOSTNAME}" --hostname="${THIS_HOSTNAME}" --link-journal=host --boot --image "${SPAWN_TARGET}" init --log-level=debug
+
+	#INIT_LOG_LEVEL=debug
+	INIT_LOG_LEVEL=info
+
+	MACHINE_ID=$(systemd-machine-id-setup --print --image "${SPAWN_TARGET}")
+
+	set +o xtrace
+	set +o verbose
+	cat <<- EOF
+		We'll now boot into the partially set up system.
+		A one time systemd service will be run to complete the install/setup
+		This could take a while (like if paru needs to be compiled)
+		Nothing much will appear to be taking place but the container will exit once it's complete
+		You can watch the container's journal with: journalctl --follow --directory=/var/log/journal/${MACHINE_ID}/
+	EOF
+	set -o xtrace
+	set -o verbose
+	# init --log-level="${INIT_LOG_LEVEL}"
+	# --capability="$(systemd-nspawn --capability=help | paste -s -d,)"
+	#strace 
+	#SYSTEMD_LOG_LEVEL=${INIT_LOG_LEVEL} 
+	systemd-nspawn --machine="${THIS_HOSTNAME}" --hostname="${THIS_HOSTNAME}" --link-journal=host --boot --image "${SPAWN_TARGET}"
+	# --setenv=SYSTEMD_FSTAB=/etc/fstab.nspawn
+	journalctl --no-pager --directory="/var/log/journal/${MACHINE_ID}/"
 fi
 
 if test -n "${ADMIN_SSH_AUTH_KEY}"; then
@@ -1181,9 +1246,9 @@ set +o verbose
 cat <<- EOF
 	Done!
 	You can now boot into the new system with (change the network device in the commands below if needed)
-	sudo systemd-nspawn --link-journal=host --network-macvlan=eno1 --network-veth --boot --image "${SPAWN_TARGET}"
+	sudo systemd-nspawn --boot --image ${SPAWN_TARGET}
 	or you can can "chroot" into it with
-	sudo systemd-nspawn --link-journal=host --network-macvlan=eno1 --network-veth --image "${SPAWN_TARGET}"
+	sudo systemd-nspawn --image ${SPAWN_TARGET}
 	You might want to inspect the journal to see how the setup went
 	The presence/absence of the files
 	/var/tmp/phase_two_setup_failed
@@ -1198,5 +1263,5 @@ cat <<- EOF
 	2) set a password for root with: "passwd root"
 	3) exit the chroot
 	4) boot into rescue mode with systemd-nspawn like this:
-	sudo systemd-nspawn --link-journal=host --network-veth --boot --image "${SPAWN_TARGET}" -- --unit rescue.target
+	sudo systemd-nspawn --boot --image ${SPAWN_TARGET} -- --unit rescue.target
 EOF

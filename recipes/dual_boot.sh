@@ -1,7 +1,8 @@
 #/usr/bin/env bash
+
 TLD='..'
-TARGET=/dev/nvme0n1 \
-PACKAGE_LIST='vim' \
+TARGET="$1" \
+PACKAGE_LIST='vim gnome gnome-extra pipewire-jack networkmanager byobu intel-media-driver vulkan-intel' \
 ADMIN_USER_NAME='admin' \
 PREEXISTING_BOOT_PARTITION_NUM=1 \
 PREEXISTING_ROOT_PARTITION_NUM=5 \
