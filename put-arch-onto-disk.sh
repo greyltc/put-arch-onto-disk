@@ -136,8 +136,8 @@ else  # non-arm
 	ARCH_SPECIFIC_PKGS="linux intel-ucode amd-ucode linux-firmware sbsigntools reflector edk2-shell memtest86+-efi"
 fi
 
-# exclude systemd-ukify if needed
-_pre_ukify=false
+# exclude systemd-ukify because time travel
+PRE_UKIFY=false
 _ukify="systemd-ukify"
 _ukify_start="$(date -d 2023-03-08 +%s)"
 if test ! "${AS_OF}" = "now" -a "$(date -d ${AS_OF} +%s)" -lt "${_ukify_start}" ; then
@@ -423,9 +423,9 @@ else
 fi
 
 if test ! -z "${CUSTOM_MIRROR_URL}"; then
-	echo "Server = ${CUSTOM_MIRROR_URL}" > /tmp/mirrorlist
+	sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /tmp/mirrorlist
 elif test ! "${AS_OF}" = "now" -a "${TARGET_ARCH}" = "x86_64" ; then
-	echo "Server = https://archive.archlinux.org/repos/${AS_OF//-//}/\$repo/os/\$arch" > /tmp/mirrorlist
+	sed "1s;^;Server = https://archive.archlinux.org/repos/${AS_OF//-//}/\$repo/os/\$arch\n;" -i /tmp/mirrorlist
 fi
 
 pacstrap -C /tmp/pacman.conf -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
@@ -447,12 +447,12 @@ if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
 	echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
 fi
 
-genfstab "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
+genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
 sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
 
 # TODO: figure out why systemd-nspawn can't access these UUIDs
-genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab.uuid
-sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab.uuid
+#genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab.uuid
+#sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab.uuid
 
 # switch rpi to "latest" firmware channel
 if test -f "${TMP_ROOT}/etc/default/rpi-update"; then
@@ -642,23 +642,11 @@ if test "${SKIP_SETUP}" != "true"; then
 				END
 			fi
 
-			UCODE_LINES=""
-			if test "${_pre_ukify}" = "true"; then
-				if test -f /boot/amd-ucode.img; then
-					UCODE_LINES+="initrd  /amd-ucode.img\n"
-				fi
-
-				if test -f /boot/intel-ucode.img; then
-					UCODE_LINES+="initrd  /intel-ucode.img\n"
-				fi
-			fi
-
 			if pacman -Q linux &> /dev/null; then
 				sed 's,^default.*,default arch.conf,g' --in-place /boot/loader/loader.conf
 				cat << END > /boot/loader/entries/arch.conf
 					title   Arch Linux (${THIS_HOSTNAME})
 					linux   /vmlinuz-linux
-					\$(echo -e \${UCODE_LINES})
 					initrd  /initramfs-linux.img
 					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOTA_DEVICE}) rw libata.allow_tpm=1
 				END
@@ -666,7 +654,6 @@ if test "${SKIP_SETUP}" != "true"; then
 				cat << END > /boot/loader/entries/arch-fallback.conf
 					title   Arch Linux (fallback initramfs, ${THIS_HOSTNAME})
 					linux   /vmlinuz-linux
-					\$(echo -e \${UCODE_LINES})
 					initrd  /initramfs-linux-fallback.img
 					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOTA_DEVICE}) rw
 				END
@@ -677,7 +664,6 @@ if test "${SKIP_SETUP}" != "true"; then
 				cat << END > /boot/loader/entries/arch-lts.conf
 					title   Arch Linux LTS (${THIS_HOSTNAME})
 					linux   /vmlinuz-linux-lts
-					\$(echo -e \${UCODE_LINES})
 					initrd  /initramfs-linux-lts.img
 					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOTA_DEVICE}) rw
 				END
@@ -685,7 +671,6 @@ if test "${SKIP_SETUP}" != "true"; then
 				cat << END > /boot/loader/entries/arch-fallback.conf
 					title   Arch Linux LTS (fallback initramfs, ${THIS_HOSTNAME})
 					linux   /vmlinuz-linux-lts
-					\$(echo -e \${UCODE_LINES})
 					initrd  /initramfs-linux-lts-fallback.img
 					options root=PARTUUID=$(lsblk -no PARTUUID ${ROOTA_DEVICE}) rw
 				END
