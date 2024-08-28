@@ -349,7 +349,7 @@ if test "${ROOT_FS_TYPE}" = "f2fs"; then
 	MOUNT_ARGS="--options defaults,compress_algorithm=zstd:6,compress_chksum,atgc,gc_merge,lazytime"
 elif test "${ROOT_FS_TYPE}" = "btrfs"; then
 	LABEL="--label"
-	MKFS_FEATURES="--features block-group-tree,squota"
+	MKFS_FEATURES="--features block-group-tree" # ,squota
 	MOUNT_ARGS="--options defaults,noatime,compress=zstd:2"
 else
 	LABEL="-L"
@@ -780,6 +780,24 @@ if test "${SKIP_SETUP}" != "true"; then
 		if test -f /root/phase_two.sh; then
 			echo "Attempting phase two setup" | systemd-cat --priority=alert --identifier=p1setup
 			set +o errexit
+			if test "${SKIP_NSPAWN}" = "true"; then
+				# if we don't have the benefit of the nspawn network, turn on the real thing now
+				if pacman -Q networkmanager &> /dev/null; then
+					systemctl start networkmanager
+				else
+					systemctl start systemd-networkd
+				fi
+
+				# link systemd resolve stub now in case we were running in a container and didn't do it earlier 
+				if test -f /link_resolv_conf.note; then
+					ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+					rm /link_resolv_conf.note
+				fi
+				systemctl start systemd-resolved
+
+				# wait for network
+				timeout 60s bash -c 'until ping google.com; do sleep 1; done'
+			fi
 			bash /root/phase_two.sh >> /var/tmp/phase_two_log.txt 2>&1
 			P2RESULT=\$?
 			set -o errexit
@@ -829,24 +847,25 @@ if test "${SKIP_SETUP}" != "true"; then
 	ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
 
 	# take care of some rpi config stuff
-	#if test -f "${TMP_ROOT}/boot/cmdline.txt"; then
-	#	echo "" >> /boot/config.txt
-	#	echo "# PoE Hat Fan Speeds" >> /boot/config.txt
-	#	echo "dtparam=poe_fan_temp0=50000" >> /boot/config.txt
-	#	echo "dtparam=poe_fan_temp1=60000" >> /boot/config.txt
-	#	echo "dtparam=poe_fan_temp2=70000" >> /boot/config.txt
-	#	echo "dtparam=poe_fan_temp3=80000" >> /boot/config.txt
+	if test -f "${TMP_ROOT}/boot/cmdline.txt"; then
+		echo "usb_max_current_enable=1" >> "${TMP_ROOT}/boot/config.txt"  # allows pi5 to boot from USB
+	#	echo "" >> "${TMP_ROOT}/boot/config.txt"
+	#	echo "# PoE Hat Fan Speeds" >> "${TMP_ROOT}/boot/config.txt"
+	#	echo "dtparam=poe_fan_temp0=50000" >> "${TMP_ROOT}/boot/config.tx"
+	#	echo "dtparam=poe_fan_temp1=60000" >> "${TMP_ROOT}/boot/config.txt"
+	#	echo "dtparam=poe_fan_temp2=70000" >> "${TMP_ROOT}/boot/config.txt"
+	#	echo "dtparam=poe_fan_temp3=80000" >> "${TMP_ROOT}/boot/config.txt"
 	#
-	#	echo "hdmi_ignore_edid:0=0xa5000080" >> /boot/config.txt
-	#	echo "hdmi_force_mode:0=1" >> /boot/config.txt
-	#	echo "hdmi_group:0=2" >> /boot/config.txt
-	#	echo "hdmi_mode:0=85" >> /boot/config.txt
+	#	echo "hdmi_ignore_edid:0=0xa5000080" >> "${TMP_ROOT}/boot/config.txt"
+	#	echo "hdmi_force_mode:0=1" >> "${TMP_ROOT}/boot/config.txt"
+	#	echo "hdmi_group:0=2" >> "${TMP_ROOT}/boot/config.txt"
+	#	echo "hdmi_mode:0=85" >> "${TMP_ROOT}/boot/config.txt"
 	#
-	#	echo "hdmi_ignore_edid:1=0xa5000080" >> /boot/config.txt
-	#	echo "hdmi_force_mode:1=1" >> /boot/config.txt
-	#	echo "hdmi_group:1=2" >> /boot/config.txt
-	#	echo "hdmi_mode:1=82" >> /boot/config.txt
-	#fi
+	#	echo "hdmi_ignore_edid:1=0xa5000080" >> "${TMP_ROOT}/boot/config.txt"
+	#	echo "hdmi_force_mode:1=1" >> "${TMP_ROOT}/boot/config.txt"
+	#	echo "hdmi_group:1=2" >> "${TMP_ROOT}/boot/config.txt"
+	#	echo "hdmi_mode:1=82" >> "${TMP_ROOT}/boot/config.txt"
+	fi
 
 	# add argument(s) to the pi kernel boot params
 	#PI_VID_ARG='video=HDMI-A-1:1920x1080'
@@ -914,6 +933,18 @@ if test "${SKIP_SETUP}" != "true"; then
 			echo "Can not expand unsupported file system type: ${TEH_FSTYPE}"
 			exit 44
 		fi
+
+		set +o errexit
+		sgdisk "${ROOT_DEV}" >/dev/null 2>&1
+		if test ${?} -ne 0; then
+			set -o errexit
+			# rebuild backup GPT structures using primary GPT structures
+			echo -en $'2\nr\nd\ne\ny\nw\ny\ny\n' | gdisk "${ROOT_DEV}"
+			partprobe	
+		else
+			set -o errexit
+		fi
+
 
 		# move backup header to end
 		sgdisk -e "${ROOT_DEV}"
@@ -1123,7 +1154,7 @@ if test "${SKIP_SETUP}" != "true"; then
 					# clean up
 					PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}  || true
 					sudo -u ${ADMIN_USER_NAME} -D~ bash -c "rm -rf ${AUR_HELPER} .cache/go-build .cargo"
-					pacman -Qtdq | pacman -Rns - --noconfirm
+					pacman -Qtdq | pacman -Rns - --noconfirm || true
 
 				homectl deactivate ${ADMIN_USER_NAME} || true
 				fi  #get helper

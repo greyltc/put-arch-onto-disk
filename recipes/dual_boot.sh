@@ -8,4 +8,5 @@ PREEXISTING_BOOT_PARTITION_NUM=1 \
 PREEXISTING_ROOT_PARTITION_NUM=5 \
 PORTABLE='false' \
 THIS_HOSTNAME='archthing' \
+AUR_HELPER='paru' \
 sudo -E "${TLD}/put-arch-onto-disk.sh" |& tee archInstall.log
