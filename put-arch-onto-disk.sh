@@ -865,6 +865,7 @@ if test "${SKIP_SETUP}" != "true"; then
 	#	echo "hdmi_force_mode:1=1" >> "${TMP_ROOT}/boot/config.txt"
 	#	echo "hdmi_group:1=2" >> "${TMP_ROOT}/boot/config.txt"
 	#	echo "hdmi_mode:1=82" >> "${TMP_ROOT}/boot/config.txt"
+ 	#	echo "dtoverlay=vc4-kms-v3d,audio" >> "${TMP_ROOT}/boot/config.txt"
 	fi
 
 	# add argument(s) to the pi kernel boot params
