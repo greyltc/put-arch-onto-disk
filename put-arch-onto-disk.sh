@@ -258,11 +258,11 @@ if test "${TO_EXISTING}" = "true"; then
 		PEE=""
 	fi
 else  # format everything from scratch
-	# destroy all file systems and partition tables on the target
-	for n in ${TARGET_DEV}+([[:alnum:]]) ; do wipefs -a -f $n || true; done # wipe the partitions' file systems
-	for n in ${TARGET_DEV}+([[:alnum:]]) ; do sgdisk -Z $n || true; done # zap the partitions' part tables
-	wipefs -a -f ${TARGET_DEV} || true # wipe the device file system
-	sgdisk -Z ${TARGET_DEV}  || true # wipe the device partition table
+	# obliterate all file systems and partition tables on the target
+	for n in ${TARGET_DEV}+([[:alnum:]]) ; do wipefs -a -f $n || true; done  # wipe the partitions' file systems
+	for n in ${TARGET_DEV}+([[:alnum:]]) ; do sgdisk -Z $n || true; done  # zap the partitions' part tables
+	wipefs -a -f ${TARGET_DEV} || true  # wipe the device file system
+	sgdisk -Z ${TARGET_DEV}  || true  # wipe the device partition table
 	blkdiscard "${TARGET_DEV}" || true
 
 	NEXT_PARTITION=1
@@ -968,14 +968,68 @@ if test "${SKIP_SETUP}" != "true"; then
 			resize2fs -p "${ROOT_BLOCK}"
 		fi
 
+		POTENTIAL_RAID_1_TARGET="$(cat /.expand)"
+
 		rm -f /.expand
 
 		sync
 		partprobe
 
+		if test -f "/root/online_mkbtrfs_root_raid1.sh"; then
+			/root/online_mkbtrfs_root_raid1.sh "${POTENTIAL_RAID_1_TARGET}" || true
+		fi
+
 		echo "You should probably reboot now"
 	EOF
 	chmod +x "${TMP_ROOT}/root/online_expand_root.sh"
+
+	# add a btrfs raid1 maker script, to be run (possibly manually) on final hardware
+	cat <<- "EOF" > "${TMP_ROOT}/root/online_mkbtrfs_root_raid1.sh"
+		#!/usr/bin/env bash
+		# live (on-line) converts btrfs root to raid1 with the block device in $1, obliterating whatever was in it
+		# nb. this script can be very destructive
+		set -o pipefail
+		set -o errexit
+		set -o nounset
+		set -o verbose
+		set -o xtrace
+
+		DEV_TO_ADD="${1}"
+		ROOT_BLOCK="$(findmnt --nofsroot -n --df -e --target / -o SOURCE)"
+		ROOT_DEV="/dev/$(lsblk -no pkname ${ROOT_BLOCK})"
+		TEH_PART_UUID="$(lsblk -n -oPARTUUID ${ROOT_BLOCK})"
+		TEH_PART_LABEL="$(lsblk -n -oPARTLABEL ${ROOT_BLOCK})"
+		TEH_FSTYPE="$(lsblk -n -ofstype ${ROOT_BLOCK})"
+
+		if test "${TEH_FSTYPE}" != "btrfs"; then
+			echo "Can not raid1 unsupported file system type: ${TEH_FSTYPE}"
+			exit 44
+		fi
+
+		if test ! -b "${DEV_TO_ADD}"; then
+			echo "Not setting up raid1 because ${DEV_TO_ADD} is not a block device"
+			exit 45
+		fi
+
+		# check everything is unmounted (prevents distasters)
+		for n in ${DEV_TO_ADD}* ; do ! findmnt --source $n > /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
+
+		# obliterate the device to be added
+		for n in ${DEV_TO_ADD}+([[:alnum:]]) ; do wipefs -a -f $n || true; done  # wipe the partitions' file systems
+		for n in ${DEV_TO_ADD}+([[:alnum:]]) ; do sgdisk -Z $n || true; done  # zap the partitions' part tables
+		wipefs -a -f ${DEV_TO_ADD} || true  # wipe the device file system
+		sgdisk -Z ${DEV_TO_ADD}  || true  # wipe the device partition table
+		blkdiscard "${DEV_TO_ADD}" || true
+
+		# TODO: consider partitioning...
+
+		# add the new device
+		btrfs --verbose device add ${DEV_TO_ADD} /
+
+		# convert the rootfs to raid
+		btrfs --verbose balance start -dconvert=raid1 -mconvert=raid1 /
+	EOF
+	chmod +x "${TMP_ROOT}/root/online_mkbtrfs_root_raid1.sh"
 
 	# add a rootfs bootloader installer script, to be run (possibly manually) on final hardware
 	cat <<- "EOF" > "${TMP_ROOT}/root/register_bootloader.sh"
