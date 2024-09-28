@@ -1254,7 +1254,7 @@ if test "${SKIP_SETUP}" != "true"; then
 			sed 's,^PermitRootLogin .*,#PermitRootLogin prohibit-password,g' -i /etc/ssh/sshd_config
 		fi
 
-		fstrim --verbose --all
+		systemctl --wait start fstrim
 
 		rm -f /var/tmp/phase_two_setup_failed
 		echo 'Setup phase 2 was successful' | systemd-cat --priority=alert --identifier=p2setup
@@ -1274,7 +1274,7 @@ if test -f "${TMP_ROOT}/boot/cmdline.txt"; then
 	sed "s,root=[^ ]*,root=PARTUUID=$(lsblk -no PARTUUID ${ROOTA_DEVICE}),g" -i "${TMP_ROOT}/boot/cmdline.txt"
 fi
 
-fstrim --verbose --all
+systemctl --wait start fstrim
 
 if test "${SKIP_NSPAWN}" != "true"; then
 	# boot into newly created system to perform setup tasks
