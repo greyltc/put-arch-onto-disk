@@ -822,7 +822,7 @@ if test "${SKIP_SETUP}" != "true"; then
 			sed 's,#PrivateNetwork=yes,PrivateNetwork=yes,g' -i /usr/lib/systemd/system/systemd-localed.service
 		fi
 
-		fstrim --verbose --all
+		systemctl --wait start fstrim
 
 		rm -f /var/tmp/phase_one_setup_failed
 		echo 'Setup phase 1 was successful' | systemd-cat --priority=alert --identifier=p1setup
