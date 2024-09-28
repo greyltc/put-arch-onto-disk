@@ -1028,6 +1028,7 @@ if test "${SKIP_SETUP}" != "true"; then
 
 		# convert the rootfs to raid
 		btrfs --verbose balance start -dconvert=raid1 -mconvert=raid1 /
+		touch /etc/tmpfiles.d/journal-nocow.conf  # prevents journal data corruption
 	EOF
 	chmod +x "${TMP_ROOT}/root/online_mkbtrfs_root_raid1.sh"
 
