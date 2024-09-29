@@ -990,6 +990,10 @@ if test "${SKIP_SETUP}" != "true"; then
 		set -o nounset
 		set -o verbose
 		set -o xtrace
+		shopt -s extglob
+
+		echo 'Conversion to raid1 has started' | systemd-cat --priority=alert --identifier=online_mkbtrfs_root_raid1.sh
+		touch /tmp/raid1_setup_not_complete
 
 		DEV_TO_ADD="${1}"
 		ROOT_BLOCK="$(findmnt --nofsroot -n --df -e --target / -o SOURCE)"
@@ -1025,7 +1029,10 @@ if test "${SKIP_SETUP}" != "true"; then
 
 		# convert the rootfs to raid
 		btrfs --verbose balance start -dconvert=raid1 -mconvert=raid1 /
-		touch /etc/tmpfiles.d/journal-nocow.conf  # prevents journal data corruption
+		touch /etc/tmpfiles.d/journal-nocow.conf  # prevents journal data corruption?
+		rm -f /tmp/raid1_setup_not_complete
+		touch /tmp/raid1_setup_complete
+		echo 'Conversion to raid1 is complete' | systemd-cat --priority=alert --identifier=online_mkbtrfs_root_raid1.sh
 	EOF
 	chmod +x "${TMP_ROOT}/root/online_mkbtrfs_root_raid1.sh"
 
