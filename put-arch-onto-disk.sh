@@ -589,15 +589,15 @@ if test "${SKIP_SETUP}" != "true"; then
 			sed '1iallow-weak-key-signatures' -i /etc/pacman.d/gnupg/gpg.conf  # some nasty hack to avoid
 			# signature from "Arch Linux ARM Build System <builder@archlinuxarm.org>" is marginal trust TODO: check if this is still needed
 			pacman-key --populate archlinuxarm
-			echo 'Server = http://mirror.archlinuxarm.org/\\\$arch/\\\$repo' > /etc/pacman.d/mirrorlist
-			if test ! -z "${CUSTOM_MIRROR_URL}"; then
-				sed "1s;^;Server = ${CUSTOM_MIRROR_URL/$/\\\$}\n;" -i /etc/pacman.d/mirrorlist
+			echo 'Server = http://mirror.archlinuxarm.org/\$arch/\$repo' > /etc/pacman.d/mirrorlist
+			if test ! -z '${CUSTOM_MIRROR_URL}'; then
+				sed '1s;^;Server = ${CUSTOM_MIRROR_URL}\n;' -i /etc/pacman.d/mirrorlist
 			fi
 		else
 			pacman-key --populate archlinux
 			echo 'Server = https://mirror.rackspace.com/archlinux/\$repo/os/\$arch' > /etc/pacman.d/mirrorlist
-			if test ! -z "${CUSTOM_MIRROR_URL}"; then
-				sed "1s;^;Server = ${CUSTOM_MIRROR_URL/$/\\\$}\n;" -i /etc/pacman.d/mirrorlist
+			if test ! -z '${CUSTOM_MIRROR_URL}'; then
+				sed '1s;^;Server = ${CUSTOM_MIRROR_URL}\n;' -i /etc/pacman.d/mirrorlist
 			elif test ! "${AS_OF}" = "now" -a "\$(uname -m)" = "x86_64" ; then
 				echo "Server = https://archive.archlinux.org/repos/${AS_OF//-//}/\\\$repo/os/\\\$arch" > /etc/pacman.d/mirrorlist
 			else
