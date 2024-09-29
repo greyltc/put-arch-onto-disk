@@ -597,7 +597,7 @@ if test "${SKIP_SETUP}" != "true"; then
 			pacman-key --populate archlinuxarm
 			echo 'Server = http://mirror.archlinuxarm.org/\$arch/\$repo' > /etc/pacman.d/mirrorlist
 			if test ! -z "${CUSTOM_MIRROR_URL}"; then
-				sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /etc/pacman.d/mirrorlist
+				sed '1s;^;Server = ${CUSTOM_MIRROR_URL}\n;' -i /etc/pacman.d/mirrorlist
 			fi
 		else
 			pacman-key --populate archlinux
