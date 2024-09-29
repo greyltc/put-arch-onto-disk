@@ -419,7 +419,6 @@ if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
 		Include = /tmp/mirrorlist
 	EOF
 	sed '1s;^;Server = http://mirror.archlinuxarm.org/$arch/$repo\n;' -i /tmp/mirrorlist
-	sed '1s;^;Server = http://ca.us.mirror.archlinuxarm.org/$arch/$repo\n;' -i /tmp/mirrorlist
 else
 	IS_ARM=""
 fi
@@ -594,9 +593,12 @@ if test "${SKIP_SETUP}" != "true"; then
 		pacman-key --init
 		if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
 			sed '1iallow-weak-key-signatures' -i /etc/pacman.d/gnupg/gpg.conf  # some nasty hack to avoid
-			# signature from "Arch Linux ARM Build System <builder@archlinuxarm.org>" is marginal trust
+			# signature from "Arch Linux ARM Build System <builder@archlinuxarm.org>" is marginal trust TODO: check if this is still needed
 			pacman-key --populate archlinuxarm
 			echo 'Server = http://mirror.archlinuxarm.org/\$arch/\$repo' > /etc/pacman.d/mirrorlist
+			if test ! -z "${CUSTOM_MIRROR_URL}"; then
+				sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /etc/pacman.d/mirrorlist
+			fi
 		else
 			pacman-key --populate archlinux
 			if test ! -z "${CUSTOM_MIRROR_URL}"; then
