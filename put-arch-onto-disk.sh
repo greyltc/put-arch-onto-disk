@@ -76,13 +76,7 @@ echo $@
 # any pre-existing swap partition will just be used via systemd magic
 
 : ${CUSTOM_MIRROR_URL=''}
-# useful with pacoloco on the host with config:
-##repos:
-##  archlinux:
-##    url: http://mirrors.kernel.org/archlinux
-##  alarm:
-##    url: http://mirror.archlinuxarm.org
-# and CUSTOM_MIRROR_URL='http://[ip]:9129/repo/alarm/$arch/$repo' for alarm
+# for example, use 'http://eu.mirror.archlinuxarm.org/$arch/$repo' for alarm alternative
 
 ## END VARIABLE DEFINITION SECTION ##
 
