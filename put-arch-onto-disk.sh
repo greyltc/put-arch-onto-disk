@@ -1024,12 +1024,18 @@ if test "${SKIP_SETUP}" != "true"; then
 
 		# TODO: consider partitioning...
 
+		# enable COW for the journal
+		echo "H /var/log/journal - - - - -C"         > /etc/tmpfiles.d/journal-nocow.conf
+		echo "H /var/log/journal/%m - - - - -C"     >> /etc/tmpfiles.d/journal-nocow.conf
+		echo "H /var/log/journal/remote - - - - -C" >> /etc/tmpfiles.d/journal-nocow.conf
+		journalctl --rotate
+
 		# add the new device
 		btrfs --verbose device add ${DEV_TO_ADD} /
 
 		# convert the rootfs to raid
 		btrfs --verbose balance start -dconvert=raid1 -mconvert=raid1 /
-		touch /etc/tmpfiles.d/journal-nocow.conf  # prevents journal data corruption?
+
 		rm -f /tmp/raid1_setup_not_complete
 		touch /tmp/raid1_setup_complete
 		echo 'Conversion to raid1 is complete' | systemd-cat --priority=alert --identifier=online_mkbtrfs_root_raid1.sh
