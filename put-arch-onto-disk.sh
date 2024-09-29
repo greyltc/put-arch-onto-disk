@@ -591,12 +591,13 @@ if test "${SKIP_SETUP}" != "true"; then
 			pacman-key --populate archlinuxarm
 			echo 'Server = http://mirror.archlinuxarm.org/\$arch/\$repo' > /etc/pacman.d/mirrorlist
 			if test ! -z "${CUSTOM_MIRROR_URL}"; then
-				sed '1s;^;Server = ${CUSTOM_MIRROR_URL}\n;' -i /etc/pacman.d/mirrorlist
+				sed "1s;^;Server = ${CUSTOM_MIRROR_URL/$/\$}\n;" -i /etc/pacman.d/mirrorlist
 			fi
 		else
 			pacman-key --populate archlinux
+			echo 'Server = https://mirror.rackspace.com/archlinux/\$repo/os/\$arch' > /etc/pacman.d/mirrorlist
 			if test ! -z "${CUSTOM_MIRROR_URL}"; then
-				echo 'Server = ${CUSTOM_MIRROR_URL}' > /etc/pacman.d/mirrorlist
+				sed "1s;^;Server = ${CUSTOM_MIRROR_URL/$/\$}\n;" -i /etc/pacman.d/mirrorlist
 			elif test ! "${AS_OF}" = "now" -a "\$(uname -m)" = "x86_64" ; then
 				echo "Server = https://archive.archlinux.org/repos/${AS_OF//-//}/\\\$repo/os/\\\$arch" > /etc/pacman.d/mirrorlist
 			else
