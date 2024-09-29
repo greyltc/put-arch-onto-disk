@@ -602,7 +602,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		else
 			pacman-key --populate archlinux
 			if test ! -z "${CUSTOM_MIRROR_URL}"; then
-				echo "Server = ${CUSTOM_MIRROR_URL}" > /etc/pacman.d/mirrorlist
+				echo 'Server = ${CUSTOM_MIRROR_URL}' > /etc/pacman.d/mirrorlist
 			elif test ! "${AS_OF}" = "now" -a "\$(uname -m)" = "x86_64" ; then
 				echo "Server = https://archive.archlinux.org/repos/${AS_OF//-//}/\\\$repo/os/\\\$arch" > /etc/pacman.d/mirrorlist
 			else
