@@ -1025,10 +1025,11 @@ if test "${SKIP_SETUP}" != "true"; then
 		# TODO: consider partitioning...
 
 		# enable COW for the journal
-		ln -s /dev/null /etc/tmpfiles.d/journal-nocow.conf
-		#echo "H /var/log/journal - - - - -C"         > /etc/tmpfiles.d/journal-nocow.conf
-		#echo "H /var/log/journal/%m - - - - -C"     >> /etc/tmpfiles.d/journal-nocow.conf
-		#echo "H /var/log/journal/remote - - - - -C" >> /etc/tmpfiles.d/journal-nocow.conf
+		#ln -s /dev/null /etc/tmpfiles.d/journal-nocow.conf
+		echo "H /var/log/journal - - - - -C"         > /etc/tmpfiles.d/journal-nocow.conf
+		echo "H /var/log/journal/%m - - - - -C"     >> /etc/tmpfiles.d/journal-nocow.conf
+		echo "H /var/log/journal/remote - - - - -C" >> /etc/tmpfiles.d/journal-nocow.conf
+		systemctl restart systemd-journald
 		journalctl --rotate
 
 		# add the new device
