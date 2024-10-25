@@ -452,7 +452,7 @@ if test -f "${TMP_ROOT}/etc/default/rpi-update"; then
 fi
 
 # ensure some modules are loaded
-if test -f "${TMP_ROOT}/etc/modules-load.d"; then
+if test -d "${TMP_ROOT}/etc/modules-load.d"; then
 	echo "cdc-acm" > "${TMP_ROOT}/etc/modules-load.d/baseline.conf"
 fi
 
@@ -520,14 +520,16 @@ if test "${SKIP_SETUP}" != "true"; then
 			echo "not setting up fscrypt"
 		fi
 
-		# make a root pw for now. if needed, this will be disabled in phase 2
+		# make some root pw during setup. if needed, this will be disabled in phase 2
 		if test -z "${ROOT_PASSWORD}"
 		then
 			echo "root:admin"|chpasswd
 		else
 			echo "root:${ROOT_PASSWORD}"|chpasswd
 		fi
-		sed 's,^#PermitRootLogin .*,PermitRootLogin yes,g' -i /etc/ssh/sshd_config
+		if test -d /etc/ssh/sshd_config.d; then
+			echo "PermitRootLogin yes" > /etc/ssh/sshd_config.d/19-allow_root.conf
+		fi
 
 		# enable magic sysrq
 		echo "kernel.sysrq = 1" > /etc/sysctl.d/99-sysctl.conf
@@ -1102,6 +1104,7 @@ if test "${SKIP_SETUP}" != "true"; then
 				mkdir -p /root/admin_sshkeys
 				if test ! -f /root/admin_sshkeys/id_rsa.pub; then
 					ssh-keygen -q -t rsa -N '' -f /root/admin_sshkeys/id_rsa
+					cat /root/admin_sshkeys/id_rsa
 				fi
 				ADD_KEY_CMD="--ssh-authorized-keys=\$(cat /root/admin_sshkeys/id_rsa.pub)"
 			fi
@@ -1126,10 +1129,10 @@ if test "${SKIP_SETUP}" != "true"; then
 					pacman -S --needed --noconfirm jq
 					# make the user with homectl
 					jq -n --arg pw "${ADMIN_USER_PASSWORD}" --arg pwhash \$(openssl passwd -6 "${ADMIN_USER_PASSWORD}") '{secret:{password:[\$pw]},privileged:{hashedPassword:[\$pwhash]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE} "\${ADD_KEY_CMD}"
-					sed "s,^#AuthorizedKeysCommand none,AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u,g" -i /etc/ssh/sshd_config
-					sed "s,^#AuthorizedKeysCommandUser nobody,AuthorizedKeysCommandUser root,g" -i /etc/ssh/sshd_config
-					if test -f /var/tmp/auth_pub.key; then
-						grep -qxF 'AuthenticationMethods publickey,password' /etc/ssh/sshd_config || echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config
+					if test -d /etc/ssh/sshd_config.d; then
+						echo "PasswordAuthentication yes"                > /etc/ssh/sshd_config.d/18-homectl_needs.conf
+						echo "PubkeyAuthentication yes"                 >> /etc/ssh/sshd_config.d/18-homectl_needs.conf
+						echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config.d/18-homectl_needs.conf
 					fi
 				fi  # user doesn't exist
 					#homectl update ${ADMIN_USER_NAME} --shell=/usr/bin/zsh
@@ -1261,15 +1264,21 @@ if test "${SKIP_SETUP}" != "true"; then
 				rm -rf /etc/sudoers.d/allow_${ADMIN_USER_NAME}_to_pacman
 			fi  # add AUR
 			# now that we have a proper admin user, ensure ssh login for root with password is disabled
-			sed 's,^PermitRootLogin .*,#PermitRootLogin prohibit-password,g' -i /etc/ssh/sshd_config
+
+			if test -d /etc/ssh/sshd_config.d; then
+				rm -f /etc/ssh/sshd_config.d/19-allow_root.conf
+				echo "PermitRootLogin no" > /etc/ssh/sshd_config.d/20-deny_root.conf
+			fi
 		fi # add admin
 
-		# change password for root
-		# note that root will have perminant password ssh login if ROOT_PASSWORD was set
+		# lock root account if no password was set. n.b. root will have perminant password ssh login if ROOT_PASSWORD was set
 		if test -z "${ROOT_PASSWORD}"; then
 			echo "password locked for root user"
 			passwd --lock root
-			sed 's,^PermitRootLogin .*,#PermitRootLogin prohibit-password,g' -i /etc/ssh/sshd_config
+			if test -d /etc/ssh/sshd_config.d; then
+				rm -f /etc/ssh/sshd_config.d/19-allow_root.conf
+				echo "PermitRootLogin no" > /etc/ssh/sshd_config.d/20-deny_root.conf
+			fi
 		fi
 
 		systemctl --wait start fstrim
