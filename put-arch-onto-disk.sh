@@ -451,6 +451,11 @@ if test -f "${TMP_ROOT}/etc/default/rpi-update"; then
 	sed 's,^FIRMWARE_RELEASE_STATUS.*,FIRMWARE_RELEASE_STATUS="latest",' -i "${TMP_ROOT}/etc/default/rpi-update"
 fi
 
+# ensure some modules are loaded
+if test -f "${TMP_ROOT}/etc/modules-load.d"; then
+	echo "cdc-acm" > "${TMP_ROOT}/etc/modules-load.d/baseline.conf"
+fi
+
 # if test ! -z "${IS_ARM}"; then
 # 	cat <<-'EOF' > "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
 # 		#!/usr/bin/env bash
