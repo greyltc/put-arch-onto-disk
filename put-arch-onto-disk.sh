@@ -374,6 +374,7 @@ install -d -m 0755 "${TMP_ROOT}/boot"
 mount -o uid=0,gid=0,fmask=0022,dmask=0022 ${TARGET_DEV}${PEE}${BOOT_PARTITION} "${TMP_ROOT}/boot"
 mkdir "${TMP_ROOT}/pacman_setup.d"
 cp /etc/pacman.d/mirrorlist "${TMP_ROOT}/pacman_setup.d/mirrorlist"
+# TODO: figure out a good way to keep this up to date
 cat <<-EOF > "${TMP_ROOT}/pacman_setup.d/pacman.conf"
 	[options]
 	HoldPkg     = pacman glibc
