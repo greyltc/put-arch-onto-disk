@@ -1243,7 +1243,7 @@ if test "${SKIP_SETUP}" != "true"; then
 
 				if test ! -z "${AUR_PACKAGE_LIST}"; then
 					PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}  || true
-					sudo -u ${ADMIN_USER_NAME} -D~ bash -c "${AUR_HELPER//-bin} -Syu --removemake yes --needed --noconfirm --noprogressbar ${AUR_PACKAGE_LIST}"
+					sudo -u ${ADMIN_USER_NAME} -D~ bash -c "${AUR_HELPER//-bin} -Syu --removemake --needed --noconfirm --noprogressbar ${AUR_PACKAGE_LIST}"
 					homectl deactivate ${ADMIN_USER_NAME} || true
 				fi
 
