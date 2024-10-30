@@ -343,7 +343,7 @@ if test "${ROOT_FS_TYPE}" = "f2fs"; then
 	MOUNT_ARGS="--options defaults,compress_algorithm=zstd:6,compress_chksum,atgc,gc_merge,lazytime"
 elif test "${ROOT_FS_TYPE}" = "btrfs"; then
 	LABEL="--label"
-	MKFS_FEATURES="--features block-group-tree" # ,squota
+	MKFS_FEATURES="--features block-group-tree" # ,squota  # TODO: 	enable squota once rpi kernel catches up
 	MOUNT_ARGS="--options defaults,noatime,compress=zstd:2"
 else
 	LABEL="-L"
