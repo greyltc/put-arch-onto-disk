@@ -431,11 +431,11 @@ fi
 pacstrap -C "${TMP_ROOT}/pacman_setup.d/pacman.conf" -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
 if test ! -z "${COPYIT}"; then
 	mkdir -p "${TMP_ROOT}/root/install_copied"
-	cp -a "${COPYIT}" "${TMP_ROOT}"/root/install_copied/.
+	cp -a ${COPYIT} "${TMP_ROOT}"/root/install_copied/.
 fi
 
 if test ! -z "${CP_INTO_BOOT}"; then
-	cp -r "${CP_INTO_BOOT}" "${TMP_ROOT}"/boot/.
+	cp -r ${CP_INTO_BOOT} "${TMP_ROOT}"/boot/.
 fi
 
 if test ! -z "${PACKAGE_FILES}"; then
