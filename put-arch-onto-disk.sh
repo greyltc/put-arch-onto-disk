@@ -355,19 +355,19 @@ if test -n "${ROOTB_DEVICE}"; then
 	mkfs.${ROOT_FS_TYPE} ${MKFS_FEATURES} ${LABEL} "ROOT${ROOT_FS_TYPE^^}" ${ROOTB_DEVICE}
 fi
 
-TMP_ROOT="$(mktemp -p . -d -t PAOD_TMP.XXX)"
-mkdir -p ${TMP_ROOT}
+TMP_ROOT_REL="$(mktemp -p . -d -t PAOD_TMP.XXX)"
+TMP_ROOT="$(realpath -s ${TMP_ROOT_REL})"
 
-mount --types ${ROOT_FS_TYPE} ${MOUNT_ARGS} ${ROOTA_DEVICE} ${TMP_ROOT}
+mount --types ${ROOT_FS_TYPE} ${MOUNT_ARGS} ${ROOTA_DEVICE} "${TMP_ROOT}"
 
 if test "${ROOT_FS_TYPE}" = "btrfs"; then
-	btrfs subvolume create ${TMP_ROOT}/root
-	btrfs subvolume set-default ${TMP_ROOT}/root
-	#btrfs subvolume create ${TMP_ROOT}/home  # can be commented to disable home subvol
-	umount ${TMP_ROOT}
-	mount ${ROOTA_DEVICE} ${MOUNT_ARGS},subvol=root ${TMP_ROOT}
-	#mkdir ${TMP_ROOT}/home  # can be commented to disable home subvol
-	#mount ${ROOTA_DEVICE} ${MOUNT_ARGS},subvol=home ${TMP_ROOT}/home  # can be commented to disable home subvol
+	btrfs subvolume create "${TMP_ROOT}/root"
+	btrfs subvolume set-default "${TMP_ROOT}/root"
+	#btrfs subvolume create "${TMP_ROOT}/home"  # can be commented to disable home subvol
+	umount "${TMP_ROOT}"
+	mount ${ROOTA_DEVICE} ${MOUNT_ARGS},subvol=root "${TMP_ROOT}"
+	#mkdir "${TMP_ROOT}/home"  # can be commented to disable home subvol
+	#mount ${ROOTA_DEVICE} ${MOUNT_ARGS},subvol=home "${TMP_ROOT}/home"  # can be commented to disable home subvol
 fi
 
 install -d -m 0755 "${TMP_ROOT}/boot"
@@ -426,13 +426,13 @@ fi
 
 pacstrap -C "${TMP_ROOT}/pacman_setup.d/pacman.conf" -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
 if test ! -z "${COPYIT}"; then
-	mkdir -p /"${TMP_ROOT}/root/install_copied"
-	cp -a ${COPYIT} /"${TMP_ROOT}"/root/install_copied/.
+	mkdir -p "/${TMP_ROOT}/root/install_copied"
+	cp -a "${COPYIT}" "/${TMP_ROOT}/root/install_copied/."
 fi
 
 if test ! -z "${CP_INTO_BOOT}"; then
-	mkdir -p /"${TMP_ROOT}/root/install_copied"
-	cp -r ${CP_INTO_BOOT} /"${TMP_ROOT}"/boot/.
+	mkdir -p "/${TMP_ROOT}/root/install_copied"
+	cp -r "${CP_INTO_BOOT}" "/${TMP_ROOT}/boot/."
 fi
 
 if test ! -z "${PACKAGE_FILES}"; then
@@ -446,8 +446,8 @@ if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
 fi
 
 # PARTUUIDs cause errors in systemd-remount-fs.service in nspawn https://github.com/systemd/systemd/issues/34150
-genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}"/etc/fstab
-sed -i '/swap/d' "${TMP_ROOT}"/etc/fstab
+genfstab -t PARTUUID "${TMP_ROOT}" >> "${TMP_ROOT}/etc/fstab"
+sed -i '/swap/d' "${TMP_ROOT}/etc/fstab"
 
 # switch rpi to "latest" firmware channel
 if test -f "${TMP_ROOT}/etc/default/rpi-update"; then
@@ -460,7 +460,7 @@ if test -d "${TMP_ROOT}/etc/modules-load.d"; then
 fi
 
 # if test ! -z "${IS_ARM}"; then
-# 	cat <<-'EOF' > "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
+# 	cat <<-'EOF' > "${TMP_ROOT}/root/fix_rpi_boot_conf.sh"
 # 		#!/usr/bin/env bash
 
 # 		# a script that will reprogram the rpi eeprom to attempt boot first
@@ -489,7 +489,7 @@ fi
 # 		rm boot.conf
 # 		sudo reboot
 # 	EOF
-# 	chmod +x "${TMP_ROOT}"/root/fix_rpi_boot_conf.sh
+# 	chmod +x "${TMP_ROOT}/root/fix_rpi_boot_conf.sh"
 # fi
 
 if test "${SKIP_SETUP}" != "true"; then
@@ -838,7 +838,7 @@ if test "${SKIP_SETUP}" != "true"; then
 	chmod +x "${TMP_ROOT}/root/phase_one.sh"
 
 	# create the service that will run phase 1 setup
-	cat <<- "EOF" > "${TMP_ROOT}"/usr/lib/systemd/system/container-boot-setup.service
+	cat <<- "EOF" > "${TMP_ROOT}/usr/lib/systemd/system/container-boot-setup.service"
 		[Unit]
 		Description=Initial system setup tasks to be run in a container
 		ConditionPathExists=/root/phase_one.sh
@@ -851,7 +851,7 @@ if test "${SKIP_SETUP}" != "true"; then
 	EOF
 
 	# activate the service that will run phase 1 setup
-	ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}"/etc/systemd/system/multi-user.target.wants/container-boot-setup.service
+	ln -s /usr/lib/systemd/system/container-boot-setup.service "${TMP_ROOT}/etc/systemd/system/multi-user.target.wants/container-boot-setup.service"
 
 	# take care of some rpi config stuff
 	if test -f "${TMP_ROOT}/boot/cmdline.txt"; then
@@ -1295,7 +1295,7 @@ if test "${SKIP_SETUP}" != "true"; then
 	# make changes needed for nspawn
 	if test "${SKIP_NSPAWN}" != "true"; then
 		# disable PrivateNetwork to allow localectl to work in a container
-		sed 's,PrivateNetwork=yes,#PrivateNetwork=yes,g' -i "${TMP_ROOT}"/usr/lib/systemd/system/systemd-localed.service
+		sed 's,PrivateNetwork=yes,#PrivateNetwork=yes,g' -i "${TMP_ROOT}/usr/lib/systemd/system/systemd-localed.service"
 	fi
 fi
 
