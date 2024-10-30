@@ -390,31 +390,31 @@ if test "${USE_TESTING}" = "true"; then
 	cat <<-EOF >> "${TMP_ROOT}/pacman_setup.d/pacman.conf"
 
 		[testing]
-		Include = /"${TMP_ROOT}"/pacman_setup.d/mirrorlist
+		Include = ${TMP_ROOT}/pacman_setup.d/mirrorlist
 	EOF
 fi
 
 cat <<-EOF >> "${TMP_ROOT}/pacman_setup.d/pacman.conf"
 
 	[core]
-	Include = /"${TMP_ROOT}"/pacman_setup.d/mirrorlist
+	Include = ${TMP_ROOT}/pacman_setup.d/mirrorlist
 
 	[extra]
-	Include = /"${TMP_ROOT}"/pacman_setup.d/mirrorlist
+	Include = ${TMP_ROOT}/pacman_setup.d/mirrorlist
 
 	[community]
-	Include = /"${TMP_ROOT}"/pacman_setup.d/mirrorlist
+	Include = ${TMP_ROOT}/pacman_setup.d/mirrorlist
 EOF
 
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
 	IS_ARM=1
 	cat <<-EOF >> "${TMP_ROOT}/pacman_setup.d/pacman.conf"
-		
+
 		[alarm]
-		Include = /"${TMP_ROOT}"/pacman_setup.d/mirrorlist
+		Include = ${TMP_ROOT}/pacman_setup.d/mirrorlist
 
 		[aur]
-		Include = /"${TMP_ROOT}"/pacman_setup.d/mirrorlist
+		Include = ${TMP_ROOT}/pacman_setup.d/mirrorlist
 	EOF
 	sed '1s;^;Server = http://mirror.archlinuxarm.org/$arch/$repo\n;' -i "${TMP_ROOT}/pacman_setup.d/mirrorlist"
 else
