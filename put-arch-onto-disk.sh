@@ -355,7 +355,7 @@ if test -n "${ROOTB_DEVICE}"; then
 	mkfs.${ROOT_FS_TYPE} ${MKFS_FEATURES} ${LABEL} "ROOT${ROOT_FS_TYPE^^}" ${ROOTB_DEVICE}
 fi
 
-TMP_ROOT=/tmp/diskRootTarget
+TMP_ROOT="$(mktemp -p . -d -t PAOD_TMP.XXX)"
 mkdir -p ${TMP_ROOT}
 
 mount --types ${ROOT_FS_TYPE} ${MOUNT_ARGS} ${ROOTA_DEVICE} ${TMP_ROOT}
@@ -372,8 +372,9 @@ fi
 
 install -d -m 0755 "${TMP_ROOT}/boot"
 mount -o uid=0,gid=0,fmask=0022,dmask=0022 ${TARGET_DEV}${PEE}${BOOT_PARTITION} "${TMP_ROOT}/boot"
-install -m644 -Dt /tmp /etc/pacman.d/mirrorlist
-cat <<-EOF > /tmp/pacman.conf
+mkdir "${TMP_ROOT}/pacman_setup.d"
+cp /etc/pacman.d/mirrorlist "${TMP_ROOT}/pacman_setup.d/mirrorlist"
+cat <<-EOF > "${TMP_ROOT}/pacman_setup.d/pacman.conf"
 	[options]
 	HoldPkg     = pacman glibc
 	Architecture = ${TARGET_ARCH}
@@ -386,44 +387,44 @@ EOF
 
 # enable the testing repo
 if test "${USE_TESTING}" = "true"; then
-	cat <<-"EOF" >> /tmp/pacman.conf
+	cat <<-EOF >> "${TMP_ROOT}/pacman_setup.d/pacman.conf"
 		[testing]
-		Include = /tmp/mirrorlist
+		Include = "${TMP_ROOT}/pacman_setup.d/mirrorlist"
 	EOF
 fi
 
-cat <<-"EOF" >> /tmp/pacman.conf
+cat <<-EOF >> "${TMP_ROOT}/pacman_setup.d/pacman.conf"
 	[core]
-	Include = /tmp/mirrorlist
+	Include = "${TMP_ROOT}/pacman_setup.d/mirrorlist"
 
 	[extra]
-	Include = /tmp/mirrorlist
+	Include = "${TMP_ROOT}/pacman_setup.d/mirrorlist"
 
 	[community]
-	Include = /tmp/mirrorlist
+	Include = "${TMP_ROOT}/pacman_setup.d/mirrorlist"
 EOF
 
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
 	IS_ARM=1
-	cat <<-EOF >> /tmp/pacman.conf
+	cat <<-EOF >> "${TMP_ROOT}/pacman_setup.d/pacman.conf"
 		[alarm]
-		Include = /tmp/mirrorlist
+		Include = "${TMP_ROOT}/pacman_setup.d/mirrorlist"
 
 		[aur]
-		Include = /tmp/mirrorlist
+		Include = "${TMP_ROOT}/pacman_setup.d/mirrorlist"
 	EOF
-	sed '1s;^;Server = http://mirror.archlinuxarm.org/$arch/$repo\n;' -i /tmp/mirrorlist
+	sed '1s;^;Server = http://mirror.archlinuxarm.org/$arch/$repo\n;' -i "${TMP_ROOT}/pacman_setup.d/mirrorlist"
 else
 	IS_ARM=""
 fi
 
 if test ! -z "${CUSTOM_MIRROR_URL}"; then
-	sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i /tmp/mirrorlist
+	sed "1s;^;Server = ${CUSTOM_MIRROR_URL}\n;" -i "${TMP_ROOT}/pacman_setup.d/mirrorlist"
 elif test ! "${AS_OF}" = "now" -a "${TARGET_ARCH}" = "x86_64" ; then
-	sed "1s;^;Server = https://archive.archlinux.org/repos/${AS_OF//-//}/\$repo/os/\$arch\n;" -i /tmp/mirrorlist
+	sed "1s;^;Server = https://archive.archlinux.org/repos/${AS_OF//-//}/\$repo/os/\$arch\n;" -i "${TMP_ROOT}/pacman_setup.d/mirrorlist"
 fi
 
-pacstrap -C /tmp/pacman.conf -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
+pacstrap -C "${TMP_ROOT}/pacman_setup.d/pacman.conf" -G -M "${TMP_ROOT}" ${DEFAULT_PACKAGES} ${PACKAGE_LIST}
 if test ! -z "${COPYIT}"; then
 	mkdir -p /"${TMP_ROOT}/root/install_copied"
 	cp -a ${COPYIT} /"${TMP_ROOT}"/root/install_copied/.
@@ -435,8 +436,10 @@ if test ! -z "${CP_INTO_BOOT}"; then
 fi
 
 if test ! -z "${PACKAGE_FILES}"; then
-	pacstrap -C /tmp/pacman.conf -U -G -M "${TMP_ROOT}" ${PACKAGE_FILES}
+	pacstrap -C "${TMP_ROOT}/pacman_setup.d/pacman.conf" -U -G -M "${TMP_ROOT}" ${PACKAGE_FILES}
 fi
+
+rm -rf "${TMP_ROOT}/pacman_setup.d"
 
 if test ! -z "${ADMIN_SSH_AUTH_KEY}"; then
 	echo -n "${ADMIN_SSH_AUTH_KEY}" > "${TMP_ROOT}"/var/tmp/auth_pub.key
