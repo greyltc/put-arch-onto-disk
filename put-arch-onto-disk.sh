@@ -181,6 +181,7 @@ zsh \
 pkgfile \
 systemd-resolvconf \
 pacman-contrib \
+jq \
 "
 
 if test "${ROOT_FS_TYPE}" = "f2fs"; then
