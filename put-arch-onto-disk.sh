@@ -18,6 +18,7 @@ echo $@
 
 # example usage:
 # TARGET=/dev/sdX sudo ./put-arch-onto-disk.sh |& tee archInstall.log
+# TODO: switch from sudo to run0
 
 # define defaults for variables. defaults get overriden by previous definitions
 
