@@ -1199,8 +1199,8 @@ if test "${SKIP_SETUP}" != "true"; then
 						#sudo -i -u "${ADMIN_USER_NAME}" bash -c "dbus-launch grdctl rdp set-credentials \"${ADMIN_USER_NAME}\" \"${ADMIN_USER_PASSWORD}\""
 						#sudo -u "${ADMIN_USER_NAME}" bash -c "source /etc/X11/xinit/xinitrc.d/50-systemd-user.sh && dbus-launch grdctl rdp set-credentials \"${ADMIN_USER_NAME}\" \"${ADMIN_USER_PASSWORD}\""
 						#sudo -u "${ADMIN_USER_NAME}" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/\$(id -u ${ADMIN_USER_NAME})/bus" bash -c "dbus-update-activation-environment --systemd DISPLAY && dbus-launch grdctl rdp set-credentials \"${ADMIN_USER_NAME}\" \"${ADMIN_USER_PASSWORD}\""
-						#export XDG_RUNTIME_DIR="/run/user/$UID"
-						#export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+						#export XDG_RUNTIME_DIR="/run/user/\$UID"
+						#export DBUS_SESSION_BUS_ADDRESS="unix:path=\${XDG_RUNTIME_DIR}/bus"
 						#mkdir -p .local/share/keyrings/
 						#https://wiki.archlinux.org/title/GNOME/Keyring#Launching
 						systemd-run --user --machine ${ADMIN_USER_NAME}@.host --wait --collect --service-type=exec --pipe rdp set-credentials "${ADMIN_USER_NAME}" "${ADMIN_USER_PASSWORD}"
