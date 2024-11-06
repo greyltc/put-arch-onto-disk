@@ -216,7 +216,7 @@ else  # installing to image file
 fi
 
 # check everything is unmounted (prevents distasters)
-for n in ${TARGET_DEV}* ; do ! findmnt --source $n > /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
+for n in $(lsblk -no PATH "${TARGET_DEV}"); do ! findmnt --source $n > /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
 
 if test ! -b "${TARGET_DEV}"; then
 	echo "ERROR: Install target device ${TARGET_DEV} is not a block device."
@@ -254,12 +254,11 @@ if test "${TO_EXISTING}" = "true"; then
 		PEE=""
 	fi
 else  # format everything from scratch
-	# obliterate all file systems and partition tables on the target
-	for n in ${TARGET_DEV}+([[:alnum:]]) ; do wipefs -a -f $n || true; done  # wipe the partitions' file systems
-	for n in ${TARGET_DEV}+([[:alnum:]]) ; do sgdisk -Z $n || true; done  # zap the partitions' part tables
-	wipefs -a -f ${TARGET_DEV} || true  # wipe the device file system
-	sgdisk -Z ${TARGET_DEV}  || true  # wipe the device partition table
-	blkdiscard "${TARGET_DEV}" || true
+	for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${TARGET_DEV}") ; do sudo wipefs --all --force --lock $n; done  # wipe the partitions' file systems
+	for n in $(lsblk -no PARTN "${TARGET_DEV}") ; do sudo sfdisk --lock --wipe-partitions always -N $n "${TARGET_DEV}"; done  # wipe the partitions' file systems
+	sudo wipefs --all --force --lock "${TARGET_DEV}" || true  # wipe the device file system
+	sudo sfdisk --lock --wipe always "${TARGET_DEV}" || true# wipe the partition table
+	sudo blkdiscard "${TARGET_DEV}" || true  # zero it
 
 	NEXT_PARTITION=1
 	BOOT_P_SIZE_MB=550
