@@ -256,9 +256,8 @@ if test "${TO_EXISTING}" = "true"; then
 	fi
 else  # format everything from scratch
 	# make the disk clean
-	PTABLE=$(sudo sfdisk --json "${TARGET_DEV}" | jq --raw-output '.partitiontable.label')
 	for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${TARGET_DEV}") ; do sudo wipefs --all --lock $n; done  # wipe the partitions' file systems
-	sudo sfdisk --label "${PTABLE}" --lock --wipe always --delete "${TARGET_DEV}" || true  # nuke partition table
+	sudo sfdisk --lock --wipe always --delete "${TARGET_DEV}" || true  # nuke partition table
 	sudo wipefs --all --lock "${TARGET_DEV}" || true  # wipe a device file system
 	sudo blkdiscard "${TARGET_DEV}" || true  # zero it
 
@@ -1033,12 +1032,11 @@ if test "${SKIP_SETUP}" != "true"; then
 		findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${DEV_TO_ADD} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
 
 		# check everything is unmounted (prevents distasters)
-		for n in $(lsblk -no PATH "${TARGET_DEV}"); do ! findmnt --source $n > /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
+		for n in $(lsblk -no PATH "${DEV_TO_ADD}"); do ! findmnt --source $n > /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
 
 		# make the disk clean
-		PTABLE=$(sudo sfdisk --json "${DEV_TO_ADD}" | jq --raw-output '.partitiontable.label')
 		for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${DEV_TO_ADD}") ; do sudo wipefs --all --lock $n; done  # wipe the partitions' file systems
-		sudo sfdisk --label "${PTABLE}" --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
+		sudo sfdisk --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
 		sudo wipefs --all --lock "${DEV_TO_ADD}" || true  # wipe a device file system
 		sudo blkdiscard "${DEV_TO_ADD}" || true  # zero it
 
