@@ -204,6 +204,7 @@ partprobe
 # is this a block device?
 if test -b "${TARGET}"; then
 	TARGET_DEV="${TARGET}"
+	# unmount and clean up everything
 	findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${TARGET_DEV} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
 	IMG_NAME=""
 	hdparm -r0 ${TARGET_DEV}
@@ -254,10 +255,11 @@ if test "${TO_EXISTING}" = "true"; then
 		PEE=""
 	fi
 else  # format everything from scratch
-	for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${TARGET_DEV}") ; do sudo wipefs --all --force --lock $n; done  # wipe the partitions' file systems
-	for n in $(lsblk -no PARTN "${TARGET_DEV}") ; do sudo sfdisk --lock --wipe-partitions always -N $n "${TARGET_DEV}"; done  # wipe the partitions' file systems
-	sudo wipefs --all --force --lock "${TARGET_DEV}" || true  # wipe the device file system
-	sudo sfdisk --lock --wipe always "${TARGET_DEV}" || true# wipe the partition table
+	# make the disk clean
+	PTABLE=$(sudo sfdisk --json "${TARGET_DEV}" | jq --raw-output '.partitiontable.label')
+	for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${TARGET_DEV}") ; do sudo wipefs --all --lock $n; done  # wipe the partitions' file systems
+	sudo sfdisk --label "${PTABLE}" --lock --wipe always --delete "${TARGET_DEV}" || true  # nuke partition table
+	sudo wipefs --all --lock "${TARGET_DEV}" || true  # wipe a device file system
 	sudo blkdiscard "${TARGET_DEV}" || true  # zero it
 
 	NEXT_PARTITION=1
@@ -935,6 +937,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		set -o verbose
 		set -o xtrace
 
+		# TODO: switch to sfdisk
 		ROOT_BLOCK="$(findmnt --nofsroot -n --df -e --target / -o SOURCE)"
 		ROOT_DEV="/dev/$(lsblk -no pkname ${ROOT_BLOCK})"
 		TEH_PART_UUID="$(lsblk -n -oPARTUUID ${ROOT_BLOCK})"
@@ -1026,15 +1029,18 @@ if test "${SKIP_SETUP}" != "true"; then
 			exit 45
 		fi
 
-		# check everything is unmounted (prevents distasters)
-		for n in ${DEV_TO_ADD}* ; do ! findmnt --source $n > /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
+		# unmount and clean up everything
+		findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${DEV_TO_ADD} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
 
-		# obliterate the device to be added
-		for n in ${DEV_TO_ADD}+([[:alnum:]]) ; do wipefs -a -f $n || true; done  # wipe the partitions' file systems
-		for n in ${DEV_TO_ADD}+([[:alnum:]]) ; do sgdisk -Z $n || true; done  # zap the partitions' part tables
-		wipefs -a -f ${DEV_TO_ADD} || true  # wipe the device file system
-		sgdisk -Z ${DEV_TO_ADD}  || true  # wipe the device partition table
-		blkdiscard "${DEV_TO_ADD}" || true
+		# check everything is unmounted (prevents distasters)
+		for n in $(lsblk -no PATH "${TARGET_DEV}"); do ! findmnt --source $n > /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
+
+		# make the disk clean
+		PTABLE=$(sudo sfdisk --json "${DEV_TO_ADD}" | jq --raw-output '.partitiontable.label')
+		for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${DEV_TO_ADD}") ; do sudo wipefs --all --lock $n; done  # wipe the partitions' file systems
+		sudo sfdisk --label "${PTABLE}" --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
+		sudo wipefs --all --lock "${DEV_TO_ADD}" || true  # wipe a device file system
+		sudo blkdiscard "${DEV_TO_ADD}" || true  # zero it
 
 		# TODO: consider partitioning...
 
