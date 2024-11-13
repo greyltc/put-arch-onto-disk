@@ -227,7 +227,7 @@ fi
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
         echo "No bios grub for arm"
 		BOOT_P_TYPE=c12a7328-f81f-11d2-ba4b-00a0c93ec93b
-        #BOOT_P_TYPE=0700
+        #BOOT_P_TYPE=0700  # n.b. rpi5 doesn't seem to need this (on new firmware) but rpi4,3 still might
 		ROOT_P_TYPE=b921b045-1df0-41c3-af44-4c6f280d3fae
 else
         BOOT_P_TYPE=c12a7328-f81f-11d2-ba4b-00a0c93ec93b
