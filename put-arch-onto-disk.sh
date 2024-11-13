@@ -257,11 +257,11 @@ if test "${TO_EXISTING}" = "true"; then
 	fi
 else  # format everything from scratch
 	# make the disk clean
-	for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${DEV_TO_ADD}") ; do sudo wipefs --all --lock $n; done  # wipe the partitions' file systems
-	sudo sfdisk --label dos --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
-	sudo sfdisk --label gpt --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
-	sudo wipefs --all --lock "${DEV_TO_ADD}"  # wipe a device file system
-	sudo blkdiscard "${DEV_TO_ADD}" || true  # zero it
+	for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${TARGET_DEV}") ; do sudo wipefs --all --lock $n; done  # wipe the partitions' file systems
+	sudo sfdisk --label dos --lock --wipe always --delete "${TARGET_DEV}" || true  # nuke partition table
+	sudo sfdisk --label gpt --lock --wipe always --delete "${TARGET_DEV}" || true  # nuke partition table
+	sudo wipefs --all --lock "${TARGET_DEV}"  # wipe a device file system
+	sudo blkdiscard "${TARGET_DEV}" || true  # zero it
 	sudo udevadm settle
 
 	NEXT_PARTITION=1
@@ -1032,7 +1032,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 
 		# unmount and clean up everything
-		findmnt --evaluate --direction backward --list --noheadings --nofsroot --output SOURCE | { grep ${TARGET_DEV} || true; } | xargs --no-run-if-empty sudo umount --quiet --recursive --all-targets --detach-loop
+		findmnt --evaluate --direction backward --list --noheadings --nofsroot --output SOURCE | { grep ${DEV_TO_ADD} || true; } | xargs --no-run-if-empty sudo umount --quiet --recursive --all-targets --detach-loop
 
 		# check everything is unmounted (prevents distasters)
 		for n in $(lsblk -no PATH "${DEV_TO_ADD}"); do ! findmnt --source $n 1> /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
