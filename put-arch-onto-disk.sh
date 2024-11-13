@@ -205,7 +205,7 @@ partprobe
 if test -b "${TARGET}"; then
 	TARGET_DEV="${TARGET}"
 	# unmount and clean up everything
-	findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${TARGET_DEV} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
+	findmnt --evaluate --direction backward --list --noheadings --nofsroot --output SOURCE | { grep ${TARGET_DEV} || true; } | xargs --no-run-if-empty umount --recursive --all-targets --detach-loop
 	IMG_NAME=""
 	hdparm -r0 ${TARGET_DEV}
 else  # installing to image file
@@ -217,7 +217,7 @@ else  # installing to image file
 fi
 
 # check everything is unmounted (prevents distasters)
-for n in $(lsblk -no PATH "${TARGET_DEV}"); do ! findmnt --source $n > /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
+for n in $(lsblk -no PATH "${TARGET_DEV}"); do ! findmnt --source $n 1> /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
 
 if test ! -b "${TARGET_DEV}"; then
 	echo "ERROR: Install target device ${TARGET_DEV} is not a block device."
@@ -226,7 +226,8 @@ fi
 
 if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
         echo "No bios grub for arm"
-        BOOT_P_TYPE=0700 # c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+		BOOT_P_TYPE=c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+        #BOOT_P_TYPE=0700
 		ROOT_P_TYPE=b921b045-1df0-41c3-af44-4c6f280d3fae
 else
         BOOT_P_TYPE=c12a7328-f81f-11d2-ba4b-00a0c93ec93b
@@ -256,10 +257,12 @@ if test "${TO_EXISTING}" = "true"; then
 	fi
 else  # format everything from scratch
 	# make the disk clean
-	for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${TARGET_DEV}") ; do sudo wipefs --all --lock $n; done  # wipe the partitions' file systems
-	sudo sfdisk --lock --wipe always --delete "${TARGET_DEV}" || true  # nuke partition table
-	sudo wipefs --all --lock "${TARGET_DEV}" || true  # wipe a device file system
-	sudo blkdiscard "${TARGET_DEV}" || true  # zero it
+	for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${DEV_TO_ADD}") ; do sudo wipefs --all --lock $n; done  # wipe the partitions' file systems
+	sudo sfdisk --label dos --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
+	sudo sfdisk --label gpt --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
+	sudo wipefs --all --lock "${DEV_TO_ADD}"  # wipe a device file system
+	sudo blkdiscard "${DEV_TO_ADD}" || true  # zero it
+	sudo udevadm settle
 
 	NEXT_PARTITION=1
 	BOOT_P_SIZE_MB=550
@@ -302,19 +305,19 @@ else  # format everything from scratch
 	# do we need to p? (depends on what the media is we're installing to)
 	if test -b "${TARGET_DEV}p1"; then PEE=p; else PEE=""; fi
 
-	wipefs -a -f ${TARGET_DEV}${PEE}${BOOT_PARTITION}
+	wipefs --all --lock ${TARGET_DEV}${PEE}${BOOT_PARTITION}
 	mkfs.fat -F32 -n "BOOTF32" ${TARGET_DEV}${PEE}${BOOT_PARTITION}
 	if test ! -z "${SWAP_SIZE}"; then
-		wipefs -a -f ${TARGET_DEV}${PEE}${SWAP_PARTITION}
+		wipefs --all --lock ${TARGET_DEV}${PEE}${SWAP_PARTITION}
 		mkswap -L "SWAP" ${TARGET_DEV}${PEE}${SWAP_PARTITION}
 	fi
 fi
 
 ROOTA_DEVICE=${TARGET_DEV}${PEE}${ROOTA_PARTITION}
-wipefs -a -f ${ROOTA_DEVICE} || true
+wipefs --all --lock ${ROOTA_DEVICE} || true
 if -n "${ROOTB_PARTITION}"; then
 	ROOTB_DEVICE=${TARGET_DEV}${PEE}${ROOTB_PARTITION}
-	wipefs -a -f ${ROOTB_DEVICE} || true
+	wipefs --all --lock ${ROOTB_DEVICE} || true
 else
 	ROOTB_DEVICE=""
 fi
@@ -483,7 +486,7 @@ fi
 
 # 		for elmv in "${arr[@]}"; do
 # 			#if sed "s/^${elmv1[0]}=.*/${elmv1[0]}=${elmv1[1]}/" -i boot.conf; then
-# 			if grep ^${elmv[0]}= boot.conf > /dev/null 2>/dev/null; then
+# 			if grep ^${elmv[0]}= boot.conf 1> /dev/null 2> /dev/null; then
 # 				sed "s/^${elmv1[0]}=.*/${elmv1[0]}=${elmv1[1]}/" -i boot.conf
 # 			else
 # 				echo "${elmv[0]}=${elmv[1]}" >> boot.conf
@@ -619,7 +622,7 @@ if test "${SKIP_SETUP}" != "true"; then
 				reflector --protocol https --latest 30 --number 20 --sort rate --save /etc/pacman.d/mirrorlist
 			fi
 
-			if pacman -Q edk2-shell > /dev/null 2>/dev/null; then
+			if pacman -Q edk2-shell 1> /dev/null 2> /dev/null; then
 				cp /usr/share/edk2-shell/x64/Shell.efi /boot/shellx64.efi
 			fi
 
@@ -646,14 +649,14 @@ if test "${SKIP_SETUP}" != "true"; then
 			# let systemd update the bootloader
 			systemctl enable systemd-boot-update.service
 
-			if pacman -Q memtest86+-efi &> /dev/null; then
+			if pacman -Q memtest86+-efi 1> /dev/null 2> /dev/null; then
 				cat << "END" > /boot/loader/entries/memtest.conf
 					title  memtest86+
 					efi    /memtest86+/memtest.efi
 				END
 			fi
 
-			if pacman -Q linux &> /dev/null; then
+			if pacman -Q linux 1> /dev/null 2> /dev/null; then
 				sed 's,^default.*,default arch.conf,g' --in-place /boot/loader/loader.conf
 				cat << END > /boot/loader/entries/arch.conf
 					title   Arch Linux (${THIS_HOSTNAME})
@@ -670,7 +673,7 @@ if test "${SKIP_SETUP}" != "true"; then
 				END
 			fi
 
-			if pacman -Q linux-lts &> /dev/null; then
+			if pacman -Q linux-lts 1> /dev/null 2> /dev/null; then
 				sed --in-place 's,^default.*,default arch-lts.conf,g' /boot/loader/loader.conf
 				cat << END > /boot/loader/entries/arch-lts.conf
 					title   Arch Linux LTS (${THIS_HOSTNAME})
@@ -695,7 +698,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
 
 		# if cpupower is installed, enable the service
-		if pacman -Q cpupower &> /dev/null; then
+		if pacman -Q cpupower 1> /dev/null 2> /dev/null; then
 			systemctl enable cpupower.service
 			if [[ \$(uname -m) == *"arm"*  || \$(uname -m) == "aarch64" ]] ; then
 				sed "s,^#governor=.*,governor='performance'," -i /etc/default/cpupower
@@ -703,18 +706,18 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 
 		# enable package cleanup timer
-		if pacman -Q pacman-contrib &> /dev/null; then
+		if pacman -Q pacman-contrib 1> /dev/null 2> /dev/null; then
 			systemctl enable paccache.timer
 		fi
 
 		# enable btrfs scrub timer
-		if pacman -Q btrfs-progs &> /dev/null; then
+		if pacman -Q btrfs-progs 1> /dev/null 2> /dev/null; then
 			systemctl enable btrfs-scrub@-.timer
 			systemctl enable btrfs-scrub@home.timer
 		fi
 
 		# setup firewall but don't turn it on just yet
-		if pacman -Q ufw &> /dev/null; then
+		if pacman -Q ufw 1> /dev/null 2> /dev/null; then
 			systemctl enable ufw.service
 			ufw default deny
 			ufw allow 5353/udp comment "allow mDNS"
@@ -723,7 +726,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 
 		# if openssh is installed, enable the service
-		if pacman -Q openssh &> /dev/null; then
+		if pacman -Q openssh 1> /dev/null 2> /dev/null; then
 			systemctl enable sshd.service
 			ufw limit ssh comment "limit ssh"
 		fi
@@ -731,7 +734,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		systemctl enable systemd-resolved
 
 		# if networkmanager is installed, enable it, otherwise let systemd things manage the network
-		if pacman -Q networkmanager &> /dev/null; then
+		if pacman -Q networkmanager 1> /dev/null 2> /dev/null; then
 			systemctl enable NetworkManager.service
 			systemctl enable NetworkManager-wait-online.service
 			cat << "END" > /etc/NetworkManager/conf.d/fancy_resolvers.conf
@@ -768,7 +771,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 
 		# if gdm was installed, let's do a few things
-		if pacman -Q gdm &> /dev/null; then
+		if pacman -Q gdm 1> /dev/null 2> /dev/null; then
 			systemctl enable gdm
 			if [ ! -z "${ADMIN_USER_NAME}" ] && [ "${AUTOLOGIN_ADMIN}" = true ]; then
 				echo "# Enable automatic login for user" >> /etc/gdm/custom.conf
@@ -779,7 +782,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 
 		# if lxdm was installed, let's do a few things
-		if pacman -Q lxdm &> /dev/null; then
+		if pacman -Q lxdm 1> /dev/null 2> /dev/null; then
 			systemctl enable lxdm
 			#TODO: set keyboard layout
 			if [ ! -z "${ADMIN_USER_NAME}" ] && [ "${AUTOLOGIN_ADMIN}" = true ] ; then
@@ -794,7 +797,7 @@ if test "${SKIP_SETUP}" != "true"; then
 			set +o errexit
 			if test "${SKIP_NSPAWN}" = "true"; then
 				# if we don't have the benefit of the nspawn network, turn on the real thing now
-				if pacman -Q networkmanager &> /dev/null; then
+				if pacman -Q networkmanager 1> /dev/null 2> /dev/null; then
 					systemctl start networkmanager
 				else
 					systemctl start systemd-networkd
@@ -884,12 +887,12 @@ if test "${SKIP_SETUP}" != "true"; then
 	#PI_VID_ARG='video=HDMI-A-1:1920x1080'
 	#PI_KERNEL_PARAMS=""
 	#if test ! -z "\${PI_KERNEL_PARAMS}"; then#
-	#	if pacman -Q uboot-raspberrypi &> /dev/null; then
+	#	if pacman -Q uboot-raspberrypi 1> /dev/null 2> /dev/null; then
 	#		pushd /boot
 	#		sed '/^setenv bootargs/ s/$/ '\${PI_KERNEL_PARAMS}'/' file -i boot.txt
 	#		./mkscr
 	#		popd
-	#	elif pacman -Qi linux-rpi &> /dev/null || pacman -Qi linux-rpi-16k &> /dev/null; then
+	#	elif pacman -Qi linux-rpi 1> /dev/null 2> /dev/null || pacman -Qi linux-rpi-16k 1> /dev/null 2> /dev/null; then
 	#		pushd /boot
 	#		echo -n " \${PI_KERNEL_PARAMS}" >> cmdline.txt
 	#		popd
@@ -949,7 +952,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 
 		set +o errexit
-		sgdisk "${ROOT_DEV}" >/dev/null 2>&1
+		sgdisk "${ROOT_DEV}" 1> /dev/null 2> /dev/null
 		if test ${?} -ne 0; then
 			set -o errexit
 			# rebuild backup GPT structures using primary GPT structures
@@ -1029,16 +1032,18 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 
 		# unmount and clean up everything
-		findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${DEV_TO_ADD} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
+		findmnt --evaluate --direction backward --list --noheadings --nofsroot --output SOURCE | { grep ${TARGET_DEV} || true; } | xargs --no-run-if-empty sudo umount --recursive --all-targets --detach-loop
 
 		# check everything is unmounted (prevents distasters)
-		for n in $(lsblk -no PATH "${DEV_TO_ADD}"); do ! findmnt --source $n > /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
+		for n in $(lsblk -no PATH "${DEV_TO_ADD}"); do ! findmnt --source $n 1> /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
 
 		# make the disk clean
 		for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${DEV_TO_ADD}") ; do sudo wipefs --all --lock $n; done  # wipe the partitions' file systems
-		sudo sfdisk --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
-		sudo wipefs --all --lock "${DEV_TO_ADD}" || true  # wipe a device file system
+		sudo sfdisk --label dos --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
+		sudo sfdisk --label gpt --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
+		sudo wipefs --all --lock "${DEV_TO_ADD}"  # wipe a device file system
 		sudo blkdiscard "${DEV_TO_ADD}" || true  # zero it
+		sudo udevadm settle
 
 		# TODO: consider partitioning...
 
@@ -1136,7 +1141,7 @@ if test "${SKIP_SETUP}" != "true"; then
 					STORAGE=directory
 				fi
 
-				if ! userdbctl user ${ADMIN_USER_NAME} &> /dev/null; then
+				if ! userdbctl user ${ADMIN_USER_NAME} 1> /dev/null 2> /dev/null; then
 					pacman -S --needed --noconfirm jq
 					# make the user with homectl
 					jq -n --arg pw "${ADMIN_USER_PASSWORD}" --arg pwhash \$(openssl passwd -6 "${ADMIN_USER_PASSWORD}") '{secret:{password:[\$pw]},privileged:{hashedPassword:[\$pwhash]}}' | homectl --identity=- create ${ADMIN_USER_NAME} --member-of=\${GRPS} --storage=\${STORAGE} "\${ADD_KEY_CMD}"
@@ -1171,13 +1176,13 @@ if test "${SKIP_SETUP}" != "true"; then
 			fi  # copy in ssh keys
 
 			# gnome shell config
-			if pacman -Q gnome-shell > /dev/null 2>/dev/null; then
+			if pacman -Q gnome-shell 1> /dev/null 2> /dev/null; then
 				if test "${KEYMAP}" = "uk"; then
 					export GNOME_KEYS=gb
 				else
 					export GNOME_KEYS="${KEYMAP}"
 				fi
-				if pacman -Q gnome-remote-desktop > /dev/null 2>/dev/null; then
+				if pacman -Q gnome-remote-desktop 1> /dev/null 2> /dev/null; then
 					if test "${RDP_SYSTEM}" = "true"; then
 						mkdir -p /var/grdtls
 						winpr-makecert3 -silent -y 50 -rdp -n rdpsystem -path /var/grdtls
@@ -1219,12 +1224,12 @@ if test "${SKIP_SETUP}" != "true"; then
 			fi
 
 			# prevent sleep at greeter
-			if pacman -Q gdm > /dev/null 2>/dev/null; then
+			if pacman -Q gdm 1> /dev/null 2> /dev/null; then
 				sudo -u gdm dbus-launch gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type nothing
 			fi
 
 			if test ! -z "${AUR_HELPER}"; then
-				if ! pacman -Q ${AUR_HELPER} > /dev/null 2>/dev/null; then
+				if ! pacman -Q ${AUR_HELPER} 1> /dev/null 2> /dev/null; then
 					# just for now, admin user is passwordless for pacman
 					echo "${ADMIN_USER_NAME} ALL=(ALL) NOPASSWD: /usr/bin/pacman" > "/etc/sudoers.d/allow_${ADMIN_USER_NAME}_to_pacman"
 					# let root cd with sudo
@@ -1256,7 +1261,7 @@ if test "${SKIP_SETUP}" != "true"; then
 				fi
 
 				# use rate-mirrors if we have it
-				if pacman -Q rate-mirrors > /dev/null 2>/dev/null; then
+				if pacman -Q rate-mirrors 1> /dev/null 2> /dev/null; then
 					if grep archlinuxarm /etc/pacman.d/mirrorlist; then
 						echo "rate-mirrors does not work with ALARM"
 					else
@@ -1267,7 +1272,7 @@ if test "${SKIP_SETUP}" != "true"; then
 				fi
 
 				# enable byobu if we have it
-				if pacman -Q byobu > /dev/null 2>/dev/null; then
+				if pacman -Q byobu 1> /dev/null 2> /dev/null; then
 					PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME}  || true
 					sudo -u ${ADMIN_USER_NAME} -D~ bash -c "byobu-enable"
 					homectl deactivate ${ADMIN_USER_NAME} || true
@@ -1346,11 +1351,11 @@ if test "${SKIP_NSPAWN}" != "true"; then
 fi
 
 # unmount and clean up everything
-findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${TARGET_DEV} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
+findmnt --evaluate --direction backward --list --noheadings --nofsroot --output SOURCE | { grep ${TARGET_DEV} || true; } | xargs --no-run-if-empty umount --recursive --all-targets --detach-loop
 cryptsetup close /dev/mapper/${LUKS_UUID} || true
 losetup -D || true
 sync
-if pacman -Q lvm2 > /dev/null 2>/dev/null; then
+if pacman -Q lvm2 1> /dev/null 2> /dev/null; then
 	pvscan --cache -aay
 fi
 rm -r "${TMP_ROOT}" || true
