@@ -1351,7 +1351,7 @@ if test "${SKIP_NSPAWN}" != "true"; then
 fi
 
 # unmount and clean up everything
-findmnt --evaluate --direction backward --list --noheadings --nofsroot --output SOURCE | { grep ${TARGET_DEV} || true; } | xargs --no-run-if-empty umount --recursive --all-targets --detach-loop || true
+findmnt --evaluate --direction backward --list --noheadings --nofsroot --output SOURCE | { grep ${TARGET_DEV} || true; } | xargs umount --recursive --all-targets --detach-loop || true
 cryptsetup close /dev/mapper/${LUKS_UUID} || true
 losetup -D || true
 sync
