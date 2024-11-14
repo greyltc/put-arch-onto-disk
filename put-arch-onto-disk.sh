@@ -940,7 +940,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		set -o xtrace
 
 		# TODO: switch to sfdisk
-		ROOT_BLOCK="$(findmnt --nofsroot -n --df -e --target / -o SOURCE)"
+		ROOT_BLOCK="$(findmnt --no fsroot -n --df -e --target / -o SOURCE)"
 		ROOT_DEV="/dev/$(lsblk -no pkname ${ROOT_BLOCK})"
 		TEH_PART_UUID="$(lsblk -n -oPARTUUID ${ROOT_BLOCK})"
 		TEH_PART_LABEL="$(lsblk -n -oPARTLABEL ${ROOT_BLOCK})"
@@ -951,32 +951,36 @@ if test "${SKIP_SETUP}" != "true"; then
 			exit 44
 		fi
 
-		set +o errexit
-		sgdisk "${ROOT_DEV}" 1> /dev/null 2> /dev/null
-		if test ${?} -ne 0; then
-			set -o errexit
-			# rebuild backup GPT structures using primary GPT structures
-			echo -en $'2\nr\nd\ne\ny\nw\ny\ny\n' | gdisk "${ROOT_DEV}"
-			partprobe	
-		else
-			set -o errexit
+		# only repartition if there's actually free space
+		_free_sectors="$(sfdisk --list-free --output Sectors ${ROOT_DEV} | head -1 | rev | cut -d ' ' -f 2)"
+
+		if test "${_free_sectors}" -ge 20480; then  # 10MiB free
+			set +o errexit
+			sgdisk "${ROOT_DEV}" 1> /dev/null 2> /dev/null
+			if test ${?} -ne 0; then
+				set -o errexit
+				# rebuild backup GPT structures using primary GPT structures
+				echo -en $'2\nr\nd\ne\ny\nw\ny\ny\n' | gdisk "${ROOT_DEV}"
+				partprobe	
+			else
+				set -o errexit
+			fi
+
+			# move backup header to end
+			sgdisk -e "${ROOT_DEV}"
+			partprobe
+
+			# delete the last partition from the GPT
+			N_PARTITIONS="$(sgdisk ${ROOT_DEV} -p | tail -1 | tr -s ' ' | cut -d ' ' -f2)"
+			sgdisk -d "${N_PARTITIONS}" "${ROOT_DEV}"
+
+			# remake the partition to fill the disk
+			sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"${TEH_PART_LABEL}" -u "0:${TEH_PART_UUID}" "${ROOT_DEV}"
+			partprobe
+			sync
+			partprobe
+			sync
 		fi
-
-
-		# move backup header to end
-		sgdisk -e "${ROOT_DEV}"
-		partprobe
-
-		# delete the last partition from the GPT
-		N_PARTITIONS="$(sgdisk ${ROOT_DEV} -p | tail -1 | tr -s ' ' | cut -d ' ' -f2)"
-		sgdisk -d "${N_PARTITIONS}" "${ROOT_DEV}"
-
-		# remake the partition to fill the disk
-		sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"${TEH_PART_LABEL}" -u "0:${TEH_PART_UUID}" "${ROOT_DEV}"
-		partprobe
-		sync
-		partprobe
-		sync
 
 		if test "${TEH_FSTYPE}" = "btrfs"; then
 			btrfs filesystem resize max /
