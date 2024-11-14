@@ -205,7 +205,7 @@ partprobe
 if test -b "${TARGET}"; then
 	TARGET_DEV="${TARGET}"
 	# unmount and clean up everything
-	findmnt --evaluate --direction backward --list --noheadings --nofsroot --output SOURCE | { grep ${TARGET_DEV} || true; } | xargs --no-run-if-empty umount --recursive --all-targets --detach-loop || true
+	findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${TARGET_DEV} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
 	IMG_NAME=""
 	hdparm -r0 ${TARGET_DEV}
 else  # installing to image file
@@ -1032,7 +1032,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 
 		# unmount and clean up everything
-		findmnt --evaluate --direction backward --list --noheadings --nofsroot --output SOURCE | { grep ${DEV_TO_ADD} || true; } | xargs --no-run-if-empty sudo umount --recursive --all-targets --detach-loop || true
+		findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${DEV_TO_ADD} | cut -f1 -d ' ' | xargs sudo umount --recursive --all-targets --detach-loop || true
 
 		# check everything is unmounted (prevents distasters)
 		for n in $(lsblk -no PATH "${DEV_TO_ADD}"); do ! findmnt --source $n 1> /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
@@ -1351,8 +1351,7 @@ if test "${SKIP_NSPAWN}" != "true"; then
 fi
 
 # unmount and clean up everything
-udevadm settle
-findmnt --evaluate --direction backward --list --noheadings --nofsroot --output SOURCE | { grep ${TARGET_DEV} || true; } | xargs --no-run-if-empty umount --recursive --all-targets --detach-loop || true
+findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${TARGET_DEV} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
 cryptsetup close /dev/mapper/${LUKS_UUID} || true
 losetup -D || true
 sync
