@@ -940,7 +940,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		set -o xtrace
 
 		# TODO: switch to sfdisk
-		ROOT_BLOCK="$(findmnt --no fsroot -n --df -e --target / -o SOURCE)"
+		ROOT_BLOCK="$(findmnt --nofsroot -n --df -e --target / -o SOURCE)"
 		ROOT_DEV="/dev/$(lsblk -no pkname ${ROOT_BLOCK})"
 		TEH_PART_UUID="$(lsblk -n -oPARTUUID ${ROOT_BLOCK})"
 		TEH_PART_LABEL="$(lsblk -n -oPARTLABEL ${ROOT_BLOCK})"
