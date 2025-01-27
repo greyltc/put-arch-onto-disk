@@ -1049,7 +1049,10 @@ if test "${SKIP_SETUP}" != "true"; then
 		sudo blkdiscard "${DEV_TO_ADD}" || true  # zero it
 		sudo udevadm settle
 
-		# TODO: consider partitioning...
+		# repartition the raid device
+		echo -e 'size=550M, type=L\nsize=+, type=R\n' | sudo sfdisk --lock --label gpt --wipe always --wipe-partitions always ${DEV_TO_ADD}
+		NEW_RAID_PART=$(lsblk --filter 'PARTTYPENAME=="Linux RAID"' -no PATH "${DEV_TO_ADD}")
+		sudo wipefs --all --lock "${NEW_RAID_PART}"  # double check the partition is wiped
 
 		# enable COW for the journal
 		#ln -s /dev/null /etc/tmpfiles.d/journal-nocow.conf
@@ -1060,9 +1063,9 @@ if test "${SKIP_SETUP}" != "true"; then
 		journalctl --rotate
 
 		# add the new device
-		btrfs --verbose device add ${DEV_TO_ADD} /
+		btrfs --verbose device add ${NEW_RAID_PART} /
 
-		# convert the rootfs to raid
+		# convert the rootfs to raid1
 		btrfs --verbose balance start -dconvert=raid1 -mconvert=raid1 /
 
 		rm -f /tmp/raid1_setup_not_complete
