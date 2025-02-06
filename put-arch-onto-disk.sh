@@ -1018,6 +1018,11 @@ if test "${SKIP_SETUP}" != "true"; then
 		echo 'Conversion to raid1 has started' | systemd-cat --priority=alert --identifier=online_mkbtrfs_root_raid1.sh
 		touch /tmp/raid1_setup_not_complete
 
+		if test "${EUID}" -ne 0; then
+			echo "Please run with root permissions"
+			exit 1
+		fi
+
 		DEV_TO_ADD="${1}"
 		ROOT_BLOCK="$(findmnt --nofsroot -n --df -e --target / -o SOURCE)"
 		ROOT_DEV="/dev/$(lsblk -no pkname ${ROOT_BLOCK})"
@@ -1036,23 +1041,25 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 
 		# unmount and clean up everything
-		findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${DEV_TO_ADD} | cut -f1 -d ' ' | xargs sudo umount --recursive --all-targets --detach-loop || true
+		findmnt --evaluate --direction backward --list --noheadings --nofsroot --output TARGET,SOURCE | grep ${DEV_TO_ADD} | cut -f1 -d ' ' | xargs umount --recursive --all-targets --detach-loop || true
 
 		# check everything is unmounted (prevents distasters)
 		for n in $(lsblk -no PATH "${DEV_TO_ADD}"); do ! findmnt --source $n 1> /dev/null || ( echo "abort because target still mounted" && exit 1 ); done
 
 		# make the disk clean
-		for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${DEV_TO_ADD}") ; do sudo wipefs --all --lock $n; done  # wipe the partitions' file systems
-		sudo sfdisk --label dos --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
-		sudo sfdisk --label gpt --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
-		sudo wipefs --all --lock "${DEV_TO_ADD}"  # wipe a device file system
-		sudo blkdiscard "${DEV_TO_ADD}" || true  # zero it
-		sudo udevadm settle
+		for n in $(lsblk --filter 'TYPE=="part"' -no PATH "${DEV_TO_ADD}") ; do wipefs --all --lock $n; done  # wipe the partitions' file systems
+		sfdisk --label dos --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
+		sfdisk --label gpt --lock --wipe always --delete "${DEV_TO_ADD}" || true  # nuke partition table
+		wipefs --all --lock "${DEV_TO_ADD}"  # wipe a device file system
+		blkdiscard "${DEV_TO_ADD}" || true  # zero it
+		udevadm settle
 
 		# repartition the raid device
-		echo -e 'size=550M, type=L\nsize=+, type=R\n' | sudo sfdisk --lock --label gpt --wipe always --wipe-partitions always ${DEV_TO_ADD}
+		echo -e 'size=550M, type=L\nsize=+, type=R\n' | sfdisk --lock --label gpt --wipe always --wipe-partitions always ${DEV_TO_ADD}
+		udevadm settle
+		partprobe
 		NEW_RAID_PART=$(lsblk --filter 'PARTTYPENAME=="Linux RAID"' -no PATH "${DEV_TO_ADD}")
-		sudo wipefs --all --lock "${NEW_RAID_PART}"  # double check the partition is wiped
+		wipefs --all --lock "${NEW_RAID_PART}"  # double check the partition is wiped
 
 		# enable COW for the journal
 		#ln -s /dev/null /etc/tmpfiles.d/journal-nocow.conf
