@@ -1170,7 +1170,7 @@ if test "${SKIP_SETUP}" != "true"; then
 				echo "Creating user"
 				useradd -m ${ADMIN_USER_NAME} --groups "\${GRPS}"
 				echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
-				#sudo -u ${ADMIN_USER_NAME} chsh -s /usr/bin/zsh
+				sudo -u ${ADMIN_USER_NAME} chsh -s /usr/bin/zsh
 			fi  # user creation method
 
 			rm -f /var/tmp/auth_pub.key
