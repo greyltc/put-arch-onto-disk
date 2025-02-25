@@ -183,6 +183,7 @@ pkgfile \
 systemd-resolvconf \
 pacman-contrib \
 jq \
+man-pages \
 "
 
 if test "${ROOT_FS_TYPE}" = "f2fs"; then
