@@ -22,61 +22,62 @@ echo $@
 
 # define defaults for variables. defaults get overriden by previous definitions
 
-: ${TARGET_ARCH=$(uname -m)}
-: ${PACKAGE_LIST=''}
-: ${AS_OF='now'}  # can be an iso date like 2023-06-01 if you want packages from 1 June 2023, works if TARGET_ARCH=x86_64
+: ${TARGET_ARCH:="$(uname -m)"}
+: ${PACKAGE_LIST:=""}
+: ${AS_OF:="now"}  # can be an iso date like 2023-06-01 if you want packages from 1 June 2023, works if TARGET_ARCH=x86_64
 
 # local path(s) to package files to be installed
-: ${PACKAGE_FILES=''}
+: ${PACKAGE_FILES:=""}
 
 # file system options
-: ${ROOT_FS_TYPE='btrfs'}
-: ${SWAP_SIZE_IS_RAM_SIZE='false'}
-: ${SWAP_SIZE=''}  # empty for no swap partition, otherwise like '100MiB'
+: ${ROOT_FS_TYPE:="btrfs"}
+: ${SWAP_SIZE_IS_RAM_SIZE:="false"}
+: ${SWAP_SIZE:=""}  # empty for no swap partition, otherwise like '100MiB'
 
 # target options
-: ${TARGET='./bootable_arch.img'}  # if this is not a block device, then it's an image file that will be created
-: ${SIZE=''}  # if TARGET is a block device, this is the size of the (or each of the, if AB_ROOTS is true) root partition(s)
+: ${TARGET:="./bootable_arch.img"}  # if this is not a block device, then it's an image file that will be created
+: ${SIZE:=""}  # if TARGET is a block device, this is the size of the (or each of the, if AB_ROOTS is true) root partition(s)
+: ${EROFS_OUT:=""}  # give a file name here to generate an erofs image for the root fs there
 # if TARGET is an image file, then it's the total size of that file
 
 # misc options
-: ${KEYMAP='us'}  # print options here with 'localectl list-keymaps'
-: ${TIME_ZONE='America/Edmonton'}  # timedatectl list-timezones
-: ${LOCALE='en_US.UTF-8'}
-: ${CHARSET='UTF-8'}
-: ${ROOT_PASSWORD=''}  # zero length root password string locks out root login, otherwise even ssh via password is enabled for root
-: ${THIS_HOSTNAME='archthing'}
-: ${PORTABLE='true'}  # set false if you want the bootloader install to mod *this machine's* EFI vars
-: ${COPYIT=''}  # cp anything specified here to /root/install_copied
-: ${CP_INTO_BOOT=''}  # cp anything specified here to /boot
-: ${SKIP_NSPAWN='false'}  # if true, then don't do the OS setup in a container (do it on first boot)
-: ${SKIP_SETUP='false'}  # skip _all_ custom OS setup altogether (implies SKIP_NSPAWN)
-: ${AB_ROOTS='false'}  # make a second root partition ready for A/B operation
-: ${RDP_SYSTEM='false'}  # enable system-level remote desktop share
-: ${RDP_HEADLESS_ADMIN='false'}  # enable admin user headless remote desktop share
-: ${RDP_ADMIN='false'}  # enable admin user remote desktop share
+: ${KEYMAP:="us"}  # print options here with 'localectl list-keymaps'
+: ${TIME_ZONE:="America/Edmonton"}  # timedatectl list-timezones
+: ${LOCALE:="en_US.UTF-8"}
+: ${CHARSET:="UTF-8"}
+: ${ROOT_PASSWORD:=""}  # zero length root password string locks out root login, otherwise even ssh via password is enabled for root
+: ${THIS_HOSTNAME:="archthing"}
+: ${PORTABLE:="true"}  # set false if you want the bootloader install to mod *this machine's* EFI vars
+: ${COPYIT:=""}  # cp anything specified here to /root/install_copied
+: ${CP_INTO_BOOT:=""}  # cp anything specified here to /boot
+: ${SKIP_NSPAWN:="false"}  # if true, then don't do the OS setup in a container (do it on first boot)
+: ${SKIP_SETUP:="false"}  # skip _all_ custom OS setup altogether (implies SKIP_NSPAWN)
+: ${AB_ROOTS:="false"}  # make a second root partition ready for A/B operation
+: ${RDP_SYSTEM:="false"}  # enable system-level remote desktop share
+: ${RDP_HEADLESS_ADMIN:="false"}  # enable admin user headless remote desktop share
+: ${RDP_ADMIN:="false"}  # enable admin user remote desktop share
 
 # admin user options
-: ${ADMIN_USER_NAME='admin'}  # zero length string for no admin user
-: ${ADMIN_USER_PASSWORD='admin'}
-: ${ADMIN_HOMED='false'}  # 'true' if the user should be a systemd-homed user
-: ${ADMIN_SSH_AUTH_KEY=''}  # a public key that can be used to ssh into the admin account
-: ${AUTOLOGIN_ADMIN='false'}
+: ${ADMIN_USER_NAME:="admin"}  # zero length string for no admin user
+: ${ADMIN_USER_PASSWORD:="admin"}
+: ${ADMIN_HOMED:="false"}  # 'true' if the user should be a systemd-homed user
+: ${ADMIN_SSH_AUTH_KEY:=""}  # a public key that can be used to ssh into the admin account
+: ${AUTOLOGIN_ADMIN:="false"}
 
 # AUR options
-: ${AUR_HELPER=''}
+: ${AUR_HELPER:=""}
 #: ${AUR_HELPER='paru'}  # use empty string for no aur support
-: ${AUR_PACKAGE_LIST=''}
+: ${AUR_PACKAGE_LIST:=""}
 
-: ${USE_TESTING='false'}
-: ${LUKS_KEYFILE=''}
+: ${USE_TESTING:="false"}
+: ${LUKS_KEYFILE:=""}
 
 # for installing into preexisting multi boot setups:
-: ${PREEXISTING_BOOT_PARTITION_NUM=''} # this will not be formatted
-: ${PREEXISTING_ROOT_PARTITION_NUM=''} # this WILL be formatted
+: ${PREEXISTING_BOOT_PARTITION_NUM:=""} # this will not be formatted
+: ${PREEXISTING_ROOT_PARTITION_NUM:=""} # this WILL be formatted
 # any pre-existing swap partition will just be used via systemd magic
 
-: ${CUSTOM_MIRROR_URL=''}
+: ${CUSTOM_MIRROR_URL:=""}
 # for example, use 'http://eu.mirror.archlinuxarm.org/$arch/$repo' for alarm alternative
 
 ## END VARIABLE DEFINITION SECTION ##
@@ -196,7 +197,7 @@ if contains "${PACKAGE_LIST}" "raspberry"; then
 fi
 
 # install these packages on the host now. they're needed for the install process
-pacman -S --needed --noconfirm strace btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts hdparm ${HOST_NEEDS} 
+pacman -S --needed --noconfirm strace btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts erofs-utils hdparm ${HOST_NEEDS}
 
 # flush writes to disks and re-probe partitions
 sync
@@ -815,6 +816,7 @@ if test "${SKIP_SETUP}" != "true"; then
 				timeout 60s bash -c 'until ping google.com; do sleep 1; done'
 			fi
 			bash /root/phase_two.sh >> /var/tmp/phase_two_log.txt 2>&1
+			cat /var/tmp/phase_two_log.txt
 			P2RESULT=\$?
 			set -o errexit
 			if test -f /var/tmp/phase_two_setup_incomplete -o \${P2RESULT} -ne 0; then
@@ -1166,12 +1168,11 @@ if test "${SKIP_SETUP}" != "true"; then
 						echo "AuthenticationMethods publickey,password" >> /etc/ssh/sshd_config.d/18-homectl_needs.conf
 					fi
 				fi  # user doesn't exist
-					#homectl update ${ADMIN_USER_NAME} --shell=/usr/bin/zsh
+				#homectl update ${ADMIN_USER_NAME} --shell=/usr/bin/zsh
 			else  # non-homed user
 				echo "Creating user"
 				useradd -m ${ADMIN_USER_NAME} --groups "\${GRPS}"
 				echo "${ADMIN_USER_NAME}:${ADMIN_USER_PASSWORD}"|chpasswd
-				sudo -u ${ADMIN_USER_NAME} chsh -s /usr/bin/zsh
 			fi  # user creation method
 
 			rm -f /var/tmp/auth_pub.key
@@ -1275,6 +1276,15 @@ if test "${SKIP_SETUP}" != "true"; then
 					homectl deactivate ${ADMIN_USER_NAME} || true
 				fi
 
+				# clean up
+				PASSWORD="${ADMIN_USER_PASSWORD}" homectl activate ${ADMIN_USER_NAME} || true
+				sudo -u ${ADMIN_USER_NAME} -D~ bash -c "${AUR_HELPER//-bin} -Sc --noconfirm" || true
+				sudo -u ${ADMIN_USER_NAME} -D~ bash -c "${AUR_HELPER//-bin} -Scc --noconfirm" || true
+				sudo -u ${ADMIN_USER_NAME} -D~ bash -c "rm -rf .cache .cargo"
+				sudo -u ${ADMIN_USER_NAME} -D~ bash -c "history -c && history -w" || true
+				sudo -u ${ADMIN_USER_NAME} -D~ bash -c "rm -f .history .bash_history* .python_history .lesshst"
+				homectl deactivate ${ADMIN_USER_NAME} || true
+
 				# use rate-mirrors if we have it
 				if pacman -Q rate-mirrors 1> /dev/null 2> /dev/null; then
 					if grep archlinuxarm /etc/pacman.d/mirrorlist; then
@@ -1302,6 +1312,7 @@ if test "${SKIP_SETUP}" != "true"; then
 				rm -f /etc/ssh/sshd_config.d/19-allow_root.conf
 				echo "PermitRootLogin no" > /etc/ssh/sshd_config.d/20-deny_root.conf
 			fi
+			chsh -s /usr/bin/zsh "${ADMIN_USER_NAME}"
 		fi # add admin
 
 		# lock root account if no password was set. n.b. root will have perminant password ssh login if ROOT_PASSWORD was set
@@ -1313,6 +1324,12 @@ if test "${SKIP_SETUP}" != "true"; then
 				echo "PermitRootLogin no" > /etc/ssh/sshd_config.d/20-deny_root.conf
 			fi
 		fi
+
+		# cleanup tasks
+		yes | pacman -Scc || true
+		history -c || true
+		history -w || true
+		rm -f .history .bash_history* .python_history .lesshst || true
 
 		systemctl --wait start fstrim
 
@@ -1363,6 +1380,11 @@ if test "${SKIP_NSPAWN}" != "true"; then
 	systemd-nspawn --machine="${THIS_HOSTNAME}" --hostname="${THIS_HOSTNAME}" --link-journal=host --boot --directory="${TMP_ROOT}"
 	# --setenv=SYSTEMD_FSTAB=/etc/fstab.nspawn
 	journalctl --no-pager --directory="/var/log/journal/${MACHINE_ID}/"
+fi
+
+# put the rootfs in an erofs
+if test -n "${EROFS_OUT}"; then
+	mkfs.erofs -z lzma,6 -E all-fragments,fragdedupe=full -b 4096 "${EROFS_OUT}" "${TMP_ROOT}"
 fi
 
 # unmount and clean up everything

@@ -2,4 +2,6 @@
 *.img.xz
 *.img.zst
 *.log
+*.erofs
 recipes/doit.sh
+recipes/*/
