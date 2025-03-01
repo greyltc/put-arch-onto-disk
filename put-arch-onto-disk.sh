@@ -1395,11 +1395,13 @@ fi
 
 # put the rootfs in an erofs
 if test -n "${ROFS_OUT}"; then
+	mv "${TMP_ROOT}/etc/fstab" /tmp/fstab
 	if test "${_rofs}" = "erofs"; then
 		mkfs.erofs -z lzma,6 -E all-fragments,fragdedupe=full -b 4096 "${ROFS_OUT}" "${TMP_ROOT}"
 	elif test "${_rofs}" = "squashfs"; then
-		mksquashfs "${TMP_ROOT}" "${ROFS_OUT}" -comp zstd
+		mksquashfs "${TMP_ROOT}" "${ROFS_OUT}" -comp zstd -noappend
 	fi
+	mv /tmp/fstab "${TMP_ROOT}/etc/fstab"
 fi
 
 # unmount and clean up everything
