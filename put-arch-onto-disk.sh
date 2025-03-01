@@ -37,7 +37,7 @@ echo $@
 # target options
 : ${TARGET:="./bootable_arch.img"}  # if this is not a block device, then it's an image file that will be created
 : ${SIZE:=""}  # if TARGET is a block device, this is the size of the (or each of the, if AB_ROOTS is true) root partition(s)
-: ${EROFS_OUT:=""}  # give a file name here to generate an erofs image for the root fs there
+: ${ROFS_OUT:=""}  # give a file name here to generate an read-only fs image for the root fs there (extension .erofs or .sfs)
 # if TARGET is an image file, then it's the total size of that file
 
 # misc options
@@ -89,6 +89,17 @@ fi
 
 # store off the absolute path to *this* script
 THIS="$( cd "$(dirname "$0")" ; pwd -P )"/$(basename $0)
+
+if test -n "${ROFS_OUT}"; then
+	if test "${ROFS_OUT: -4}" == ".sfs"; then
+		_rofs=squashfs
+	elif test "${ROFS_OUT: -6}" == ".erofs"; then
+		_rofs=erofs
+	else
+		echo "ROFS_OUT must end in .sfs or .erofs, it was: ${ROFS_OUT}"
+		exit 2
+	fi
+fi
 
 contains() {
 	string="$1"
@@ -197,7 +208,7 @@ if contains "${PACKAGE_LIST}" "raspberry"; then
 fi
 
 # install these packages on the host now. they're needed for the install process
-pacman -S --needed --noconfirm strace btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts erofs-utils hdparm ${HOST_NEEDS}
+pacman -S --needed --noconfirm strace btrfs-progs dosfstools f2fs-tools gpart parted gdisk arch-install-scripts squashfs-tools erofs-utils hdparm ${HOST_NEEDS}
 
 # flush writes to disks and re-probe partitions
 sync
@@ -1383,8 +1394,12 @@ if test "${SKIP_NSPAWN}" != "true"; then
 fi
 
 # put the rootfs in an erofs
-if test -n "${EROFS_OUT}"; then
-	mkfs.erofs -z lzma,6 -E all-fragments,fragdedupe=full -b 4096 "${EROFS_OUT}" "${TMP_ROOT}"
+if test -n "${ROFS_OUT}"; then
+	if test "${_rofs}" = "erofs"; then
+		mkfs.erofs -z lzma,6 -E all-fragments,fragdedupe=full -b 4096 "${ROFS_OUT}" "${TMP_ROOT}"
+	elif test "${_rofs}" = "squashfs"; then
+		mksquashfs "${TMP_ROOT}" "${ROFS_OUT}" -comp zstd
+	fi
 fi
 
 # unmount and clean up everything

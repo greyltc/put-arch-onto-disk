@@ -3,5 +3,6 @@
 *.img.zst
 *.log
 *.erofs
+*.sfs
 recipes/doit.sh
 recipes/*/
