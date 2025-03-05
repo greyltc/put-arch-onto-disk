@@ -553,6 +553,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 		if test -d /etc/ssh/sshd_config.d; then
 			echo "PermitRootLogin yes" > /etc/ssh/sshd_config.d/19-allow_root.conf
+   			echo 'AcceptEnv LANG LC_*' > /etc/ssh/sshd_config.d/25-allow_LC_vars.conf
 		fi
 
 		# enable magic sysrq
