@@ -553,8 +553,8 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 		if test -d /etc/ssh/sshd_config.d; then
 			echo "PermitRootLogin yes" > /etc/ssh/sshd_config.d/19-allow_root.conf
-   			echo 'AcceptEnv LANG LC_*' > /etc/ssh/sshd_config.d/25-allow_LC_vars.conf
-      			# now byobu can be disabled for ssh connections like: ssh -o "SetEnv LC_BYOBU=0"
+			echo 'AcceptEnv LANG LC_*' > /etc/ssh/sshd_config.d/25-allow_LC_vars.conf
+			# now byobu can be disabled for ssh connections like: ssh -o "SetEnv LC_BYOBU=0"
 		fi
 
 		# enable magic sysrq
@@ -1369,6 +1369,16 @@ systemctl --wait start fstrim
 if test "${SKIP_NSPAWN}" != "true"; then
 	# boot into newly created system to perform setup tasks
 	# as of systemd-253, this will fail unless https://github.com/systemd/systemd/pull/28954 is applied
+
+	# workaround for https://github.com/systemd/systemd/issues/31219
+	if contains "${TARGET_ARCH}" "arm" || test "${TARGET_ARCH}" = "aarch64"; then
+		for i in "${TMP_ROOT}"/usr/lib/systemd/system/*.service
+		do
+			grep -q '^ImportCredential=' "$i" || continue
+			mkdir "${i/usr\/lib/etc}.d"
+			echo -e '[Service]\nImportCredential=' > "${i/usr\/lib/etc}.d/unset-ImportCredential.conf"
+		done
+	fi
 
 	#INIT_LOG_LEVEL=debug
 	INIT_LOG_LEVEL=info
