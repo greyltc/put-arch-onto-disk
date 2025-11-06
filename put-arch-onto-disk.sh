@@ -968,7 +968,7 @@ if test "${SKIP_SETUP}" != "true"; then
 		fi
 
 		# only repartition if there's actually free space
-		_free_sectors="$(sfdisk --list-free --output Sectors ${ROOT_DEV} | head -1 | rev | cut -d ' ' -f 2)"
+		_free_sectors="$(sfdisk --list-free --output Sectors ${ROOT_DEV} | tail -1 | cut -d ' ' -f 3)"
 
 		if test "${_free_sectors}" -ge 20480; then  # 10MiB free
 			set +o errexit
