@@ -1004,15 +1004,20 @@ if test "${SKIP_SETUP}" != "true"; then
 			resize2fs -p "${ROOT_BLOCK}"
 		fi
 
-		POTENTIAL_RAID_1_TARGET="$(cat /.expand)"
+		if test -f "/.expand"; then
+			POTENTIAL_RAID_1_TARGET="$(cat /.expand)"
 
-		rm -f /.expand
+			rm -f /.expand
 
-		sync
-		partprobe
+			sync
+			partprobe
 
-		if test -f "/root/online_mkbtrfs_root_raid1.sh"; then
-			/root/online_mkbtrfs_root_raid1.sh "${POTENTIAL_RAID_1_TARGET}" || true
+			if test -f "/root/online_mkbtrfs_root_raid1.sh"; then
+				/root/online_mkbtrfs_root_raid1.sh "${POTENTIAL_RAID_1_TARGET}" || true
+			fi
+		else
+			sync
+			partprobe
 		fi
 
 		echo "You should probably reboot now"
