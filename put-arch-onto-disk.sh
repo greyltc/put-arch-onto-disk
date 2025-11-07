@@ -955,12 +955,18 @@ if test "${SKIP_SETUP}" != "true"; then
 		set -o verbose
 		set -o xtrace
 
-		# TODO: switch to sfdisk
 		ROOT_BLOCK="$(findmnt --nofsroot -n --df -e --target / -o SOURCE)"
-		ROOT_DEV="/dev/$(lsblk -no pkname ${ROOT_BLOCK})"
+		ROOT_DEV="/dev/$(lsblk -n -oPKNAME ${ROOT_BLOCK})"
 		TEH_PART_UUID="$(lsblk -n -oPARTUUID ${ROOT_BLOCK})"
 		TEH_PART_LABEL="$(lsblk -n -oPARTLABEL ${ROOT_BLOCK})"
-		TEH_FSTYPE="$(lsblk -n -ofstype ${ROOT_BLOCK})"
+		TEH_FSTYPE="$(lsblk -n -oFSTYPE ${ROOT_BLOCK})"
+		TEH_PARTNUM="$(lsblk -n -oMIN ${ROOT_BLOCK})"
+		TOTAL_PARTS="$(sfdisk ${ROOT_DEV} --json | jq '.partitiontable.partitions | length')"
+
+		if test "${TEH_PARTNUM}" -ne "${TEH_PARTNUM}"; then
+			echo "Root partition is not the last one"
+			exit 43
+		fi
 
 		if test "${TEH_FSTYPE}" != "btrfs" -a "${TEH_FSTYPE}" != "ext4" -a "${TEH_FSTYPE}" != "ext3"; then
 			echo "Can not expand unsupported file system type: ${TEH_FSTYPE}"
@@ -972,6 +978,7 @@ if test "${SKIP_SETUP}" != "true"; then
 
 		if test "${_free_sectors}" -ge 20480; then  # 10MiB free
 			set +o errexit
+			# TODO: switch to sfdisk
 			sgdisk "${ROOT_DEV}" 1> /dev/null 2> /dev/null
 			if test ${?} -ne 0; then
 				set -o errexit
@@ -982,20 +989,21 @@ if test "${SKIP_SETUP}" != "true"; then
 				set -o errexit
 			fi
 
+			sfdisk --verify "${ROOT_DEV}" 1> /dev/null 2> /dev/null
+			if test ${?} -ne 0; then
+				echo "The partitions don't look right. Not expanding."
+				exit 45
+			fi
+
 			# move backup header to end
-			sgdisk -e "${ROOT_DEV}"
-			partprobe
-
-			# delete the last partition from the GPT
-			N_PARTITIONS="$(sgdisk ${ROOT_DEV} -p | tail -1 | tr -s ' ' | cut -d ' ' -f2)"
-			sgdisk -d "${N_PARTITIONS}" "${ROOT_DEV}"
-
-			# remake the partition to fill the disk
-			sgdisk -n 0:+0:+0 -t 0:8304 -c 0:"${TEH_PART_LABEL}" -u "0:${TEH_PART_UUID}" "${ROOT_DEV}"
-			partprobe
+			sfdisk --no-reread --no-tell-kernel --relocate gpt-bak-std "${ROOT_DEV}"
 			sync
 			partprobe
+			
+			# expand the root (last) partition to fill the disk
+			echo -n "-,+" | sfdisk --no-reread --no-tell-kernel -N "${TEH_PARTNUM}" "${ROOT_DEV}"
 			sync
+			partprobe
 		fi
 
 		if test "${TEH_FSTYPE}" = "btrfs"; then
@@ -1008,9 +1016,6 @@ if test "${SKIP_SETUP}" != "true"; then
 			POTENTIAL_RAID_1_TARGET="$(cat /.expand)"
 
 			rm -f /.expand
-
-			sync
-			partprobe
 
 			if test -f "/root/online_mkbtrfs_root_raid1.sh"; then
 				/root/online_mkbtrfs_root_raid1.sh "${POTENTIAL_RAID_1_TARGET}" || true
@@ -1046,10 +1051,11 @@ if test "${SKIP_SETUP}" != "true"; then
 
 		DEV_TO_ADD="${1}"
 		ROOT_BLOCK="$(findmnt --nofsroot -n --df -e --target / -o SOURCE)"
-		ROOT_DEV="/dev/$(lsblk -no pkname ${ROOT_BLOCK})"
+		ROOT_DEV="/dev/$(lsblk -n -oPKNAME ${ROOT_BLOCK})"
 		TEH_PART_UUID="$(lsblk -n -oPARTUUID ${ROOT_BLOCK})"
 		TEH_PART_LABEL="$(lsblk -n -oPARTLABEL ${ROOT_BLOCK})"
-		TEH_FSTYPE="$(lsblk -n -ofstype ${ROOT_BLOCK})"
+		TEH_FSTYPE="$(lsblk -n -oFSTYPE ${ROOT_BLOCK})"
+		TEH_PARTNUM="$(lsblk -n -oMIN ${ROOT_BLOCK})"
 
 		if test "${TEH_FSTYPE}" != "btrfs"; then
 			echo "Can not raid1 unsupported file system type: ${TEH_FSTYPE}"
