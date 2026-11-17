@@ -48,7 +48,7 @@ ADMIN_USER_NAME=wentworth \
 UCODES=intel-ucode \
 THIS_HOSTNAME=atomsmasher \
 AUR_HELPER=paru \
-PACKAGE_LIST="vim gnome gnome-extra pipewire-jack networkmanager byobu intel-media-driver" \
+PACKAGE_LIST="vim gnome gnome-extra pipewire-jack networkmanager zellij intel-media-driver" \
 ```
 
 ### Raspberry Pi 5
@@ -58,7 +58,7 @@ TARGET=/dev/mmcblkX \
 TARGET_ARCH=aarch64 \
 ROOT_FS_TYPE=f2fs \
 AUR_HELPER="" \
-PACKAGE_LIST="linux-rpi-16k linux-rpi-16k-headers raspberrypi-bootloader rpi5-eeprom byobu vim"
+PACKAGE_LIST="linux-rpi-16k linux-rpi-16k-headers raspberrypi-bootloader rpi5-eeprom zellij vim"
 ```
 
 ### Raspberry Pi 4
@@ -69,14 +69,14 @@ TARGET=/dev/mmcblkX \
 TARGET_ARCH=aarch64 \
 ROOT_FS_TYPE=f2fs \
 AUR_HELPER="" \
-PACKAGE_LIST="linux-aarch64 linux-aarch64-headers firmware-raspberrypi raspberrypi-bootloader uboot-raspberrypi uboot-tools rpi4-eeprom vim byobu" \
+PACKAGE_LIST="linux-aarch64 linux-aarch64-headers firmware-raspberrypi raspberrypi-bootloader uboot-raspberrypi uboot-tools rpi4-eeprom vim zellij" \
 
 # kernel from raspberrypi.org's tree
 TARGET=/dev/mmcblkX \
 TARGET_ARCH=aarch64 \
 ROOT_FS_TYPE=f2fs \
 AUR_HELPER="" \
-PACKAGE_LIST="linux-rpi linux-rpi-headers raspberrypi-bootloader rpi4-eeprom byobu vim" \
+PACKAGE_LIST="linux-rpi linux-rpi-headers raspberrypi-bootloader rpi4-eeprom zellij vim" \
 ```
 ### Bootable Flash Drive
 ```
