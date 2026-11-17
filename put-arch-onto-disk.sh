@@ -22,7 +22,7 @@ echo $@
 
 # define defaults for variables. defaults get overriden by previous definitions
 
-: ${TARGET_ARCH:="x86_64"}  # "$(uname -m)", x86_64, aarch64, etc
+: ${TARGET_ARCH:="$(uname -m)"}  # "$(uname -m)", "x86_64", "aarch64", etc
 : ${PACKAGE_LIST:=""}
 : ${AS_OF:="now"}  # can be an iso date like 2023-06-01 if you want packages from 1 June 2023, works if TARGET_ARCH=x86_64
 
